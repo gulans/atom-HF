@@ -1,16 +1,22 @@
 program atomHF
 implicit none
-integer,parameter :: Ngrid = 500
+!integer,parameter :: Ngrid = 500
 real(8), allocatable :: r(:)
-real(8), parameter :: Rmax = 10d0
+!real(8), parameter :: Rmax = 10d0
 integer, parameter :: maxscl = 10
 integer :: ir, iscl
+
+real(8) :: Z
+real(8) :: Rmax
+integer :: Ngrid
 
 
 allocate(r(Ngrid))
 
 !read input
-!...
+read(*,*) 
+read(*,*) Z, Rmax, Ngrid
+
 
 call gengrid(Ngrid,Rmax,r)
 
@@ -33,6 +39,8 @@ do iscl=1,maxscl
 ! Diagonalize
 
 ! Normalize WFs
+
+! Calculate density
 
 ! Construct the Hartree potential
 

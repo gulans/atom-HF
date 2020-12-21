@@ -1,5 +1,5 @@
 F90 = gfortran 
-F90_OPTS = -cpp
+F90_OPTS = -cpp #-Ddebug
 
 SRCS := $(wildcard *.f90)
 OBJECTS := $(SRCS:%.f90=%.o)

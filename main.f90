@@ -14,9 +14,11 @@ allocate(r(Ngrid))
 
 call gengrid(Ngrid,Rmax,r)
 
+#ifdef debug
 do ir=1,Ngrid
   write(*,*) r(ir)
 enddo
+#endif
 
 
 ! Initial guess for potential or WFs(?)

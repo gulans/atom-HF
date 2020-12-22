@@ -3,19 +3,35 @@ implicit none
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 !integer,parameter :: Ngrid = 500
 real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:),rho(:)
+integer, allocatable :: shell_n(:),shell_l(:)
+real(8), allocatable :: shell_occ(:)
+
 !real(8), parameter :: Rmax = 10d0
 integer, parameter :: maxscl = 20
 integer :: ir, iscl
 
 real(8) :: Z
 real(8) :: Rmax,hh,e1,e2,e3,energy
-integer :: Ngrid
+integer :: Ngrid, Nshell, ish
 
 
 
 !read input
 read(*,*) 
 read(*,*) Z, Rmax, Ngrid
+read(*,*)
+read(*,*) Nshell
+allocate(shell_n(Nshell),shell_l(Nshell),shell_occ(Nshell))
+read(*,*)
+do ish=1,Nshell
+  read(*,*) shell_n(ish), shell_l(ish), shell_occ(ish)
+enddo
+#ifdef debug
+  write(*,*) "shell_n ", shell_n(:)
+  write(*,*) "shell_l ", shell_l(:)
+  write(*,*) "shell_occ ", shell_occ(:)
+#endif
+
 
 allocate(r(Ngrid),vfull(Ngrid),vh(Ngrid),vxc(Ngrid),exc(Ngrid),H(Ngrid,Ngrid),eig(Ngrid),psi(Ngrid),rho(Ngrid))
 
@@ -25,9 +41,8 @@ hh=r(2)-r(1)
 
 ! Initial guess for potential
 !...
-do ir=1,Ngrid
-  vfull(ir)=-Z/r(ir)
-enddo
+vfull=-Z/r
+
 
 
 ! ----- version 1 -------

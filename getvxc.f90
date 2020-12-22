@@ -26,11 +26,11 @@ real(8) function vxc_fun(n)  !Funkcijas nosaukums jālieto par mainīgo???? Tie�
   real(8), parameter :: pi = 3.1415926535897932384d0
 
   A=0.031091d0
-  a1=0.205487d0
-  b1=14.1189d0
-  b2=6.1977d0
-  b3=3.3662d0
-  b4=0.62517d0
+  a1=0.21370d0
+  b1=7.5957d0
+  b2=3.5876d0
+  b3=1.6382d0
+  b4=0.49294d0
 
   rs = (3d0/(4d0*pi*n))**(1d0/3d0)
   vx = -(3d0/2d0/pi)**(2d0/3d0)/rs

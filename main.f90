@@ -76,12 +76,12 @@ do iscl=1,maxscl
   enddo
   
   !write 2 wave functions to file 
-  open(11,file='wf.dat',status='replace')
-  write(11,*)"r psi1 psi2"
-   do i = 1,Ngrid 
-     write(11,*)r(i),psi(i,1),psi(i,2)
-   end do
-   close(11)
+!  open(11,file='wf.dat',status='replace')
+!  write(11,*)"r psi1 psi2"
+!   do i = 1,Ngrid 
+!     write(11,*)r(i),psi(i,1),psi(i,2)
+!   end do
+!   close(11)
 
 
 ! Calculate density

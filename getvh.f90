@@ -8,6 +8,7 @@ integer :: i,j
 real(8) :: hh,norm
 real(8) :: A(Ngrid,Ngrid),b(Ngrid)
 real(8) :: Aij   
+real(8) :: Nelec
 integer :: info, ipiv(Ngrid)
 
 hh=r(2)-r(1) !RUPJI
@@ -15,10 +16,10 @@ hh=r(2)-r(1) !RUPJI
 !! vh - atrisinājums
 !! Matricu vienādojums A0*vh=b
 
-
+Nelec=sum(rho*r*hh)
  
  b=rho
- b(Ngrid)=b(Ngrid)-2d0/hh**2d0
+ b(Ngrid)=b(Ngrid)+Nelec/hh**2d0
  do i=1,Ngrid      
    do j=1,Ngrid
      Aij=0d0

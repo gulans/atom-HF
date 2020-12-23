@@ -5,8 +5,8 @@ integer, intent(in) :: Ngrid
 real(8), intent(in) :: r(Ngrid),rho(Ngrid) 
 real(8), intent(out) :: vh(Ngrid)
 integer :: i,j
-real(8) :: hh,norm
-real(8) :: A(Ngrid,Ngrid),b(Ngrid)
+real(8) :: hh
+real(8) :: b(Ngrid), AB(4,Ngrid)
 real(8) :: Aij   
 real(8) :: Nelec
 integer :: info, ipiv(Ngrid)
@@ -20,26 +20,24 @@ Nelec=sum(rho*r*hh)
  
  b=rho
  b(Ngrid)=b(Ngrid)+Nelec/hh**2d0
- do i=1,Ngrid      
-   do j=1,Ngrid
+
+ do j=1,Ngrid
+   do i=1,4
      Aij=0d0
-     if (j==i) then  !GALVENAA DIOGNAALE
-       Aij=-2d0/(hh**2d0)
-     else if (i+1==j) then !augšējā diogn
-       Aij=1d0/(hh**2d0)
-     else if (i-1==j) then !apakšējā 
-       Aij=1d0/(hh**2d0)
-     endif
-     A(i,j)=Aij
+     if (i+j-3==j) then !main diagonal
+        Aij=-2d0/(hh**2d0)
+     else if ((i+j-3==j+1).OR.(i+j-3==j-1)) then !sub or super diagonal 
+        Aij=1d0/(hh**2d0)
+     end if
+     AB(i,j)=Aij
    enddo
  enddo
 
 
+vh=b
+call dgbsv(Ngrid,1,1,1,AB,4 ,ipiv,vh,Ngrid,info) 
+!(dimension,KL=subdiognals,KU=superdiognals,b width,Matrix(LDAB,N),LDAB=2*KL+KU+1, int IPIV(N), b,LDB, info)
 
-
-
-!!TAGAD ATRISINAM [A][vh]=[b]"
- vh=b
- call dgesv(Ngrid,1,A,Ngrid,IPIV,vh,Ngrid,info)
  vh=vh/r
+
 end subroutine

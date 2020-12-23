@@ -3,22 +3,36 @@ implicit none
 integer, intent(in) :: Ngrid
 real(8), intent(out) :: H(Ngrid,Ngrid)
 real(8), intent(out) :: eig(Ngrid)
-integer :: i,j,ir,l,inf
-real(8) :: work(Ngrid**2),Aij, AB(2,Ngrid)
-real(8) :: eigvec(Ngrid,Ngrid),work1(3*Ngrid-2)
 
 
- AB(2,1)=H(1,1)
+
+real(8) :: E(Ngrid), D(Ngrid)
+real(8) :: VL,VU
+integer, parameter :: IL=1 !the index of the smallest eigenvalue to be returned
+integer, parameter :: IU=20 !the index of the largest eigenvalue to be returned
+integer, parameter :: M=IU-IL+1
+integer :: eigvecfound
+logical :: TRYRAC
+ real(8) :: eigvec(Ngrid,M),WORK(18*Ngrid)
+ integer :: info,i,IWORK(10*Ngrid),ISUPPZ(2*M)
+
+
+
+ do i=1,Ngrid
+     D(i)=H(i,i) !diagonal
+ enddo
   
-  do j=2,Ngrid
-   do i=1,2
-     AB(i,j)=H(i+j-2,j)
-   enddo
-  enddo
+ do i=1,Ngrid-1
+     E(i)=H(i+1,i) !subdiagonal elements
+ enddo
+ TRYRAC=.TRUE. ! after dstemr its value is FALSE
+ call dstemr('V','I',Ngrid,D,E,VL,VU,IL,IU,eigvecfound,eig,eigvec,Ngrid,M,ISUPPZ,TRYRAC,WORK,18*Ngrid,IWORK,10*Ngrid,INFO)
+ if (info.ne.0) then
+         write(*,*) "dyasym.f90 diagonalisation problem posibility (info not 0)"
+ end if
 
-
- call dsbev('V','U',Ngrid,1,AB,2,eig,eigvec,Ngrid,work1,inf)
- H=eigvec
-
+ do i=1,M
+     H(:,i)=eigvec(:,i)
+ enddo
 
 end subroutine

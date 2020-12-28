@@ -114,7 +114,7 @@ enddo
 
   ! Construct the Hartree potential
 
-  call getvh(Ngrid,r,-4d0*Pi*rho*r,vh)
+  call getvh(Ngrid,r,rho,vh)
 
 ! Construct the exchange-correlation potential
   call getvxc(Ngrid,rho,vxc,exc)

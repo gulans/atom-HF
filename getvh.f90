@@ -1,6 +1,6 @@
 subroutine getvh(Ngrid,r,rho,vh)
 implicit none
- real(8), PARAMETER :: Pi = 3.1415926535897932384
+ real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 integer, intent(in) :: Ngrid
 real(8), intent(in) :: r(Ngrid),rho(Ngrid) 
 real(8), intent(out) :: vh(Ngrid)
@@ -16,9 +16,10 @@ hh=r(2)-r(1) !RUPJI
 !! vh - atrisinājums
 !! Matricu vienādojums A0*vh=b
 
-Nelec=sum(rho*r*hh)
+b=-4d0*Pi*rho*r
+Nelec=sum(-4d0*Pi*rho*r**2*hh)
+write(*,*)'Nelec: ', Nelec 
  
- b=rho
  b(Ngrid)=b(Ngrid)+Nelec/hh**2d0
 
  do j=1,Ngrid

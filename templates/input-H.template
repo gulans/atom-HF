@@ -1,5 +1,5 @@
-Z Rmax Nrad - neon
-1 20d0 1000
+Z Rmax Nrad MethodVersion
+1 10d0 1000 2 
 Number of shells - 1s 2s
 1
 List of shells: n l occupation

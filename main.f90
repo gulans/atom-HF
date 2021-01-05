@@ -1,7 +1,7 @@
 program atomHF
 
 implicit none
-real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=0.5d0
+real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=0.50d0
 !integer,parameter :: Ngrid = 500
 real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:)
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
@@ -14,11 +14,11 @@ integer :: ir,il,icl,il_icl,iscl,lmax
 real(8) :: Z
 real(8) :: Rmax,hh,e1,e2,e3,energy
 integer :: Ngrid, Nshell, ish
-integer :: i,j,countl0
+integer :: i,j,countl0, version
 
 !read input
 read(*,*) 
-read(*,*) Z, Rmax, Ngrid
+read(*,*) Z, Rmax, Ngrid, version
 read(*,*)
 read(*,*) Nshell
 allocate(shell_n(Nshell),shell_l(Nshell),shell_occ(Nshell))
@@ -63,12 +63,14 @@ hh=r(2)-r(1)
 vfull=-Z/r
 
 
-
+if (version.eq.1) then
 ! ----- version 1 -------
 ! Self-consistency loop
+write(*,*)"************* version 1 **************"
 
 do iscl=1,maxscl
 #ifdef debug
+
   write(*,*) "iteration: ",iscl
 #endif
 
@@ -134,21 +136,67 @@ enddo
 enddo
 
 
+
+
+else if (version.eq.2) then
+write(*,*)"********** version 2 *************"
 ! ----- version 2 -------
 ! Self-consistency loop
-!do iscl=1,maxscl
+do iscl=1,1!maxscl
+  il_icl=0
+  do il=1,lmax+1
+    ! Diagonalize via the shooting method
+    call diashoot(Ngrid,r,vfull,il-1,count_l(il),Ngrid,eig,H)
 
-! Diagonalize via the shooting method
+    ! Normalize WFs
+    do icl=1,count_l(il)
+      il_icl=il_icl+1
+      psi(:,il_icl)=H(:,icl)
+      psi_eig(il_icl)=eig(icl)
+      call wfnorm(Ngrid,r,psi(:,il_icl))
+#ifdef debug
+      write(*,*)"PSI l=",il-1," icl=",icl," il_cl=",il_icl," normalised to:",4*Pi*sum(psi(:,il_icl)**2*r**2*hh),&
+            "eig:",psi_eig(il_icl)," occ:",shell_occ(il_icl)
+#endif
+    enddo
+  enddo
+  !write 3 wave functions to file 
+  open(11,file='wf.dat',status='replace')
+  write(11,*)"r psi1 psi2"
+   do i = 1,Ngrid 
+     write(11,*)r(i),psi(i,1),psi(i,2),psi(i,3)
+   end do
+   close(11)
 
-! Normalize WFs
+ 
+ 
+  ! Calculate density
+  rho=0d0*rho
+  do ish=1,Nshell
+     rho=rho+shell_occ(ish)*psi(:,ish)**2d0
+  enddo
 
-! Construct the Hartree potential
+  ! Construct the Hartree potential
+  call getvhtrapez(Ngrid,r,rho,vh)
+  ! Construct the exchange-correlation potential
+  call getvxc(Ngrid,rho,vxc,exc)
 
-! Construct the exchange-correlation potential
+  ! Caulculate energy
+  e1=0
+  do ish=1,Nshell
+    e1=e1+shell_occ(ish)*psi_eig(ish)
+  enddo
+  e2=-0.5d0*4d0*Pi*hh*sum(vh*rho*r**2d0)
+  e3=4d0*Pi*hh*sum((exc-vxc)*rho*r**2d0)
+  energy=e1+e2+e3
+  Print *,iscl,".iter E=",e1,"+",e2,"+",e3,"=",energy
 
-!enddo
+  vfull1=-Z/r+vh+vxc
+  vfull=alpha*vfull1+(1-alpha)*vfull
 
+enddo
 
+endif
 ! ----- version 3 -------
 ! Self-consistency loop
 !do iscl=1,maxscl

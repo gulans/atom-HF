@@ -35,7 +35,7 @@ eigtry_step=10d0
 
 
 do ei=1,num 
-  write(*,*)"shell0=",shell0," ei=",ei
+  !write(*,*)"shell0=",shell0," ei=",ei
   shell=ei+shell0
   eigtry_max_OK=.false.
   eigtry_min_OK=.false.
@@ -117,7 +117,7 @@ real(8) :: psidot(Ngrid),psi_rmax
 integer :: i_rmax,ri,last_ri
 logical :: even_junct
 !write(*,*)"psi0(Ngrid)=",psi0(Ngrid),"psi1(Ngrid)=",psi1(Ngrid)
-write(*,*)"Number of junctions",junct
+!write(*,*)"Number of junctions",junct
 
 if (MOD(junct,2) .eq. 0) then  
     even_junct=.TRUE.   !even 
@@ -145,50 +145,52 @@ endif
 
 
 eig=e0-psi0(i_rmax)/psidot(i_rmax)
+!psi=psi0+(eig-e0)*psidot
+psi=psi0-(psi0(i_rmax)/psidot(i_rmax))*psidot
 
-write(*,*)"New i_rmax=",i_rmax," psi0(i_rmax)=",psi0(i_rmax), " psidot(i_rmax)",psidot(i_rmax)
+write(*,*)"Eigval from Newton–Raphson=",eig," New i_rmax=",i_rmax," psi(i_rmax)=",psi(i_rmax) 
 
-write(*,*)"Eigval from Newton–Raphson=",eig, " New i_rmax=",i_rmax
-psi=psi0+(eig-e0)*psidot
-
-write(*,*)"Psi(i_rmax)=",psi(i_rmax)
-last_ri=0
-ji=0
-do ri=3, Ngrid
-  if ((psi(ri)*psi(ri-1)).LE.0d0) then
-     ji=ji+1
-     write(*,*)"junction ri=",ri
-     if (ji.GT.junct) then
-        last_ri=ri-1 
-        write(*,*)"last_ri=",last_ri," psi(last_ri)=",psi(last_ri)," psi(last_ri+1)=",psi(last_ri+1) 
-        EXIT
-     endif
-  endif
-
-  !if the wf does not cross the x axis then we have to detect local maximum for odd junct or minimum for even junct
-  !we will check if psi(ri)-psi(ri-1) changes sign:
-  !form negative to positive in case of a minimum (even junct)
-  !from positive to negative in case of a maximum (odd junct)
-  if (ji.eq.junct) then
-    if( ((psi(ri-1)-psi(ri-2)).LT.0d0).AND.((psi(ri)-psi(ri-1)).GT.0d0).AND.(even_junct) ) then
-      last_ri=ri-1
-      write(*,*)"FOUND LOCAL minimum last_ri:",last_ri," psi(last_ri)=",psi(last_ri),&
-              "psi(last_ri+1)=",psi(last_ri+1),"psi(last_ri-1)=",psi(last_ri-1) 
-      EXIT
-    else if ( ((psi(ri-1)-psi(ri-2)).GT.0d0).AND.((psi(ri)-psi(ri-1)).LT.0d0).AND.(.not.even_junct) ) then
-      last_ri=ri-1
-      write(*,*)"FOUND LOCAL maximum last_ri:",last_ri," psi(last_ri)=",psi(last_ri),&
-              "psi(last_ri+1)=",psi(last_ri+1),"psi(last_ri-1)=",psi(last_ri-1)
-      EXIT
-    endif
-  endif
-enddo
-if (last_ri.EQ.0) then 
-        last_ri=Ngrid
-        write(*,*)"End point seems to be closest to 0 last_ri=",last_ri, " psi(Ngrid)=",psi(last_ri)
-
-endif
+!psi=psi0+(eig-e0)*psidot
+psi=psi0-(psi0(i_rmax)/psidot(i_rmax))*psidot
+!write(*,*)"Psi(i_rmax)=",psi(i_rmax)
+!last_ri=0
+!ji=0
+!do ri=3, Ngrid
+!  if ((psi(ri)*psi(ri-1)).LE.0d0) then
+!     ji=ji+1
+!     write(*,*)"junction ri=",ri
+!     if (ji.GT.junct) then
+!        last_ri=ri-1 
+!        write(*,*)"last_ri=",last_ri," psi(last_ri)=",psi(last_ri)," psi(last_ri+1)=",psi(last_ri+1) 
+!        EXIT
+!     endif
+!  endif
+!
+!  !if the wf does not cross the x axis then we have to detect local maximum for odd junct or minimum for even junct
+!  !we will check if psi(ri)-psi(ri-1) changes sign:
+!  !form negative to positive in case of a minimum (even junct)
+!  !from positive to negative in case of a maximum (odd junct)
+!  if (ji.eq.junct) then
+!    if( ((psi(ri-1)-psi(ri-2)).LT.0d0).AND.((psi(ri)-psi(ri-1)).GT.0d0).AND.(even_junct) ) then
+!      last_ri=ri-1
+!      write(*,*)"FOUND LOCAL minimum last_ri:",last_ri," psi(last_ri)=",psi(last_ri),&
+!              "psi(last_ri+1)=",psi(last_ri+1),"psi(last_ri-1)=",psi(last_ri-1) 
+!      EXIT
+!    else if ( ((psi(ri-1)-psi(ri-2)).GT.0d0).AND.((psi(ri)-psi(ri-1)).LT.0d0).AND.(.not.even_junct) ) then
+!      last_ri=ri-1
+!      write(*,*)"FOUND LOCAL maximum last_ri:",last_ri," psi(last_ri)=",psi(last_ri),&
+!              "psi(last_ri+1)=",psi(last_ri+1),"psi(last_ri-1)=",psi(last_ri-1)
+!      EXIT
+!    endif
+!  endif
+!enddo
+!if (last_ri.EQ.0) then 
+!        last_ri=Ngrid
+!        write(*,*)"End point seems to be closest to 0 last_ri=",last_ri, " psi(Ngrid)=",psi(last_ri)
+!
+!endif
  !psi(ri)=0 for all ri>last_ri
+last_ri=i_rmax
 do ri=last_ri+1, Ngrid
   psi(ri)=0d0
 enddo

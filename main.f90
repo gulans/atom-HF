@@ -12,10 +12,11 @@ integer, parameter :: maxscl = 20
 integer :: ir,il,icl,il_icl,iscl,lmax
 
 real(8) :: Z
-real(8) :: Rmax,hh,e1,e2,e3,energy
+real(8) :: Rmax,hh,e1,e2,e3,energy,energy0
 integer :: Ngrid, Nshell, ish
 integer :: i,j,countl0, version
-
+   
+logical :: file_exists
 !read input
 read(*,*) 
 read(*,*) Z, Rmax, Ngrid, version
@@ -129,7 +130,9 @@ enddo
   enddo
   e2=-0.5d0*4d0*Pi*hh*sum(vh*rho*r**2d0)
   e3=4d0*Pi*hh*sum((exc-vxc)*rho*r**2d0)
+  energy0=energy
   energy=e1+e2+e3
+
   Print *,"(11) E=",e1,"+",e2,"+",e3,"=",energy
  
   vfull1=-Z/r+vh+vxc
@@ -191,6 +194,7 @@ do iscl=1,maxscl
   enddo
   e2=-0.5d0*4d0*Pi*hh*sum(vh*rho*r**2d0)
   e3=4d0*Pi*hh*sum((exc-vxc)*rho*r**2d0)
+  energy0=energy
   energy=e1+e2+e3
   Print *,iscl,".iter E=",e1,"+",e2,"+",e3,"=",energy
 
@@ -221,6 +225,29 @@ endif
 ! Davidson method 
 
 !enddo
+
+!  write results 
+
+  inquire(file='results.dat',EXIST=file_exists)
+  if (file_exists) then
+     open(11,file='results.dat',status='old', access='append')
+  else
+     open(11,file='results.dat',status='new')
+  endif
+  write(11,*)"Z version iterations Ngrid rmax"
+  write(11,*)Z, version, iscl-1, Ngrid, Rmax
+  write(11,*)"n l eigval"
+  il_icl=0
+  do il=1,lmax+1
+    do icl=1, count_l(il)
+      il_icl=il_icl+1
+      write(11,*) icl, il, psi_eig(il_icl) 
+    enddo
+  enddo
+  write(11,*)"Tot Energy: ", energy
+  write(11,*)"dE        : ", energy-energy0
+  write(11,*)"" 
+  close(11)
 
 deallocate(r,vfull,vh,vxc,exc,eig,psi,rho,shell_n,shell_l,count_l,shell_occ)
 

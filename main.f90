@@ -51,7 +51,7 @@ enddo
 
 
 
-allocate(r(Ngrid),vfull(Ngrid),vh(Ngrid),vxc(Ngrid),exc(Ngrid),H(Ngrid,Ngrid),eig(Ngrid),rho(Ngrid),vfull1(Ngrid))
+allocate(r(Ngrid),vfull(Ngrid),vh(Ngrid),vxc(Ngrid),exc(Ngrid),eig(Ngrid),rho(Ngrid),vfull1(Ngrid))
 allocate(psi(Ngrid,Nshell),psi_eig(Nshell))
 
 call gengrid(Ngrid,Rmax,r)
@@ -64,6 +64,7 @@ vfull=-Z/r
 
 
 if (version.eq.1) then
+allocate(H(Ngrid,Ngrid))
 ! ----- version 1 -------
 ! Self-consistency loop
 write(*,*)"************* version 1 **************"
@@ -78,7 +79,7 @@ il_icl=0
 do il=1,lmax+1
   ! Construct Hamiltonian 
   
-  call genham(Ngrid,r,vfull+0.5d0*(il-1)*il*r**(-2d0),H)
+  call genham(Ngrid,r,vfull+0.5d0*dble(il-1)*dble(il)*r**(-2d0),H)
 
   ! Diagonalize
   call diasym(Ngrid,H,eig)
@@ -91,16 +92,16 @@ do il=1,lmax+1
     psi_eig(il_icl)=eig(icl)
     call wfnorm(Ngrid,r,psi(:,il_icl))
 #ifdef debug
-    write(*,*)"PSI l=",il-1," icl=",icl," il_cl=",il_icl," normalised to:",4*Pi*sum(psi(:,il_icl)**2*r**2*hh),&
+    write(*,*)"PSI l=",il-1," icl=",icl," il_cl=",il_icl," normalised to:",4d0*Pi*sum(psi(:,il_icl)**2d0*r**2d0*hh),&
             "eig:",psi_eig(il_icl)," occ:",shell_occ(il_icl)
 #endif
   enddo
 enddo
   !write 3 wave functions to file 
-!  open(11,file='wf.dat',status='replace')
+!  open(11,file='wf_v1.dat',status='replace')
 !  write(11,*)"r psi1 psi2"
 !   do i = 1,Ngrid 
-!     write(11,*)r(i),psi(i,1)!,psi(i,2)!,psi(i,3)
+!     write(11,*)r(i),psi(i,1),psi(i,2),psi(i,3)
 !   end do
 !   close(11)
 
@@ -132,9 +133,10 @@ enddo
   Print *,"(11) E=",e1,"+",e2,"+",e3,"=",energy
  
   vfull1=-Z/r+vh+vxc
-  vfull=alpha*vfull1+(1-alpha)*vfull
+  vfull=alpha*vfull1+(1d0-alpha)*vfull
 enddo
 
+deallocate(H)
 
 
 
@@ -142,31 +144,32 @@ else if (version.eq.2) then
 write(*,*)"********** version 2 *************"
 ! ----- version 2 -------
 ! Self-consistency loop
-do iscl=1,1!maxscl
+do iscl=1,maxscl
   il_icl=0
   do il=1,lmax+1
     ! Diagonalize via the shooting method
-    call diashoot(Ngrid,r,vfull,il-1,count_l(il),Ngrid,eig,H)
+    call diashoot(Ngrid,r,vfull,il-1,count_l(il),il_icl,Nshell,eig,psi)
 
     ! Normalize WFs
     do icl=1,count_l(il)
       il_icl=il_icl+1
-      psi(:,il_icl)=H(:,icl)
+!      psi(:,il_icl)=H(:,icl)
       psi_eig(il_icl)=eig(icl)
       call wfnorm(Ngrid,r,psi(:,il_icl))
 #ifdef debug
-      write(*,*)"PSI l=",il-1," icl=",icl," il_cl=",il_icl," normalised to:",4*Pi*sum(psi(:,il_icl)**2*r**2*hh),&
+      write(*,*)"PSI l=",il-1," icl=",icl," il_cl=",il_icl," normalised to:",4d0*Pi*sum(psi(:,il_icl)**2d0*r**2d0*hh),&
             "eig:",psi_eig(il_icl)," occ:",shell_occ(il_icl)
 #endif
     enddo
   enddo
-  !write 3 wave functions to file 
-  open(11,file='wf.dat',status='replace')
-  write(11,*)"r psi1 psi2"
-   do i = 1,Ngrid 
-     write(11,*)r(i),psi(i,1),psi(i,2),psi(i,3)
-   end do
-   close(11)
+
+!  write 3 wave functions to file 
+!  open(11,file='wf_v2_Newton.dat',status='replace')
+!  write(11,*)"r psi1 psi2"
+!   do i = 1,Ngrid 
+!     write(11,*)r(i),psi(i,1),psi(i,2),psi(i,3)
+!   end do
+!   close(11)
 
  
  
@@ -219,7 +222,7 @@ endif
 
 !enddo
 
-deallocate(r,vfull,vh,vxc,exc,H,eig,psi,rho,shell_n,shell_l,count_l,shell_occ)
+deallocate(r,vfull,vh,vxc,exc,eig,psi,rho,shell_n,shell_l,count_l,shell_occ)
 
 
 end program

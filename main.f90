@@ -70,7 +70,7 @@ allocate(H(Ngrid,Ngrid))
 ! Self-consistency loop
 write(*,*)"************* version 1 **************"
 
-do iscl=1,maxscl
+do iscl=1,1!maxscl
 #ifdef debug
 
   write(*,*) "iteration: ",iscl
@@ -166,8 +166,8 @@ do iscl=1,maxscl
     enddo
   enddo
 
-!  write 3 wave functions to file 
-!  open(11,file='wf_v2_Newton.dat',status='replace')
+  !write 3 wave functions to file 
+!  open(11,file='wf_v2_Newton_new.dat',status='replace')
 !  write(11,*)"r psi1 psi2"
 !   do i = 1,Ngrid 
 !     write(11,*)r(i),psi(i,1),psi(i,2),psi(i,3)

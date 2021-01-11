@@ -22,7 +22,7 @@ real(8), intent(out) :: eigfun(Ngrid,nummax)
 !--other variables--
 
 integer :: i,ri,ei, junct,ji,try_dir,shell 
-real(8) :: eigtry,psi(Ngrid),eigtry_max,eigtry_min,eigtry_step,psi0NR(Ngrid),psi1NR(Ngrid),emaxNR,eminNR 
+real(8) :: eigtry,psi(Ngrid),eigtry_max,eigtry_min,eigtry_step,psi0NR(Ngrid),psi1NR(Ngrid),psidot(Ngrid),emaxNR,eminNR 
 logical ::eigtry_max_OK,eigtry_min_OK
 
 ! try_dir: -1 if we have to try smaller eigtry, +1 - larger, 0 - we found the eigenvalue
@@ -84,8 +84,8 @@ do ei=1,num
       
       emaxNR=eigtry_max
       eminNR=eigtry_min
-     ! emaxNR=-51.914435599464900d0
-     ! eminNR=-51.914435598882800d0
+ !     emaxNR=-51.914435599464900d0
+ !     eminNR=-51.914435598882800d0
      ! write(*,*)"Preparing for Newton–Raphson"
     !for saving time we can put an exit here use Newton–Raphson mathod and remove the next if statement
 !    endif
@@ -93,10 +93,17 @@ do ei=1,num
 !    if((eigtry_max-eigtry_min).LT.1d-13) then
 !      write(*,*)"FAILED to get a solution l=",l," ei=",ei," eigtry=",eigtry,&
 !              " e_max-e_min=",eigtry_max-eigtry_min," psi(Ngrid)=",psi(Ngrid)
-      
+
       call shoot_using_Euler(Ngrid,r,vfull,l,ei,eminNR,psi0NR,try_dir,.TRUE.,0d0)
+
       call shoot_using_Euler(Ngrid,r,vfull,l,ei,emaxNR,psi1NR,try_dir,.TRUE.,0d0)
-      call NR_method(Ngrid,eminNR,emaxNR,psi0NR,psi1NR,ei-1,eigtry,psi)
+!This is the new way to get psidot
+      call getpsidot_euler(Ngrid,r,vfull,l,psi0NR,eminNR,psidot) !
+
+!This is the old way to get psidot
+!      psidot=(psi1NR-psi0NR)/(emaxNR-eminNR)
+
+      call NR_method(Ngrid,eminNR,psi0NR,psi1NR,psidot,eigtry,psi)
       EXIT
     endif
   enddo
@@ -108,33 +115,49 @@ do ei=1,num
 enddo
 end subroutine
 
-subroutine NR_method(Ngrid,e0,e1,psi0,psi1,junct,eig,psi)
-integer, intent(in) :: Ngrid,junct
-real(8), intent(in) :: e0,e1,psi0(Ngrid),psi1(Ngrid)
+subroutine getpsidot_euler(Ngrid,r,vfull,l,psi0,e0,psidot) 
+
+integer, intent(in) :: Ngrid,l
+real(8), intent(in) :: e0,r(Ngrid),vfull(Ngrid),psi0(Ngrid)
+real(8), intent(out) :: psidot(Ngrid)
+
+real(8) :: u(Ngrid),v(Ngrid),s(Ngrid),vprime(Ngrid)
+integer ri
+s(1)=0 !boundary condition
+v(1)=0 !it is s'
+
+u=psi0*r
+
+vprime(1)=(2d0*vfull(1)+dble(l)*dble(l+1)*r(1)**(-2d0)-2*e0)*s(1)-2*u(1) 
+psidot(1)=s(1)/r(1)
+
+do ri=2,Ngrid
+  h=r(ri)-r(ri-1)
+  s(ri)=s(ri-1)+v(ri-1)*h
+  v(ri)=v(ri-1)+vprime(ri-1)*h
+  vprime(ri)=(2d0*vfull(ri)+dble(l)*dble(l+1)*r(ri)**(-2d0)-2*e0)*s(ri)-2*u(ri)
+  psidot(ri)=s(ri)/r(ri)
+!  write (*,*)ri,s(ri),v(ri),u(ri),vprime(ri),psidot(ri)
+enddo
+
+
+end subroutine
+
+
+
+subroutine NR_method(Ngrid,e0,psi0,psi1,psidot,eig,psi)
+integer, intent(in) :: Ngrid
+real(8), intent(in) :: e0,psi0(Ngrid),psi1(Ngrid),psidot(Ngrid)
 real(8), intent(out) :: psi(Ngrid),eig
 
-real(8) :: psidot(Ngrid),psi_rmax 
+real(8) :: psi_rmax 
 integer :: i_rmax,ri,last_ri
 logical :: even_junct
-!write(*,*)"psi0(Ngrid)=",psi0(Ngrid),"psi1(Ngrid)=",psi1(Ngrid)
-!write(*,*)"Number of junctions",junct
 
-if (MOD(junct,2) .eq. 0) then  
-    even_junct=.TRUE.   !even 
-    !write(*,*)"even number junct"
-  else 
-    even_junct=.FALSE.   !odd 
-    !write(*,*)"odd number junct"
-
-  end if 
 i_rmax=0
-
-psi_rmax=1d6
-psidot=(psi1-psi0)/(e1-e0)
-
-
+psi_rmax=1 !This parameter changes results.
 do i=1,Ngrid
-  if ( (abs(psi0(i)).GT.psi_rmax).OR.((abs(psi1(i)).GT.psi_rmax)) ) then
+  if ((abs(psi0(i)).GT.psi_rmax).or.(abs(psi1(i)).GT.psi_rmax)) then
     i_rmax=i
     EXIT
   endif 
@@ -142,59 +165,17 @@ enddo
 if (i_rmax.eq.0) then
         i_rmax=Ngrid
 endif
-
-
 eig=e0-psi0(i_rmax)/psidot(i_rmax)
-!psi=psi0+(eig-e0)*psidot
-psi=psi0-(psi0(i_rmax)/psidot(i_rmax))*psidot
 
+psi=psi0-(psi0(i_rmax)/psidot(i_rmax))*psidot
 write(*,*)"Eigval from Newton–Raphson=",eig," New i_rmax=",i_rmax," psi(i_rmax)=",psi(i_rmax) 
-
-!psi=psi0+(eig-e0)*psidot
-psi=psi0-(psi0(i_rmax)/psidot(i_rmax))*psidot
-!write(*,*)"Psi(i_rmax)=",psi(i_rmax)
-!last_ri=0
-!ji=0
-!do ri=3, Ngrid
-!  if ((psi(ri)*psi(ri-1)).LE.0d0) then
-!     ji=ji+1
-!     write(*,*)"junction ri=",ri
-!     if (ji.GT.junct) then
-!        last_ri=ri-1 
-!        write(*,*)"last_ri=",last_ri," psi(last_ri)=",psi(last_ri)," psi(last_ri+1)=",psi(last_ri+1) 
-!        EXIT
-!     endif
-!  endif
-!
-!  !if the wf does not cross the x axis then we have to detect local maximum for odd junct or minimum for even junct
-!  !we will check if psi(ri)-psi(ri-1) changes sign:
-!  !form negative to positive in case of a minimum (even junct)
-!  !from positive to negative in case of a maximum (odd junct)
-!  if (ji.eq.junct) then
-!    if( ((psi(ri-1)-psi(ri-2)).LT.0d0).AND.((psi(ri)-psi(ri-1)).GT.0d0).AND.(even_junct) ) then
-!      last_ri=ri-1
-!      write(*,*)"FOUND LOCAL minimum last_ri:",last_ri," psi(last_ri)=",psi(last_ri),&
-!              "psi(last_ri+1)=",psi(last_ri+1),"psi(last_ri-1)=",psi(last_ri-1) 
-!      EXIT
-!    else if ( ((psi(ri-1)-psi(ri-2)).GT.0d0).AND.((psi(ri)-psi(ri-1)).LT.0d0).AND.(.not.even_junct) ) then
-!      last_ri=ri-1
-!      write(*,*)"FOUND LOCAL maximum last_ri:",last_ri," psi(last_ri)=",psi(last_ri),&
-!              "psi(last_ri+1)=",psi(last_ri+1),"psi(last_ri-1)=",psi(last_ri-1)
-!      EXIT
-!    endif
-!  endif
-!enddo
-!if (last_ri.EQ.0) then 
-!        last_ri=Ngrid
-!        write(*,*)"End point seems to be closest to 0 last_ri=",last_ri, " psi(Ngrid)=",psi(last_ri)
-!
-!endif
- !psi(ri)=0 for all ri>last_ri
 last_ri=i_rmax
 do ri=last_ri+1, Ngrid
   psi(ri)=0d0
 enddo
 end subroutine
+
+
 
 subroutine shoot_using_Euler(Ngrid,r,vfull,l,ei,eigtry,psi,try_dir,finish,bis_range)
 implicit none

@@ -61,7 +61,7 @@ hh=r(2)-r(1)
 
 ! Initial guess for potential
 !...
-vfull=-Z/r
+vfull=0*r !vfull is vh+vxc, core potential -Z/r is used seperatly - version 1 has to be modified
 
 
 if (version.eq.1) then
@@ -135,7 +135,7 @@ enddo
 
   Print *,"(11) E=",e1,"+",e2,"+",e3,"=",energy
  
-  vfull1=-Z/r+vh+vxc
+  vfull1=vh+vxc
   vfull=alpha*vfull1+(1d0-alpha)*vfull
 enddo
 
@@ -151,7 +151,7 @@ do iscl=1,maxscl
   il_icl=0
   do il=1,lmax+1
     ! Diagonalize via the shooting method
-    call diashoot(Ngrid,r,vfull,il-1,count_l(il),il_icl,Nshell,eig,psi)
+    call diashoot(Ngrid,r,Z,vfull,il-1,count_l(il),il_icl,Nshell,eig,psi)
 
     ! Normalize WFs
     do icl=1,count_l(il)
@@ -198,7 +198,7 @@ do iscl=1,maxscl
   energy=e1+e2+e3
   Print *,iscl,".iter E=",e1,"+",e2,"+",e3,"=",energy
 
-  vfull1=-Z/r+vh+vxc
+  vfull1=vh+vxc
   vfull=alpha*vfull1+(1-alpha)*vfull
 
 enddo

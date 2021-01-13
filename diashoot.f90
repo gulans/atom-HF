@@ -1,4 +1,4 @@
-subroutine diashoot(Ngrid,r,vfull,l,num,shell0,nummax,eigval,eigfun)
+subroutine diashoot(Ngrid,r,Z,vfull,l,num,shell0,nummax,eigval,eigfun)
         ! Ngrid
         ! r
         ! vfull - potential (v_n+v_h+v_xc)
@@ -13,7 +13,7 @@ subroutine diashoot(Ngrid,r,vfull,l,num,shell0,nummax,eigval,eigfun)
 implicit none
 
 integer, intent(in) :: Ngrid, l, num,nummax,shell0
-real(8), intent(in) :: r(Ngrid),vfull(Ngrid)
+real(8), intent(in) :: r(Ngrid),vfull(Ngrid),Z
 
 real(8), intent(out) :: eigval(nummax)
 real(8), intent(out) :: eigfun(Ngrid,nummax)
@@ -51,7 +51,7 @@ do ei=1,num
   
   !Searching_for bisection minimum and maximum
   do i=1,1000 !to avoid deadlock
-    call shoot_using_Euler(Ngrid,r,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,eigtry_max-eigtry_min,euler)
+    call shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,eigtry_max-eigtry_min,euler)
     if (try_dir.EQ.-1) then
       eigtry_max_OK=.TRUE. 
       eigtry_max=eigtry
@@ -73,7 +73,7 @@ do ei=1,num
   eminNR=0
   do while((try_dir.NE.0))
     eigtry=(eigtry_max+eigtry_min)/2d0
-    call shoot_using_Euler(Ngrid,r,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,eigtry_max-eigtry_min,euler)
+    call shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,eigtry_max-eigtry_min,euler)
     if (try_dir.EQ.-1) then
       eigtry_max=eigtry
     else if (try_dir.EQ.1) then
@@ -95,11 +95,11 @@ do ei=1,num
 !      write(*,*)"FAILED to get a solution l=",l," ei=",ei," eigtry=",eigtry,&
 !              " e_max-e_min=",eigtry_max-eigtry_min," psi(Ngrid)=",psi(Ngrid)
 
-      call shoot_using_Euler(Ngrid,r,vfull,l,ei,eminNR,psi0NR,try_dir,.TRUE.,0d0,euler)
+      call shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,eminNR,psi0NR,try_dir,.TRUE.,0d0,euler)
 
-      call shoot_using_Euler(Ngrid,r,vfull,l,ei,emaxNR,psi1NR,try_dir,.TRUE.,0d0,euler)
+      call shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,emaxNR,psi1NR,try_dir,.TRUE.,0d0,euler)
 !This is the new way to get psidot
-      call getpsidot_euler(Ngrid,r,vfull,l,psi0NR,eminNR,psidot) !
+      call getpsidot_euler(Ngrid,r,Z,vfull,l,psi0NR,eminNR,psidot) !
 
 !This is the old way to get psidot
 !      psidot=(psi1NR-psi0NR)/(emaxNR-eminNR)
@@ -116,10 +116,10 @@ do ei=1,num
 enddo
 end subroutine
 
-subroutine getpsidot_euler(Ngrid,r,vfull,l,psi0,e0,psidot) 
+subroutine getpsidot_euler(Ngrid,r,Z,vfull,l,psi0,e0,psidot) 
 
 integer, intent(in) :: Ngrid,l
-real(8), intent(in) :: e0,r(Ngrid),vfull(Ngrid),psi0(Ngrid)
+real(8), intent(in) :: e0,r(Ngrid),vfull(Ngrid),psi0(Ngrid),Z
 real(8), intent(out) :: psidot(Ngrid)
 
 real(8) :: u(Ngrid),v(Ngrid),s(Ngrid),vprime(Ngrid)
@@ -129,14 +129,14 @@ v(1)=0 !it is s'
 
 u=psi0*r
 
-vprime(1)=(2d0*vfull(1)+dble(l)*dble(l+1)*r(1)**(-2d0)-2*e0)*s(1)-2*u(1) 
+vprime(1)=(2d0*(vfull(1)-Z/r(1))+dble(l)*dble(l+1)*r(1)**(-2d0)-2*e0)*s(1)-2*u(1) 
 psidot(1)=s(1)/r(1)
 
 do ri=2,Ngrid
   h=r(ri)-r(ri-1)
   s(ri)=s(ri-1)+v(ri-1)*h
   v(ri)=v(ri-1)+vprime(ri-1)*h
-  vprime(ri)=(2d0*vfull(ri)+dble(l)*dble(l+1)*r(ri)**(-2d0)-2*e0)*s(ri)-2*u(ri)
+  vprime(ri)=(2d0*(vfull(ri)-Z/r(ri))+dble(l)*dble(l+1)*r(ri)**(-2d0)-2*e0)*s(ri)-2*u(ri)
   psidot(ri)=s(ri)/r(ri)
 !  write (*,*)ri,s(ri),v(ri),u(ri),vprime(ri),psidot(ri)
 enddo
@@ -220,11 +220,11 @@ end subroutine
 
 
 
-subroutine shoot_using_Euler(Ngrid,r,vfull,l,ei,eigtry,psi,try_dir,finish,bis_range,Euler)
+subroutine shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,finish,bis_range,Euler)
 implicit none
 
 integer, intent(in) :: Ngrid,l,ei
-real(8), intent(in) :: r(Ngrid),vfull(Ngrid),eigtry
+real(8), intent(in) :: r(Ngrid),vfull(Ngrid),eigtry,Z
 logical, intent(in) :: finish,Euler
 integer, intent(out) :: try_dir 
 real(8), intent(out) :: psi(Ngrid)
@@ -245,7 +245,7 @@ ji=0
 !write(*,*)"junctions=", junct," l=",l," ei=",ei
 u(1)=r(1)**dble(l+1d0)   !boundary condition
 v(1)=dble(l+1)*r(1)**dble(l)
-vprime(1)=(2d0*vfull(1)+dble(l)*dble(l+1)*r(1)**(-2d0)-2d0*eigtry)*u(1)
+vprime(1)=(2d0*(vfull(1)-Z/r(1))+dble(l)*dble(l+1)*r(1)**(-2d0)-2d0*eigtry)*u(1)
 psi(1)=u(1)/r(1)
 
 !  open(11,file='RK_rez.dat',status='replace')
@@ -259,7 +259,7 @@ if (Euler) then
 !Euler
   u(ri+1)=u(ri)+v(ri)*h
   v(ri+1)=v(ri)+vprime(ri)*h
-  vprime(ri+1)=(2d0*vfull(ri+1)+dble(l)*dble(l+1)*r(ri+1)**(-2d0)-2d0*eigtry)*u(ri+1)
+  vprime(ri+1)=(2d0*(vfull(ri+1)-Z/r(ri+1))+dble(l)*dble(l+1)*r(ri+1)**(-2d0)-2d0*eigtry)*u(ri+1)
 else
 !RK4
 !interpolation to obtain point vfull(ri+1/2) needed
@@ -273,8 +273,8 @@ else
 
   r_interp=(/r(i_interp),r(i_interp+1),r(i_interp+2),r(i_interp+3)/)
   v_interp=(/vfull(i_interp),vfull(i_interp+1),vfull(i_interp+2),vfull(i_interp+3)/)
-    call interp(4,r_interp,v_interp,r(ri)+h/2d0,vfull_interp)
-!  vfull_interp=-4d0/(r(ri)+h/2d0)
+  call interp(4,r_interp,v_interp,r(ri)+h/2d0,vfull_interp)
+
   if (ri.lt.6) then
 !          write(*,*)"ri ",ri
 !          write(*,*)"r_interp ",r_interp
@@ -284,13 +284,13 @@ else
 
 
   k1u=v(ri)
-  k1v=(2d0*vfull(ri)+dble(l)*dble(l+1)*r(ri)**(-2d0)-2d0*eigtry)*u(ri)
+  k1v=(2d0*(vfull(ri)-Z/r(ri))+dble(l)*dble(l+1)*r(ri)**(-2d0)-2d0*eigtry)*u(ri)
   k2u=v(ri)+h*k1v/2d0
-  k2v=(2d0*vfull_interp+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*eigtry)*(u(ri)+h*k1u/2)
+  k2v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*eigtry)*(u(ri)+h*k1u/2)
   k3u=v(ri)+h*k2v/2d0
-  k3v=(2d0*vfull_interp+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*eigtry)*(u(ri)+h*k2u/2)
+  k3v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*eigtry)*(u(ri)+h*k2u/2)
   k4u=v(ri)+h*k3v
-  k4v=(2d0*vfull(ri+1)+dble(l)*dble(l+1)*(r(ri+1))**(-2d0)-2d0*eigtry)*(u(ri)+h*k3u)
+  k4v=(2d0*(vfull(ri+1)-Z/r(ri+1))+dble(l)*dble(l+1)*(r(ri+1))**(-2d0)-2d0*eigtry)*(u(ri)+h*k3u)
   u(ri+1)=u(ri)+h*(k1u+2d0*k2u+2d0*k3u+k4u)/6d0
   v(ri+1)=v(ri)+h*(k1v+2d0*k2v+2d0*k3v+k4v)/6d0
 ! End of RK4

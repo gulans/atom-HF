@@ -123,21 +123,77 @@ real(8), intent(in) :: e0,r(Ngrid),vfull(Ngrid),psi0(Ngrid),Z
 real(8), intent(out) :: psidot(Ngrid)
 
 real(8) :: u(Ngrid),v(Ngrid),s(Ngrid),vprime(Ngrid)
-integer ri
+logical :: Euler
+integer :: ri
+real(8) :: k1s,k2s,k3s,k4s,k1v,k2v,k3v,k4v,r_interp(4),v_interp(4),vfull_interp,u_interp(4),u_interp_rez
+
+
+Euler=.false.
 s(1)=0 !boundary condition
 v(1)=0 !it is s'
 
 u=psi0*r
 
+
+
+
+
 vprime(1)=(2d0*(vfull(1)-Z/r(1))+dble(l)*dble(l+1)*r(1)**(-2d0)-2*e0)*s(1)-2*u(1) 
 psidot(1)=s(1)/r(1)
 
-do ri=2,Ngrid
-  h=r(ri)-r(ri-1)
-  s(ri)=s(ri-1)+v(ri-1)*h
-  v(ri)=v(ri-1)+vprime(ri-1)*h
-  vprime(ri)=(2d0*(vfull(ri)-Z/r(ri))+dble(l)*dble(l+1)*r(ri)**(-2d0)-2*e0)*s(ri)-2*u(ri)
-  psidot(ri)=s(ri)/r(ri)
+do ri=1,Ngrid-1
+  h=r(ri+1)-r(ri)
+
+if (Euler) then
+!Euler
+  s(ri+1)=s(ri)+v(ri)*h
+  v(ri+1)=v(ri)+vprime(ri)*h
+  vprime(ri+1)=(2d0*(vfull(ri)-Z/r(ri))+dble(l)*dble(l+1)*r(ri)**(-2d0)-2d0*e0)*s(ri)-2*u(ri)
+
+
+else
+!RK4
+!interpolation to obtain point vfull(ri+1/2) and u(ri+1/2) needed
+  if (ri.lt.2) then
+  i_interp=1
+  else if(ri.gt.Ngrid-3) then
+  i_interp=Ngrid-3
+  else
+  i_interp=ri-1
+  endif
+
+  r_interp=(/r(i_interp),r(i_interp+1),r(i_interp+2),r(i_interp+3)/)
+  v_interp=(/vfull(i_interp),vfull(i_interp+1),vfull(i_interp+2),vfull(i_interp+3)/)
+
+  call interp(4,r_interp,v_interp,r(ri)+h/2d0,vfull_interp)
+  u_interp=(/u(i_interp),u(i_interp+1),u(i_interp+2),u(i_interp+3)/)
+  call interp(4,r_interp,u_interp,r(ri)+h/2d0,u_interp_rez)  
+
+  k1s=v(ri)
+  k1v=(2d0*(vfull(ri)-Z/r(ri))+dble(l)*dble(l+1)*r(ri)**(-2d0)-2d0*e0)*                   s(ri)          -2*u(ri)
+  k2s=v(ri)+h*k1v/2d0
+  k2v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*e0)*(s(ri)+h*k1s/2)-2*u_interp_rez
+  k3s=v(ri)+h*k2v/2d0
+  k3v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*e0)*(s(ri)+h*k2s/2)-2*u_interp_rez
+  k4s=v(ri)+h*k3v
+  k4v=(2d0*(vfull(ri+1)-Z/r(ri+1))+dble(l)*dble(l+1)*(r(ri+1))**(-2d0)-2d0*e0)*           (s(ri)+h*k3s)  -2*u(ri+1)
+
+  s(ri+1)=s(ri)+h*(k1s+2d0*k2s+2d0*k3s+k4s)/6d0
+  v(ri+1)=v(ri)+h*(k1v+2d0*k2v+2d0*k3v+k4v)/6d0
+! End of RK4
+endif
+
+
+
+
+
+
+
+
+
+
+
+  psidot(ri+1)=s(ri+1)/r(ri+1)
 !  write (*,*)ri,s(ri),v(ri),u(ri),vprime(ri),psidot(ri)
 enddo
 

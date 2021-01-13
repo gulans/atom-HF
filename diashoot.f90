@@ -104,7 +104,7 @@ do ei=1,num
 !This is the old way to get psidot
 !      psidot=(psi1NR-psi0NR)/(emaxNR-eminNR)
 
-      call NR_method(Ngrid,eminNR,psi0NR,psi1NR,psidot,eigtry,psi)
+      call NR_method(Ngrid,ei-1,eminNR,psi0NR,psi1NR,psidot,eigtry,psi)
       EXIT
     endif
   enddo
@@ -146,31 +146,73 @@ end subroutine
 
 
 
-subroutine NR_method(Ngrid,e0,psi0,psi1,psidot,eig,psi)
+subroutine NR_method(Ngrid,nodes,e0,psi0,psi1,psidot,eig,psi)
 integer, intent(in) :: Ngrid
 real(8), intent(in) :: e0,psi0(Ngrid),psi1(Ngrid),psidot(Ngrid)
 real(8), intent(out) :: psi(Ngrid),eig
 
-real(8) :: psi_rmax 
-integer :: i_rmax,ri,last_ri
-logical :: even_junct
+!real(8) :: psi_rmax 
+integer :: ri,last_ri,nodes,nodes_i
+logical :: even_nodes
 
-i_rmax=0
-psi_rmax=1 !This parameter changes results.
-do i=1,Ngrid
-  if ((abs(psi0(i)).GT.psi_rmax).or.(abs(psi1(i)).GT.psi_rmax)) then
-    i_rmax=i
-    EXIT
-  endif 
-enddo
-if (i_rmax.eq.0) then
-        i_rmax=Ngrid
+nodes_i=0
+
+
+if (MOD(nodes,2) .eq. 0) then  
+    even_nodes=.TRUE.   !even 
+else
+    even_nodes=.FALSE.   !odd 
 endif
-eig=e0-psi0(i_rmax)/psidot(i_rmax)
 
-psi=psi0-(psi0(i_rmax)/psidot(i_rmax))*psidot
-write(*,*)"Eigval from Newton–Raphson=",eig," New i_rmax=",i_rmax," psi(i_rmax)=",psi(i_rmax) 
-last_ri=i_rmax
+do ri=3,Ngrid
+  if ((psi0(ri)*psi0(ri-1)).LE.0d0) then
+     nodes_i=nodes_i+1
+     write(*,*)"node ri=",ri
+     if (nodes_i.GT.nodes) then
+        last_ri=ri-1 
+        write(*,*)"last_ri=",last_ri," psi(last_ri)=",psi0(last_ri)," psi(last_ri+1)=",psi0(last_ri+1) 
+        EXIT
+     endif
+  endif
+  !if the wf does not cross the x axis then we have to detect local maximum for odd number of nodes or minimum for even number of
+  !nodes
+  !we will check if psi(ri)-psi(ri-1) changes sign:
+  !from negative to positive in case of a minimum (even nodes)
+  !from positive to negative in case of a maximum (odd nodes)
+  
+  
+  if (nodes_i.eq.nodes) then
+    if( ((psi0(ri-1)-psi0(ri-2)).LT.0d0).AND.((psi0(ri)-psi0(ri-1)).GT.0d0).AND.(even_nodes) ) then
+      last_ri=ri-1
+      write(*,*)"FOUND LOCAL minimum last_ri:",last_ri," psi0(last_ri)=",psi(last_ri),&
+              "psi0(last_ri+1)=",psi0(last_ri+1),"psi0(last_ri-1)=",psi0(last_ri-1) 
+      EXIT
+    else if ( ((psi0(ri-1)-psi0(ri-2)).GT.0d0).AND.((psi0(ri)-psi0(ri-1)).LT.0d0).AND.(.not.even_nodes) ) then
+      last_ri=ri-1
+      write(*,*)"FOUND LOCAL maximum last_ri:",last_ri," psi(last_ri)=",psi0(last_ri),&
+              "psi(last_ri+1)=",psi0(last_ri+1),"psi(last_ri-1)=",psi0(last_ri-1)
+      EXIT
+    endif
+  endif
+enddo
+if (last_ri.EQ.0) then 
+        last_ri=Ngrid
+        write(*,*)"End point seems to be closest to 0 last_ri=",last_ri, " psi(Ngrid)=",psi(last_ri)
+
+endif
+
+
+
+
+
+
+
+
+eig=e0-psi0(last_ri)/psidot(last_ri)
+
+psi=psi0-(psi0(last_ri)/psidot(last_ri))*psidot
+write(*,*)"Eigval from Newton–Raphson=",eig," New i_rmax=",last_ri," psi(i_rmax)=",psi(last_ri) 
+
 do ri=last_ri+1, Ngrid
   psi(ri)=0d0
 enddo
@@ -231,8 +273,8 @@ else
 
   r_interp=(/r(i_interp),r(i_interp+1),r(i_interp+2),r(i_interp+3)/)
   v_interp=(/vfull(i_interp),vfull(i_interp+1),vfull(i_interp+2),vfull(i_interp+3)/)
-!    call interp(4,r_interp,v_interp,r(ri)+h/2d0,vfull_interp)
-  vfull_interp=-4d0/(r(ri)+h/2d0)
+    call interp(4,r_interp,v_interp,r(ri)+h/2d0,vfull_interp)
+!  vfull_interp=-4d0/(r(ri)+h/2d0)
   if (ri.lt.6) then
 !          write(*,*)"ri ",ri
 !          write(*,*)"r_interp ",r_interp

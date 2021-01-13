@@ -23,14 +23,15 @@ real(8), intent(out) :: eigfun(Ngrid,nummax)
 
 integer :: i,ri,ei, junct,ji,try_dir,shell 
 real(8) :: eigtry,psi(Ngrid),eigtry_max,eigtry_min,eigtry_step,psi0NR(Ngrid),psi1NR(Ngrid),psidot(Ngrid),emaxNR,eminNR 
-logical ::eigtry_max_OK,eigtry_min_OK
-
+logical ::eigtry_max_OK,eigtry_min_OK,euler
+euler=.false.
 ! try_dir: -1 if we have to try smaller eigtry, +1 - larger, 0 - we found the eigenvalue
 
 eigtry=-20d0
 eigtry_step=10d0
 
 
+!call shoot_using_Euler(Ngrid,r,vfull,0,1,-50.0d0,psi,try_dir,.TRUE.,10.0d0)
 
 
 
@@ -50,7 +51,7 @@ do ei=1,num
   
   !Searching_for bisection minimum and maximum
   do i=1,1000 !to avoid deadlock
-    call shoot_using_Euler(Ngrid,r,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,eigtry_max-eigtry_min)
+    call shoot_using_Euler(Ngrid,r,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,eigtry_max-eigtry_min,euler)
     if (try_dir.EQ.-1) then
       eigtry_max_OK=.TRUE. 
       eigtry_max=eigtry
@@ -72,7 +73,7 @@ do ei=1,num
   eminNR=0
   do while((try_dir.NE.0))
     eigtry=(eigtry_max+eigtry_min)/2d0
-    call shoot_using_Euler(Ngrid,r,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,eigtry_max-eigtry_min)
+    call shoot_using_Euler(Ngrid,r,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,eigtry_max-eigtry_min,euler)
     if (try_dir.EQ.-1) then
       eigtry_max=eigtry
     else if (try_dir.EQ.1) then
@@ -94,9 +95,9 @@ do ei=1,num
 !      write(*,*)"FAILED to get a solution l=",l," ei=",ei," eigtry=",eigtry,&
 !              " e_max-e_min=",eigtry_max-eigtry_min," psi(Ngrid)=",psi(Ngrid)
 
-      call shoot_using_Euler(Ngrid,r,vfull,l,ei,eminNR,psi0NR,try_dir,.TRUE.,0d0)
+      call shoot_using_Euler(Ngrid,r,vfull,l,ei,eminNR,psi0NR,try_dir,.TRUE.,0d0,euler)
 
-      call shoot_using_Euler(Ngrid,r,vfull,l,ei,emaxNR,psi1NR,try_dir,.TRUE.,0d0)
+      call shoot_using_Euler(Ngrid,r,vfull,l,ei,emaxNR,psi1NR,try_dir,.TRUE.,0d0,euler)
 !This is the new way to get psidot
       call getpsidot_euler(Ngrid,r,vfull,l,psi0NR,eminNR,psidot) !
 
@@ -177,19 +178,19 @@ end subroutine
 
 
 
-subroutine shoot_using_Euler(Ngrid,r,vfull,l,ei,eigtry,psi,try_dir,finish,bis_range)
+subroutine shoot_using_Euler(Ngrid,r,vfull,l,ei,eigtry,psi,try_dir,finish,bis_range,Euler)
 implicit none
 
 integer, intent(in) :: Ngrid,l,ei
 real(8), intent(in) :: r(Ngrid),vfull(Ngrid),eigtry
-logical, intent(in) :: finish
+logical, intent(in) :: finish,Euler
 integer, intent(out) :: try_dir 
 real(8), intent(out) :: psi(Ngrid)
 
-real(8) :: junct,ji,u(Ngrid),v(Ngrid),vprime(Ngrid),h
-integer :: ri
+real(8) :: junct,ji,u(Ngrid),v(Ngrid),vprime(Ngrid),h,r_interp(4),v_interp(4),vfull_interp
+integer :: ri,i_interp
 real(8) :: bis_range,zerro_effective,minimum_bis_range
-
+real(8) :: k1u,k2u,k3u,k4u,k1v,k2v,k3v,k4v
 zerro_effective=1d-4
 minimum_bis_range=1d-9
 ! u - Psi*r 
@@ -205,20 +206,65 @@ v(1)=dble(l+1)*r(1)**dble(l)
 vprime(1)=(2d0*vfull(1)+dble(l)*dble(l+1)*r(1)**(-2d0)-2d0*eigtry)*u(1)
 psi(1)=u(1)/r(1)
 
-do ri=2,Ngrid
-  h=r(ri)-r(ri-1)
-  u(ri)=u(ri-1)+v(ri-1)*h
-  v(ri)=v(ri-1)+vprime(ri-1)*h
-  vprime(ri)=(2d0*vfull(ri)+dble(l)*dble(l+1)*r(ri)**(-2d0)-2d0*eigtry)*u(ri)
-  psi(ri)=u(ri)/r(ri)
+!  open(11,file='RK_rez.dat',status='replace')
+!   write(11,*)"r v v_interp k1u k2u k3u k4u k1v k2v k3v k4v psi"
+
+
+do ri=1,Ngrid-1
+  h=r(ri+1)-r(ri)
+
+if (Euler) then
+!Euler
+  u(ri+1)=u(ri)+v(ri)*h
+  v(ri+1)=v(ri)+vprime(ri)*h
+  vprime(ri+1)=(2d0*vfull(ri+1)+dble(l)*dble(l+1)*r(ri+1)**(-2d0)-2d0*eigtry)*u(ri+1)
+else
+!RK4
+!interpolation to obtain point vfull(ri+1/2) needed
+  if (ri.lt.2) then
+  i_interp=1
+  else if(ri.gt.Ngrid-3) then
+  i_interp=Ngrid-3
+  else
+  i_interp=ri-1
+  endif
+
+  r_interp=(/r(i_interp),r(i_interp+1),r(i_interp+2),r(i_interp+3)/)
+  v_interp=(/vfull(i_interp),vfull(i_interp+1),vfull(i_interp+2),vfull(i_interp+3)/)
+!    call interp(4,r_interp,v_interp,r(ri)+h/2d0,vfull_interp)
+  vfull_interp=-4d0/(r(ri)+h/2d0)
+  if (ri.lt.6) then
+!          write(*,*)"ri ",ri
+!          write(*,*)"r_interp ",r_interp
+!          write(*,*)"v_interp ",v_interp
+!          write(*,*)"v(",r(ri)+h/2,")=",vfull_interp
+  endif
+
+
+  k1u=v(ri)
+  k1v=(2d0*vfull(ri)+dble(l)*dble(l+1)*r(ri)**(-2d0)-2d0*eigtry)*u(ri)
+  k2u=v(ri)+h*k1v/2d0
+  k2v=(2d0*vfull_interp+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*eigtry)*(u(ri)+h*k1u/2)
+  k3u=v(ri)+h*k2v/2d0
+  k3v=(2d0*vfull_interp+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*eigtry)*(u(ri)+h*k2u/2)
+  k4u=v(ri)+h*k3v
+  k4v=(2d0*vfull(ri+1)+dble(l)*dble(l+1)*(r(ri+1))**(-2d0)-2d0*eigtry)*(u(ri)+h*k3u)
+  u(ri+1)=u(ri)+h*(k1u+2d0*k2u+2d0*k3u+k4u)/6d0
+  v(ri+1)=v(ri)+h*(k1v+2d0*k2v+2d0*k3v+k4v)/6d0
+! End of RK4
+
+endif
+psi(ri+1)=u(ri+1)/r(ri+1)
   !write(*,*)r(ri),u(ri),v(ri),vprime(ri),psi(ri)
+
+!  write(11,*)r(ri), vfull(ri), vfull_interp, k1u, k2u, k3u, k4u, k1v, k2v, k3v, k4v, psi(ri)
 
 
 !Check if the WF crossed x axis
-  if ((psi(ri)*psi(ri-1)).LE.0d0) then
-     !if ((psi(ri).EQ.0d0) or (psi(ri-1).EQ.0d0)) !something with low probability but should be cheked
+  if ((psi(ri+1)*psi(ri)).LE.0d0) then
+     !if ((psi(ri+1).EQ.0d0) or (psi(ri).EQ.0d0)) !something with low probability but should be cheked
      ji=ji+1
-!     write(*,*)"junction r=",r(ri)
+!     write(*,*)"junction r=",r(ri+1)
      if (ji.GT.junct) then
         try_dir=-1 !we have to try smaller eigtry 
         
@@ -230,7 +276,7 @@ do ri=2,Ngrid
   endif
 
   !if the wf>1 - then it will not come back to 0
-  if (abs(psi(ri)).GT.1d0) then 
+  if (abs(psi(ri+1)).GT.1d0) then 
         try_dir=1 !we have to try larger eigtry 
         if (.not.(finish)) then 
                 EXIT
@@ -238,6 +284,8 @@ do ri=2,Ngrid
      endif
 
 enddo
+
+close(11)
 
 if (try_dir.eq.2)  then
         
@@ -251,5 +299,30 @@ if (try_dir.eq.2)  then
 endif
 !write(*,*)"eigtry=",eigtry," ri",ri," try_dir=",try_dir," psi(Ngrid)="&
 !        ,psi(Ngrid)," bis_range: ",bis_range
+
+end subroutine
+
+subroutine interp(m,x,y,xp,yp)
+ implicit none
+ integer, intent(in) :: m
+ real(8), intent(in) :: x(m),y(m),xp
+ real(8), intent(out):: yp
+
+ integer :: i, j
+ real(8) :: sk,sauc
+ yp=0
+ do i=1,m
+   sk=1.0d0
+   sauc=1.0d0
+   do j=1,m
+     if (i.ne.j) then
+       sk=sk*(xp-x(j))
+       sauc=sauc*(x(i)-x(j))
+
+     endif
+ enddo
+ yp=yp+sk*y(i)/sauc
+ enddo
+
 
 end subroutine

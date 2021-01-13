@@ -1,5 +1,5 @@
 Z Rmax Nrad - argon 
-18d0 10d0 10000 2 
+18d0 10d0 100000 2 
 Number of shells - 1s 2s 2p 3s
 5
 List of shells: n l occupation

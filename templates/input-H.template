@@ -1,5 +1,7 @@
 Z Rmax Nrad MethodVersion
-1 5d0 10000 1 
+1 1d-5 15d0 10000 2
+Grid 0-equidistant 1-cubic 2-exponential
+1 
 Number of shells - 1s 2s
 1
 List of shells: n l occupation

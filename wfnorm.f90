@@ -7,9 +7,11 @@ real(8), intent(out) :: psi(Ngrid)
 integer :: ir
 real(8) :: hh,norm
 
-hh=r(2)-r(1) !RUPJI
-
-norm=4d0*Pi*sum(r**2d0*psi**2d0*hh)
+norm=0
+do ir=1, Ngrid-1
+  hh=r(ir+1)-r(ir)
+  norm=norm+4d0*Pi*r(ir)**2d0*psi(ir)**2d0*hh
+enddo
 psi=psi/sqrt(norm)
 
 end subroutine

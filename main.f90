@@ -12,15 +12,17 @@ integer, parameter :: maxscl = 20
 integer :: ir,il,icl,il_icl,iscl,lmax
 
 real(8) :: Z
-real(8) :: Rmax,hh,e1,e2,e3,energy,energy0
-integer :: Ngrid, Nshell, ish
+real(8) :: norm,Rmin,Rmax,hh,e1,e2,e3,energy,energy0
+integer :: grid,Ngrid, Nshell, ish
 integer :: i,j,countl0, version
    
 logical :: file_exists
 !read input
 read(*,*) 
-read(*,*) Z, Rmax, Ngrid, version
+read(*,*) Z, Rmin, Rmax, Ngrid, version
 read(*,*)
+read(*,*) grid
+read(*,*) 
 read(*,*) Nshell
 allocate(shell_n(Nshell),shell_l(Nshell),shell_occ(Nshell))
 read(*,*)
@@ -55,7 +57,7 @@ enddo
 allocate(r(Ngrid),vfull(Ngrid),vh(Ngrid),vxc(Ngrid),exc(Ngrid),eig(Ngrid),rho(Ngrid),vfull1(Ngrid))
 allocate(psi(Ngrid,Nshell),psi_eig(Nshell))
 
-call gengrid(Ngrid,Rmax,r)
+call gengrid(grid,Ngrid,Rmin,Rmax,r)
 hh=r(2)-r(1)
 
 
@@ -98,7 +100,7 @@ do il=1,lmax+1
 #endif
   enddo
 enddo
-  !write 3 wave functions to file 
+!  write 3 wave functions to file 
 !  open(11,file='wf_v1.dat',status='replace')
 !  write(11,*)"r psi1 psi2"
 !   do i = 1,Ngrid 
@@ -128,8 +130,13 @@ enddo
   do ish=1,Nshell
     e1=e1+shell_occ(ish)*psi_eig(ish)
   enddo
-  e2=-0.5d0*4d0*Pi*hh*sum(vh*rho*r**2d0)
-  e3=4d0*Pi*hh*sum((exc-vxc)*rho*r**2d0)
+  e2=0
+  e3=0
+  do ir=1, Ngrid-1
+    hh=r(ir+1)-r(ir)
+    e2=e2-0.5d0*4d0*Pi*hh*vh(ir)*rho(ir)*r(ir)**2d0
+    e3=e3+4d0*Pi*hh*(exc(ir)-vxc(ir))*rho(ir)*r(ir)**2d0
+  enddo
   energy0=energy
   energy=e1+e2+e3
 
@@ -160,8 +167,15 @@ do iscl=1,maxscl
       psi_eig(il_icl)=eig(icl)
       call wfnorm(Ngrid,r,psi(:,il_icl))
 #ifdef debug
-      write(*,*)"PSI l=",il-1," icl=",icl," il_cl=",il_icl," normalised to:",4d0*Pi*sum(psi(:,il_icl)**2d0*r**2d0*hh),&
+  norm=0
+  do ir=1,Ngrid-1
+    hh=r(ir+1)-r(ir)
+    norm=norm+4d0*Pi*psi(ir,il_icl)**2d0*r(ir)**2d0*hh
+  enddo
+  write(*,*)"PSI l=",il-1," icl=",icl," il_cl=",il_icl," normalised to:",norm,&
             "eig:",psi_eig(il_icl)," occ:",shell_occ(il_icl)
+write(*,*)"PSI: ",psi(1,il_icl),psi(2,il_icl),psi(3,il_icl),psi(4,il_icl)
+
 #endif
     enddo
   enddo
@@ -192,8 +206,16 @@ do iscl=1,maxscl
   do ish=1,Nshell
     e1=e1+shell_occ(ish)*psi_eig(ish)
   enddo
-  e2=-0.5d0*4d0*Pi*hh*sum(vh*rho*r**2d0)
-  e3=4d0*Pi*hh*sum((exc-vxc)*rho*r**2d0)
+ 
+  e2=0
+  e3=0
+  do ir=1, Ngrid-1
+    hh=r(ir+1)-r(ir)
+    e2=e2-0.5d0*4d0*Pi*hh*vh(ir)*rho(ir)*r(ir)**2d0
+    e3=e3+4d0*Pi*hh*(exc(ir)-vxc(ir))*rho(ir)*r(ir)**2d0
+  enddo
+
+ 
   energy0=energy
   energy=e1+e2+e3
   Print *,iscl,".iter E=",e1,"+",e2,"+",e3,"=",energy
@@ -234,8 +256,8 @@ endif
   else
      open(11,file='results.dat',status='new')
   endif
-  write(11,*)"Z version iterations Ngrid rmax"
-  write(11,*)Z, version, iscl-1, Ngrid, Rmax
+  write(11,*)"Z version iterations Ngrid Rmax Grid"
+  write(11,*)Z, version, iscl-1, Ngrid, Rmax, grid
   write(11,*)"n l eigval"
   il_icl=0
   do il=1,lmax+1

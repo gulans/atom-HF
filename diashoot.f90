@@ -100,11 +100,12 @@ do ei=1,num
       call shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,emaxNR,psi1NR,try_dir,.TRUE.,0d0,euler)
 !This is the new way to get psidot
       call getpsidot_euler(Ngrid,r,Z,vfull,l,psi0NR,eminNR,psidot) !
-
+      
 !This is the old way to get psidot
 !      psidot=(psi1NR-psi0NR)/(emaxNR-eminNR)
 
-      call NR_method(Ngrid,ei-1,eminNR,psi0NR,psi1NR,psidot,eigtry,psi)
+      call NR_method(Ngrid,r,ei-1,eminNR,psi0NR,psi1NR,psidot,eigtry,psi)
+
       EXIT
     endif
   enddo
@@ -202,9 +203,9 @@ end subroutine
 
 
 
-subroutine NR_method(Ngrid,nodes,e0,psi0,psi1,psidot,eig,psi)
+subroutine NR_method(Ngrid,r,nodes,e0,psi0,psi1,psidot,eig,psi)
 integer, intent(in) :: Ngrid
-real(8), intent(in) :: e0,psi0(Ngrid),psi1(Ngrid),psidot(Ngrid)
+real(8), intent(in) :: e0,r(Ngrid),psi0(Ngrid),psi1(Ngrid),psidot(Ngrid)
 real(8), intent(out) :: psi(Ngrid),eig
 
 !real(8) :: psi_rmax 
@@ -240,12 +241,12 @@ do ri=3,Ngrid
   if (nodes_i.eq.nodes) then
     if( ((psi0(ri-1)-psi0(ri-2)).LT.0d0).AND.((psi0(ri)-psi0(ri-1)).GT.0d0).AND.(even_nodes) ) then
       last_ri=ri-1
-      write(*,*)"FOUND LOCAL minimum last_ri:",last_ri," psi0(last_ri)=",psi(last_ri),&
+      write(*,*)"FOUND LOCAL minimum r(last_ri):",r(last_ri)," psi0(last_ri)=",psi(last_ri),&
               "psi0(last_ri+1)=",psi0(last_ri+1),"psi0(last_ri-1)=",psi0(last_ri-1) 
       EXIT
     else if ( ((psi0(ri-1)-psi0(ri-2)).GT.0d0).AND.((psi0(ri)-psi0(ri-1)).LT.0d0).AND.(.not.even_nodes) ) then
       last_ri=ri-1
-      write(*,*)"FOUND LOCAL maximum last_ri:",last_ri," psi(last_ri)=",psi0(last_ri),&
+      write(*,*)"FOUND LOCAL maximum r(last_ri):",r(last_ri)," psi(last_ri)=",psi0(last_ri),&
               "psi(last_ri+1)=",psi0(last_ri+1),"psi(last_ri-1)=",psi0(last_ri-1)
       EXIT
     endif
@@ -253,7 +254,7 @@ do ri=3,Ngrid
 enddo
 if (last_ri.EQ.0) then 
         last_ri=Ngrid
-        write(*,*)"End point seems to be closest to 0 last_ri=",last_ri, " psi(Ngrid)=",psi(last_ri)
+        write(*,*)"End point seems to be closest to 0 r(last_ri)=",r(last_ri), " psi(Ngrid)=",psi(last_ri)
 
 endif
 

@@ -1,5 +1,7 @@
 Z Rmax Nrad - magnesium 
-12 10d0 1000 2
+12 1d-5 15d0 10000 2
+Grid 0-equidistant 1-cubic 2-exponential
+1
 Number of shells - 1s 2s 2p 3s
 4
 List of shells: n l occupation

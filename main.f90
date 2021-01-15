@@ -197,7 +197,9 @@ write(*,*)"PSI: ",psi(1,il_icl),psi(2,il_icl),psi(3,il_icl),psi(4,il_icl)
   enddo
 
   ! Construct the Hartree potential
-  call getvhtrapez(Ngrid,r,rho,vh)
+!  call getvhtrapez(Ngrid,r,rho,vh)
+  call getvhsimp38(Ngrid,r,rho,vh)
+
   ! Construct the exchange-correlation potential
   call getvxc(Ngrid,rho,vxc,exc)
 
@@ -271,6 +273,20 @@ endif
   write(11,*)"" 
   close(11)
 
+  inquire(file='energy.out',EXIST=file_exists)
+  if (file_exists) then
+     open(11,file='energy.out',status='old', access='append')
+  else
+     open(11,file='energy.out',status='new')
+     write(11,*)"Z iterations Ngrid Rmax Grid E dE"
+  endif
+  write(11,*)Z, iscl-1, Ngrid, Rmax, grid, energy, energy-energy0
+  close(11)
+
+  
+  
+  
+  
 deallocate(r,vfull,vh,vxc,exc,eig,psi,rho,shell_n,shell_l,count_l,shell_occ)
 
 

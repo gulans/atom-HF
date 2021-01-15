@@ -209,15 +209,15 @@ write(*,*)"PSI: ",psi(1,il_icl),psi(2,il_icl),psi(3,il_icl),psi(4,il_icl)
     e1=e1+shell_occ(ish)*psi_eig(ish)
   enddo
  
-  e2=0
-  e3=0
-  do ir=1, Ngrid-1
-    hh=r(ir+1)-r(ir)
-    e2=e2-0.5d0*4d0*Pi*hh*vh(ir)*rho(ir)*r(ir)**2d0
-    e3=e3+4d0*Pi*hh*(exc(ir)-vxc(ir))*rho(ir)*r(ir)**2d0
-  enddo
-
- 
+!  e2=0
+!  e3=0
+!  do ir=1, Ngrid-1
+!    hh=r(ir+1)-r(ir)
+!    e2=e2-0.5d0*4d0*Pi*hh*vh(ir)*rho(ir)*r(ir)**2d0
+!    e3=e3+4d0*Pi*hh*(exc(ir)-vxc(ir))*rho(ir)*r(ir)**2d0
+!  enddo
+  call integ_sph_s38_value(Ngrid,r,-0.5d0*vh*rho,e2)
+  call integ_sph_s38_value(Ngrid,r,(exc-vxc)*rho,e3) 
   energy0=energy
   energy=e1+e2+e3
   Print *,iscl,".iter E=",e1,"+",e2,"+",e3,"=",energy

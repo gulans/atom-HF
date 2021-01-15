@@ -8,15 +8,19 @@ integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 real(8), allocatable :: shell_occ(:),psi_eig(:)
 
 !real(8), parameter :: Rmax = 10d0
-integer, parameter :: maxscl = 20
+integer, parameter :: maxscl = 200
 integer :: ir,il,icl,il_icl,iscl,lmax
 
 real(8) :: Z
-real(8) :: norm,Rmin,Rmax,hh,e1,e2,e3,energy,energy0
+real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0
 integer :: grid,Ngrid, Nshell, ish
 integer :: i,j,countl0, version
    
-logical :: file_exists
+logical :: E_dE_file_exists, file_exists
+
+dE_min=1d-7
+
+
 !read input
 read(*,*) 
 read(*,*) Z, Rmin, Rmax, Ngrid, version
@@ -151,6 +155,18 @@ deallocate(H)
 
 
 else if (version.eq.2) then
+        
+        
+inquire(file='E_dE.out',EXIST=E_dE_file_exists)
+  if (E_dE_file_exists) then
+     open(11,file='E_dE.out',status='old', access='append')
+  else
+     open(11,file='E_dE.out',status='new')
+  endif
+  write(11,*)"iter E dE"
+  close(11)
+     
+        
 write(*,*)"********** version 2 *************"
 ! ----- version 2 -------
 ! Self-consistency loop
@@ -165,7 +181,11 @@ do iscl=1,maxscl
       il_icl=il_icl+1
 !      psi(:,il_icl)=H(:,icl)
       psi_eig(il_icl)=eig(icl)
-      call wfnorm(Ngrid,r,psi(:,il_icl))
+!      call wfnorm(Ngrid,r,psi(:,il_icl))
+   call integ_sph_s38_value(Ngrid,r,psi(:,il_icl)**2d0,norm)
+   psi(:,il_icl)=psi(:,il_icl)*norm**(-0.5d0)
+
+
 #ifdef debug
   norm=0
   do ir=1,Ngrid-1
@@ -174,7 +194,6 @@ do iscl=1,maxscl
   enddo
   write(*,*)"PSI l=",il-1," icl=",icl," il_cl=",il_icl," normalised to:",norm,&
             "eig:",psi_eig(il_icl)," occ:",shell_occ(il_icl)
-write(*,*)"PSI: ",psi(1,il_icl),psi(2,il_icl),psi(3,il_icl),psi(4,il_icl)
 
 #endif
     enddo
@@ -220,8 +239,16 @@ write(*,*)"PSI: ",psi(1,il_icl),psi(2,il_icl),psi(3,il_icl),psi(4,il_icl)
   call integ_sph_s38_value(Ngrid,r,(exc-vxc)*rho,e3) 
   energy0=energy
   energy=e1+e2+e3
-  Print *,iscl,".iter E=",e1,"+",e2,"+",e3,"=",energy
 
+
+  open(11,file='E_dE.out',status='old', access='append')
+  write(11,*)iscl, energy, energy-energy0
+  close(11)
+
+  Print *,iscl,".iter E=",e1,"+",e2,"+",e3,"=",energy
+  if (abs(energy-energy0).LT.dE_min) then
+          EXIT
+  endif
   vfull1=vh+vxc
   vfull=alpha*vfull1+(1-alpha)*vfull
 

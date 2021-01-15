@@ -8,8 +8,7 @@ integer :: i,i_interp
 real(8) :: hh,norm
 real(8) :: x(4),y(4),psi1,psi2,f0,f1,f2,f3
 
-!
-!call integ_sph_s38_value(Ngrid,r,psi**2d0,norm) 
+
  
 norm=0
 i=1

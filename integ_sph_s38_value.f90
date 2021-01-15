@@ -9,12 +9,12 @@ real(8) :: hh
 real(8) :: x(4),y(4),f0,f1,f2,f3,f1_interp,f2_interp
 
 
-rez=0
+rez=0d0
 i=1
 f3=4d0*Pi*r(i)**2d0*f(i) !in numerical recepies (4.1.5) every iteration f0 is previous iterations f3  
 
 do i=1,Ngrid-1
-  hh=(r(i+1)-r(i))/3
+  hh=(r(i+1)-r(i))/3d0
   if (i.lt.2) then
     i_interp=1
   else if(i.gt.Ngrid-3) then

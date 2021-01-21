@@ -3,7 +3,7 @@ program atomHF
 implicit none
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=0.50d0
 !integer,parameter :: Ngrid = 500
-real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:)
+real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:),ftemp1(:),ftemp2(:)
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 real(8), allocatable :: shell_occ(:),psi_eig(:)
 
@@ -60,6 +60,7 @@ enddo
 
 allocate(r(Ngrid),vfull(Ngrid),vh(Ngrid),vxc(Ngrid),exc(Ngrid),eig(Ngrid),rho(Ngrid),vfull1(Ngrid))
 allocate(psi(Ngrid,Nshell),psi_eig(Nshell))
+allocate(ftemp1(Ngrid),ftemp2(Ngrid))
 
 call gengrid(grid,Ngrid,Rmin,Rmax,r)
 hh=r(2)-r(1)
@@ -217,7 +218,12 @@ do iscl=1,maxscl
 
   ! Construct the Hartree potential
 !  call getvhtrapez(Ngrid,r,rho,vh)
-  call getvhsimp38(Ngrid,r,rho,vh)
+!  call getvhsimp38(Ngrid,r,rho,vh)
+
+  call integ_s38_fun(Ngrid,r,4*pi*r**2*rho,1,ftemp1)
+  call integ_s38_fun(Ngrid,r,4*pi*r*rho,-1,ftemp2)
+  vh=ftemp1/r+ftemp2
+
 
   ! Construct the exchange-correlation potential
   call getvxc(Ngrid,rho,vxc,exc)

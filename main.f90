@@ -20,7 +20,7 @@ integer :: i,j,countl0, version
 logical :: E_dE_file_exists, file_exists
 character(len=1024) :: filename
 
-dE_min=1d-9
+dE_min=1d-8
 
 
 !read input
@@ -190,24 +190,22 @@ do iscl=1,maxscl
     ! Normalize WFs
     do icl=1,count_l(il)
       il_icl=il_icl+1
-!      psi(:,il_icl)=H(:,icl)
       psi_eig(il_icl)=eig(icl)
-!      call wfnorm(Ngrid,r,psi(:,il_icl))
-   call integ_sph_s38_value(Ngrid,r,psi(:,il_icl)**2d0,norm)
-   psi(:,il_icl)=psi(:,il_icl)*norm**(-0.5d0)
-   write(*,*)"NORM=",norm
-   if (il_icl.eq.2) then
-     open(11,file='norm.out',status='old', access='append')
-     write(11,*)il_icl, norm, "v",version       
-     close(11)
-   endif
+      call integ_sph_s38_value(Ngrid,r,psi(:,il_icl)**2d0,norm)
+      psi(:,il_icl)=psi(:,il_icl)*norm**(-0.5d0)
+      write(*,*)"NORM=",norm
+      if (il_icl.eq.2) then
+        open(11,file='norm.out',status='old', access='append')
+        write(11,*)il_icl, norm, "v",version       
+        close(11)
+      endif
 #ifdef debug
-  norm=0
-  do ir=1,Ngrid-1
-    hh=r(ir+1)-r(ir)
-    norm=norm+4d0*Pi*psi(ir,il_icl)**2d0*r(ir)**2d0*hh
-  enddo
-  write(*,*)"PSI l=",il-1," icl=",icl," il_cl=",il_icl," normalised to:",norm,&
+      norm=0
+      do ir=1,Ngrid-1
+        hh=r(ir+1)-r(ir)
+        norm=norm+psi(ir,il_icl)**2d0*r(ir)**2d0*hh
+      enddo
+      write(*,*)"PSI l=",il-1," icl=",icl," il_cl=",il_icl," normalised to:",norm,&
             "eig:",psi_eig(il_icl)," occ:",shell_occ(il_icl)
 
 #endif
@@ -234,14 +232,13 @@ do iscl=1,maxscl
 !  call getvhtrapez(Ngrid,r,rho,vh)
 !  call getvhsimp38(Ngrid,r,rho,vh)
 
-  call integ_s38_fun(Ngrid,r,4*pi*r**2*rho,1,ftemp1)
-  call integ_s38_fun(Ngrid,r,4*pi*r*rho,-1,ftemp2)
+  call integ_s38_fun(Ngrid,r,r**2*rho,1,ftemp1)
+  call integ_s38_fun(Ngrid,r,r*rho,-1,ftemp2)
   vh=ftemp1/r+ftemp2
 
 
   ! Construct the exchange-correlation potential
-  call getvxc(Ngrid,rho,vxc,exc)
-
+  call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
   ! Caulculate energy
   e1=0
   do ish=1,Nshell
@@ -252,8 +249,8 @@ do iscl=1,maxscl
 !  e3=0
 !  do ir=1, Ngrid-1
 !    hh=r(ir+1)-r(ir)
-!    e2=e2-0.5d0*4d0*Pi*hh*vh(ir)*rho(ir)*r(ir)**2d0
-!    e3=e3+4d0*Pi*hh*(exc(ir)-vxc(ir))*rho(ir)*r(ir)**2d0
+!    e2=e2-0.5d0*hh*vh(ir)*rho(ir)*r(ir)**2d0
+!    e3=e3+hh*(exc(ir)-vxc(ir))*rho(ir)*r(ir)**2d0
 !  enddo
   call integ_sph_s38_value(Ngrid,r,-0.5d0*vh*rho,e2)
   call integ_sph_s38_value(Ngrid,r,(exc-vxc)*rho,e3) 
@@ -326,7 +323,7 @@ do iscl=1,maxscl
   norm=0
   do ir=1,Ngrid-1
     hh=r(ir+1)-r(ir)
-    norm=norm+4d0*Pi*psi(ir,il_icl)**2d0*r(ir)**2d0*hh
+    norm=norm+psi(ir,il_icl)**2d0*r(ir)**2d0*hh
   enddo
   write(*,*)"PSI l=",il-1," icl=",icl," il_cl=",il_icl," normalised to:",norm,&
             "eig:",psi_eig(il_icl)," occ:",shell_occ(il_icl)
@@ -343,14 +340,14 @@ do iscl=1,maxscl
 
   ! Construct the Hartree potential
 
-  call integ_s38_fun(Ngrid,r,4*pi*r**2*rho,1,ftemp1)
-  call integ_s38_fun(Ngrid,r,4*pi*r*rho,-1,ftemp2)
+  call integ_s38_fun(Ngrid,r,r**2*rho,1,ftemp1)
+  call integ_s38_fun(Ngrid,r,r*rho,-1,ftemp2)
   vh=ftemp1/r+ftemp2
 
 
   ! Caulculate vx_phi for every orbital  
-!  call getvxc(Ngrid,rho,vxc,exc)
-  vxc=-0.5d0*vh !The line that works for He only
+  call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
+!  vxc=-0.5d0*vh !The line that works for He only
   do ish=1,Nshell
 !    do jsh=1,Nshell 
 !      

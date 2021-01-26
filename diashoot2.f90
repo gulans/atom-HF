@@ -103,10 +103,10 @@ do ei=1,num
 
       call shoot2(Ngrid,r,Z,vfull,l,ei,emaxNR,psi1NR,try_dir,.TRUE.,0d0,euler,vx_u)
 !This is the new way to get psidot
-      !call getpsidot2(Ngrid,r,Z,vfull,l,psi0NR,eminNR,vx_udot,psidot) !
+      call getpsidot2(Ngrid,r,Z,vfull,l,psi0NR,eminNR,vx_udot,psidot) !
       
 !This is the old way to get psidot
-      psidot=(psi1NR-psi0NR)/(emaxNR-eminNR)
+      !psidot=(psi1NR-psi0NR)/(emaxNR-eminNR)
 
       call NR_method(Ngrid,r,ei-1,eminNR,psi0NR,psi1NR,psidot,eigtry,psi)
 

@@ -11,7 +11,7 @@ real(8) :: x(4),y(4),f0,f1,f2,f3,f1_interp,f2_interp
 
 rez=0d0
 i=1
-f3=4d0*Pi*r(i)**2d0*f(i) !in numerical recepies (4.1.5) every iteration f0 is previous iterations f3  
+f3=r(i)**2d0*f(i) !in numerical recepies (4.1.5) every iteration f0 is previous iterations f3  
 
 do i=1,Ngrid-1
   hh=(r(i+1)-r(i))/3d0
@@ -29,9 +29,9 @@ do i=1,Ngrid-1
   call interp(4,x,y,r(i)+2d0*hh,f2_interp)
 
   f0=f3 !in numerical recepies (4.1.5) every iteration f0 is previous iterations f3  
-  f1=4d0*Pi*(r(i)+1d0*hh)**2d0* f1_interp
-  f2=4d0*Pi*(r(i)+2d0*hh)**2d0* f2_interp
-  f3=4d0*Pi*r(i+1)**2d0*        f(i+1)
+  f1=(r(i)+1d0*hh)**2d0* f1_interp
+  f2=(r(i)+2d0*hh)**2d0* f2_interp
+  f3=r(i+1)**2d0*        f(i+1)
 
   rez=rez+hh*(3d0*f0+9d0*f1+9d0*f2+3d0*f3)/8d0
 enddo

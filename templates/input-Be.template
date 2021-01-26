@@ -1,5 +1,5 @@
 Z Rmax Nrad - neon
-4 1d-5 15d0 10000 2
+4 1d-5 15d0 10000 3 
 Grid 0-equidistant 1-cubic 2-exponential
 1
 Number of shells - 1s 2s

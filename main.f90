@@ -1,24 +1,26 @@
 program atomHF
 
 implicit none
-real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=0.50d0
+real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=0.5d0
 !integer,parameter :: Ngrid = 500
-real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:),ftemp1(:),ftemp2(:)
+real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:),ftemp1(:),&
+        ftemp2(:),vx_phi(:,:),vx_phi1(:,:),vx_psidot(:,:),psidot(:,:)
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 real(8), allocatable :: shell_occ(:),psi_eig(:)
 
 !real(8), parameter :: Rmax = 10d0
-integer, parameter :: maxscl = 200
+integer, parameter :: maxscl = 200 !Maximal itteration number
 integer :: ir,il,icl,il_icl,iscl,lmax
 
 real(8) :: Z
-real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0
+real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0,e_kin,e_ext,e_h,e_x,e_pot
 integer :: grid,Ngrid, Nshell, ish
 integer :: i,j,countl0, version
    
 logical :: E_dE_file_exists, file_exists
+character(len=1024) :: filename
 
-dE_min=1d-7
+dE_min=1d-9
 
 
 !read input
@@ -69,6 +71,25 @@ hh=r(2)-r(1)
 ! Initial guess for potential
 !...
 vfull=0*r !vfull is vh+vxc, core potential -Z/r is used seperatly - version 1 has to be modified
+
+  inquire(file='norm.out',EXIST=E_dE_file_exists)
+  if (E_dE_file_exists) then
+     open(11,file='norm.out',status='old', access='append')
+  else
+     open(11,file='norm.out',status='new')
+  endif
+  write(11,*)"shell norm"
+  close(11)
+
+  inquire(file='E_dE.out',EXIST=E_dE_file_exists)
+  if (E_dE_file_exists) then
+     open(11,file='E_dE.out',status='old', access='append')
+  else
+     open(11,file='E_dE.out',status='new')
+  endif
+  write(11,*)"iter E dE"
+  close(11)
+
 
 
 if (version.eq.1) then
@@ -157,17 +178,6 @@ deallocate(H)
 
 else if (version.eq.2) then
         
-        
-inquire(file='E_dE.out',EXIST=E_dE_file_exists)
-  if (E_dE_file_exists) then
-     open(11,file='E_dE.out',status='old', access='append')
-  else
-     open(11,file='E_dE.out',status='new')
-  endif
-  write(11,*)"iter E dE"
-  close(11)
-     
-        
 write(*,*)"********** version 2 *************"
 ! ----- version 2 -------
 ! Self-consistency loop
@@ -185,8 +195,12 @@ do iscl=1,maxscl
 !      call wfnorm(Ngrid,r,psi(:,il_icl))
    call integ_sph_s38_value(Ngrid,r,psi(:,il_icl)**2d0,norm)
    psi(:,il_icl)=psi(:,il_icl)*norm**(-0.5d0)
-
-
+   write(*,*)"NORM=",norm
+   if (il_icl.eq.2) then
+     open(11,file='norm.out',status='old', access='append')
+     write(11,*)il_icl, norm, "v",version       
+     close(11)
+   endif
 #ifdef debug
   norm=0
   do ir=1,Ngrid-1
@@ -260,8 +274,152 @@ do iscl=1,maxscl
 
 enddo
 
+elseif(version.eq.3) then
+allocate(vx_phi(Ngrid,Nshell),vx_phi1(Ngrid,Nshell),vx_psidot(Ngrid,Nshell),psidot(Ngrid,Nshell))
+vx_phi=0d0*vx_phi
+vx_psidot=0d0*vx_psidot
+write(*,*)"********** version 3 *************"
+! ----- version 3 HF_exchange -------
+! Self-consistency loop
+do iscl=1,maxscl
+  il_icl=0
+  do il=1,lmax+1
+! Diagonalize via the shooting method
+
+
+  call diashoot2(Ngrid,r,Z,vfull,il-1,count_l(il),il_icl,Nshell,vx_phi,vx_psidot,psidot,eig,psi)
+
+
+  do ish=1,Nshell
+!    do jsh=1,Nshell 
+!      
+!    enddo
+  vx_phi1(:,ish)=psi(:,ish)
+  enddo
+
+
+! Normalize WFs
+    do icl=1,count_l(il)
+      il_icl=il_icl+1
+      psi_eig(il_icl)=eig(icl)
+   call integ_sph_s38_value(Ngrid,r,psi(:,il_icl)**2d0,norm)
+   write(*,*)"NORM=",norm
+  if (il_icl.eq.2) then
+    open(11,file='norm.out',status='old', access='append')
+    write(11,*)il_icl, norm, "v",version
+    close(11)
+  endif
+
+   psi(:,il_icl)=psi(:,il_icl)*norm**(-0.5d0)
+
+  !write 3 wave functions to file 
+!  write (filename, "(A5,I1)") "wf/wf_", iscl
+!  print *, trim(filename)
+!  open(11,file=filename,status='replace')
+!  write(11,*)"r psi1 psi2, psi3"
+!   do i = 1,Ngrid 
+!     write(11,*)r(i),psi(i,1),psi(i,2),psi(i,3)
+!   end do
+!   close(11)
+
+#ifdef debug
+  norm=0
+  do ir=1,Ngrid-1
+    hh=r(ir+1)-r(ir)
+    norm=norm+4d0*Pi*psi(ir,il_icl)**2d0*r(ir)**2d0*hh
+  enddo
+  write(*,*)"PSI l=",il-1," icl=",icl," il_cl=",il_icl," normalised to:",norm,&
+            "eig:",psi_eig(il_icl)," occ:",shell_occ(il_icl)
+
+#endif
+    enddo
+  enddo
+
+  ! Calculate density
+  rho=0d0*rho
+  do ish=1,Nshell
+     rho=rho+shell_occ(ish)*psi(:,ish)**2d0
+  enddo
+
+  ! Construct the Hartree potential
+
+  call integ_s38_fun(Ngrid,r,4*pi*r**2*rho,1,ftemp1)
+  call integ_s38_fun(Ngrid,r,4*pi*r*rho,-1,ftemp2)
+  vh=ftemp1/r+ftemp2
+
+
+  ! Caulculate vx_phi for every orbital  
+!  call getvxc(Ngrid,rho,vxc,exc)
+  vxc=-0.5d0*vh !The line that works for He only
+  do ish=1,Nshell
+!    do jsh=1,Nshell 
+!      
+!    enddo
+   vx_phi1(:,ish)=vx_phi1(:,ish)*vxc
+   vx_psidot(:,ish)=psidot(:,ish)*vxc
+ 
+  enddo
+  vx_phi=alpha*vx_phi1+(1d0-alpha)*vx_phi
+ 
+
+  ! Caulculate energy
+!Both give practicly the same result for e_ext
+  call get_energy_ext(Ngrid,r,rho,Z,e_ext)
+!  call integ_sph_s38_value(Ngrid,r,-rho*Z/r,e_ext)
+
+  write(*,*)"e_ext=",e_ext
+  call integ_sph_s38_value(Ngrid,r,0.5*rho*vh,e_h)
+  write(*,*)"e_h=",e_h
+  e_x=0d0
+  do ish=1,Nshell
+    call integ_sph_s38_value(Ngrid,r,vxc*psi(:,ish)**2d0,e2)
+    e_x=e_x+e2
+  enddo
+  write(*,*)"e_x=",e_x
+
+
+  e1=0d0
+  do ish=1,Nshell
+    e1=e1+shell_occ(ish)*psi_eig(ish)
+  enddo
+  e_kin=e1-e_ext-2d0*e_h-2d0*e_x
+  write(*,*)"e_kin=",e_kin
+  e_pot=e_ext+e_h+e_x
+
+  write(*,*)"e_pot/e_kin=",e_pot/e_kin, "e_tot=",e_kin+e_pot, " (",iscl,")"
+
+  energy0=energy
+  energy=e_kin+e_pot
+
+  open(11,file='E_dE.out',status='old', access='append')
+  write(11,*)iscl, energy, energy-energy0
+  close(11)
+
+  call integ_sph_s38_value(Ngrid,r,-0.5d0*vh*rho,e2)
+  call integ_sph_s38_value(Ngrid,r,(exc-vxc)*rho,e3)
+
+  Print *,"Result in case of DFT vxc: ",iscl,".iter E=",e1,"+",e2,"+",e3,"=",e1+e2+e3
+
+
+  if (abs(energy-energy0).LT.dE_min) then
+          EXIT
+  endif
+
+  vfull1=vh!+vxc
+  vfull=alpha*vfull1+(1d0-alpha)*vfull
+!  vfull=vfull1
+enddo
+deallocate(vx_phi)
+
+deallocate(vx_phi1,vx_psidot,psidot)
 endif
-! ----- version 3 -------
+
+
+
+
+
+
+! ----- version x3 -------
 ! Self-consistency loop
 !do iscl=1,maxscl
 
@@ -274,8 +432,7 @@ endif
 
 !enddo
 
-
-! ----- version 4 -------
+! ----- version x4 -------
 ! Self-consistency loop
 !do iscl=1,maxscl
 

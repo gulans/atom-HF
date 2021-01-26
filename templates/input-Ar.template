@@ -1,5 +1,5 @@
 Z Rmin Rmax Nrad version 
-18d0 1d-5 20d0 5000 2 
+18d0 1d-5 15d0 10000 3 
 Grid 0-equidistant 1-cubic 2-exponential
 1
 Number of shells - 1s 2s 2p 3s

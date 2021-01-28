@@ -23,12 +23,13 @@ integ=0d0*integ
 do ish=1, Nshell
   lpri=shell_l(ish)
 
+  write(*,*)"l'' sum range",abs(l-lpri), l+lpri, "step 2"
 
-  do lpripri=abs(l-lpri),l+lpri,1
+  do lpripri=abs(l-lpri),l+lpri,2
     
   
     call wigner3j(l,lpri,lpripri,gc)
-    gc=dble(2*lpri+1)*gc
+    gc=dble(2*lpri+1)*gc**2d0  !(2*lpri+1) should be replaced with shell_occ 
     
     write(*,*)"(l,l',l'') (",l,",",lpri,",",lpripri,")", " Gaunt_coef=",gc
     if (gc.ne.0d0) then

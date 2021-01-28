@@ -20,7 +20,7 @@ integer :: i,j,countl0, version
 logical :: E_dE_file_exists, file_exists
 character(len=1024) :: filename
 
-dE_min=1d-8
+dE_min=1d-7
 
 
 !read input
@@ -295,13 +295,6 @@ do iscl=1,maxscl
       psi_non_norm(:,il_icl)=psi(:,il_icl)
       call integ_sph_s38_value(Ngrid,r,psi(:,il_icl)**2d0,norm)
       norm_arr(il_icl)=norm
-      write(*,*)"NORM=",norm
-      if (il_icl.eq.2) then
-        open(11,file='norm.out',status='old', access='append')
-        write(11,*)il_icl, norm, "v",version
-        close(11)
-      endif
-
       psi(:,il_icl)=psi(:,il_icl)*norm**(-0.5d0)
 
 
@@ -319,14 +312,14 @@ do iscl=1,maxscl
   enddo
 
   !write 3 wave functions to file 
-  write (filename, "(A2,I1)") "Be", iscl
-  print *, trim(filename)
-  open(11,file=filename,status='replace')
-  write(11,*)"r psi1 psi2, psi3"
-   do i = 1,Ngrid
+!  write (filename, "(A2,I1)") "Be", iscl
+!  print *, trim(filename)
+!  open(11,file=filename,status='replace')
+!  write(11,*)"r psi1 psi2, psi3"
+!   do i = 1,Ngrid
 !     write(11,*)r(i),psi_non_norm(i,1),psi_non_norm(i,2)!,psi_non_norm(i,3)
-   end do
-   close(11)
+!   end do
+!   close(11)
 
 
 
@@ -346,7 +339,7 @@ do iscl=1,maxscl
 
 
 !  Caulculate vx_phi for every orbital  
-   call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
+!   call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
 
 
   !write vh to file 
@@ -363,11 +356,25 @@ do iscl=1,maxscl
 
 !  vxc=-0.5d0*vh !The line that works for He only
   do ish=1,Nshell
-!   call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psi_non_norm(:,ish),psi,vx_phi1(:,ish))
-!   call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psidot(:,ish),psi,vx_psidot(:,ish))
+   call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psi_non_norm(:,ish),psi,vx_phi1(:,ish))
+ !  call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psidot(:,ish),psi,vx_psidot(:,ish))
 
-    vx_phi1(:,ish)=psi_non_norm(:,ish)*vxc
-    vx_psidot(:,ish)=psidot(:,ish)*vxc
+
+
+  !write vh to file 
+!  write (filename, "(A5,I1,A1,I1)") "wf/vxpsi", iscl,"_",ish
+!  print *, trim(filename)
+!  open(11,file=filename,status='replace')
+!  write(11,*)"r vx*psi vx_psi", iscl, ish 
+!   do i = 1,Ngrid
+!     write(11,*)r(i),psi_non_norm(i,ish)*vxc(i),vx_phi1(i,ish)
+!     write(11,*)r(i),psidot(i,ish)*vxc(i),vx_psidot(i,ish)
+!   end do
+!   close(11)
+
+
+!    vx_phi1(:,ish)=psi_non_norm(:,ish)*vxc
+!    vx_psidot(:,ish)=psidot(:,ish)*vxc
 
   enddo
   vx_phi=alpha*vx_phi1+(1d0-alpha)*vx_phi

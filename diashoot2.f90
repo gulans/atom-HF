@@ -42,18 +42,6 @@ do ei=1,num
   write(*,*)"IEKŠ diashoot2.f90 shell0=",shell0," ei=",ei," nummax=",nummax," shell=",shell
 
   vx_u=vx_phi(:,shell)*r
-
- ! write vx_u to file 
-  write (filename, "(A5,I1)") "B_vx_u", shell
-  print *, trim(filename)
-  open(11,file=filename,status='replace')
-  write(11,*)"r vx_u"
-   do i = 1,Ngrid
-     write(11,*)r(i),vx_u(i)
-   end do
-   close(11)
-
-
   vx_udot=vx_psidot(:,shell)*r
 
   eigtry_max_OK=.false.
@@ -117,10 +105,10 @@ do ei=1,num
 
       call shoot2(Ngrid,r,Z,vfull,l,ei,emaxNR,psi1NR,try_dir,.TRUE.,0d0,euler,vx_u)
 !This is the new way to get psidot
-      call getpsidot2(Ngrid,r,Z,vfull,l,psi0NR,eminNR,vx_udot,psidot) !
+      !call getpsidot2(Ngrid,r,Z,vfull,l,psi0NR,eminNR,vx_udot,psidot) !
       
 !This is the old way to get psidot
-      !psidot=(psi1NR-psi0NR)/(emaxNR-eminNR)
+      psidot=(psi1NR-psi0NR)/(emaxNR-eminNR)
 
       call NR_method(Ngrid,r,ei-1,eminNR,psi0NR,psi1NR,psidot,eigtry,psi)
 
@@ -228,9 +216,6 @@ enddo
 
 
 end subroutine
-
-!    call shoot2(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,eigtry_max-eigtry_min,euler,vx_u)
-
 
 
 subroutine shoot2(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,finish,bis_range,Euler,vx_u)

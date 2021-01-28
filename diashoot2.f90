@@ -24,7 +24,7 @@ character(len=1024) :: filename
 
 integer :: i,ri,ei, junct,ji,try_dir,shell 
 real(8) :: eigtry,psi(Ngrid),eigtry_max,eigtry_min,eigtry_step,psi0NR(Ngrid),psi1NR(Ngrid),psidot(Ngrid),emaxNR,eminNR
-real(8) :: vx_u(Ngrid),vx_udot(Ngrid) 
+real(8) :: vx_u(Ngrid),vx_udot(Ngrid),psidot_temp(Ngrid)
 logical ::eigtry_max_OK,eigtry_min_OK,euler
 euler=.false.
 ! try_dir: -1 if we have to try smaller eigtry, +1 - larger, 0 - we found the eigenvalue
@@ -105,10 +105,25 @@ do ei=1,num
 
       call shoot2(Ngrid,r,Z,vfull,l,ei,emaxNR,psi1NR,try_dir,.TRUE.,0d0,euler,vx_u)
 !This is the new way to get psidot
-      !call getpsidot2(Ngrid,r,Z,vfull,l,psi0NR,eminNR,vx_udot,psidot) !
+!      call getpsidot2(Ngrid,r,Z,vfull,l,psi0NR,eminNR,vx_udot,psidot_temp) !
       
 !This is the old way to get psidot
       psidot=(psi1NR-psi0NR)/(emaxNR-eminNR)
+
+
+ !   write 3 wave functions to file 
+
+!  open(11,file='psidot.dat',status='replace')
+!  write(11,*)"r psi_dot(analitiski) psi_dot(skaitliski)"
+!   do i = 1,Ngrid 
+!     write(11,*)r(i), psidot_temp(i),psidot(i)
+!   end do
+1   close(11)
+
+
+! psidot=psidot_temp
+
+
 
       call NR_method(Ngrid,r,ei-1,eminNR,psi0NR,psi1NR,psidot,eigtry,psi)
 

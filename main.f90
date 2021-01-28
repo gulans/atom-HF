@@ -20,7 +20,7 @@ integer :: i,j,countl0, version
 logical :: E_dE_file_exists, file_exists
 character(len=1024) :: filename
 
-dE_min=1d-7
+dE_min=1d-9
 
 
 !read input
@@ -357,20 +357,20 @@ do iscl=1,maxscl
 !  vxc=-0.5d0*vh !The line that works for He only
   do ish=1,Nshell
    call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psi_non_norm(:,ish),psi,vx_phi1(:,ish))
- !  call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psidot(:,ish),psi,vx_psidot(:,ish))
+!   call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psidot(:,ish),psi,vx_psidot(:,ish))
 
 
 
   !write vh to file 
-!  write (filename, "(A5,I1,A1,I1)") "wf/vxpsi", iscl,"_",ish
+!  write (filename, "(A8,I1,A1,I1)") "wf/vxpsi", iscl,"_",ish
 !  print *, trim(filename)
 !  open(11,file=filename,status='replace')
 !  write(11,*)"r vx*psi vx_psi", iscl, ish 
 !   do i = 1,Ngrid
 !     write(11,*)r(i),psi_non_norm(i,ish)*vxc(i),vx_phi1(i,ish)
-!     write(11,*)r(i),psidot(i,ish)*vxc(i),vx_psidot(i,ish)
-!   end do
-!   close(11)
+ !    write(11,*)r(i),psidot(i,ish)!*vxc(i),vx_psidot(i,ish)
+ !  end do
+ !  close(11)
 
 
 !    vx_phi1(:,ish)=psi_non_norm(:,ish)*vxc

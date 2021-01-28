@@ -1,4 +1,4 @@
-subroutine diashoot2(Ngrid,r,Z,vfull,l,num,shell0,nummax,vx_phi,vx_psidot,psidot_all,eigval,eigfun)
+subroutine diashoot2(Ngrid,r,Z,vfull,l,num           ,shell0,nummax,vx_phi,vx_psidot,psidot_all,eigval,eigfun)
         ! Ngrid
         ! r
         ! vfull - potential (v_h)
@@ -18,6 +18,7 @@ real(8), intent(in) :: r(Ngrid),vfull(Ngrid),Z,vx_phi(Ngrid,nummax),vx_psidot(Ng
 real(8), intent(out) :: eigval(nummax),psidot_all(Ngrid,nummax)
 real(8), intent(out) :: eigfun(Ngrid,nummax)
 
+character(len=1024) :: filename
 
 !--other variables--
 
@@ -37,9 +38,22 @@ eigtry_step=10d0
 
 
 do ei=1,num 
-!  write(*,*)"shell0=",shell0," ei=",ei," nummax=",nummax
   shell=ei+shell0
+  write(*,*)"IEKŠ diashoot2.f90 shell0=",shell0," ei=",ei," nummax=",nummax," shell=",shell
+
   vx_u=vx_phi(:,shell)*r
+
+ ! write vx_u to file 
+  write (filename, "(A5,I1)") "B_vx_u", shell
+  print *, trim(filename)
+  open(11,file=filename,status='replace')
+  write(11,*)"r vx_u"
+   do i = 1,Ngrid
+     write(11,*)r(i),vx_u(i)
+   end do
+   close(11)
+
+
   vx_udot=vx_psidot(:,shell)*r
 
   eigtry_max_OK=.false.
@@ -48,8 +62,8 @@ do ei=1,num
 
   if (ei.NE.1) then
    eigtry_min_OK=.TRUE.
-   eigtry_min=eigval(ei-1)
-   eigtry=eigval(ei-1)+eigtry_step
+   eigtry_min=eigval(shell-1)
+   eigtry=eigval(shell-1)+eigtry_step
   endif
 
   
@@ -113,9 +127,10 @@ do ei=1,num
       EXIT
     endif
   enddo
-  write(*,*)"try_dir=",try_dir," Psi(Ngrid)=",psi(ngrid)," Bisection range etry_max-etry_min=",eigtry_max-eigtry_min
+  write(*,*)"try_dir=",try_dir," Psi(Ngrid)=",psi(ngrid)," Bisection range etry_max-etry_min=",eigtry_max-eigtry_min,&
+          " e_min=",eigtry_min
   eigfun(:,shell)=psi
-  eigval(ei)=eigtry
+  eigval(shell)=eigtry
   psidot_all(:,shell)=psidot
 !  write(*,*)"ei=",ei," eigval=",eigtry," e_max-e_min=",eigtry_max-eigtry_min," psi(Ngrid)=",psi(Ngrid)
  
@@ -214,6 +229,7 @@ enddo
 
 end subroutine
 
+!    call shoot2(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,eigtry_max-eigtry_min,euler,vx_u)
 
 
 
@@ -318,7 +334,7 @@ psi(ri+1)=u(ri+1)/r(ri+1)
   endif
 
   !if the wf>1 - then it will not come back to 0
-  if (abs(psi(ri+1)).GT.1d0) then 
+  if (abs(psi(ri+1)).GT.100d0) then 
         try_dir=1 !we have to try larger eigtry 
         if (.not.(finish)) then 
                 EXIT

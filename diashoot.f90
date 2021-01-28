@@ -99,10 +99,10 @@ do ei=1,num
 
       call shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,emaxNR,psi1NR,try_dir,.TRUE.,0d0,euler)
 !This is the new way to get psidot
-      call getpsidot_euler(Ngrid,r,Z,vfull,l,psi0NR,eminNR,psidot) !
+!      call getpsidot_euler(Ngrid,r,Z,vfull,l,psi0NR,eminNR,psidot) !
       
 !This is the old way to get psidot
-!      psidot=(psi1NR-psi0NR)/(emaxNR-eminNR)
+      psidot=(psi1NR-psi0NR)/(emaxNR-eminNR)
 
       call NR_method(Ngrid,r,ei-1,eminNR,psi0NR,psi1NR,psidot,eigtry,psi)
 
@@ -203,6 +203,7 @@ end subroutine
 
 
 
+
 subroutine NR_method(Ngrid,r,nodes,e0,psi0,psi1,psidot,eig,psi)
 integer, intent(in) :: Ngrid
 real(8), intent(in) :: e0,r(Ngrid),psi0(Ngrid),psi1(Ngrid),psidot(Ngrid)
@@ -261,10 +262,6 @@ endif
 
 
 
-
-
-
-
 eig=e0-psi0(last_ri)/psidot(last_ri)
 
 psi=psi0-(psi0(last_ri)/psidot(last_ri))*psidot
@@ -273,6 +270,19 @@ write(*,*)"Eigval from Newton–Raphson=",eig," New i_rmax=",last_ri," psi(i_rma
 do ri=last_ri+1, Ngrid
   psi(ri)=0d0
 enddo
+
+  !write 3 wave functions to file 
+  if (nodes.eq.1) then
+  open(11,file='psi0_psi1_NR.dat',status='replace')
+  write(11,*)"r psi0 psi1 psi"
+   do i = 1,Ngrid 
+     write(11,*)r(i),psi0(i),psi1(i),psi(i)
+   end do
+   close(11)
+   endif
+
+
+
 end subroutine
 
 

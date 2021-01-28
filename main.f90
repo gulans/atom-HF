@@ -4,15 +4,15 @@ implicit none
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=0.5d0
 !integer,parameter :: Ngrid = 500
 real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:),ftemp1(:),&
-        ftemp2(:),vx_phi(:,:),vx_phi1(:,:),vx_psidot(:,:),psidot(:,:)
+        ftemp2(:),vx_phi(:,:),vx_phi1(:,:),vx_psidot(:,:),psidot(:,:),psi_non_norm(:,:),norm_arr(:)
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 real(8), allocatable :: shell_occ(:),psi_eig(:)
 
 !real(8), parameter :: Rmax = 10d0
-integer, parameter :: maxscl = 200 !Maximal itteration number
+integer, parameter :: maxscl =50 !Maximal itteration number
 integer :: ir,il,icl,il_icl,iscl,lmax
 
-real(8) :: Z
+real(8) :: Z,rez
 real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0,e_kin,e_ext,e_h,e_x,e_pot
 integer :: grid,Ngrid, Nshell, ish
 integer :: i,j,countl0, version
@@ -30,7 +30,7 @@ read(*,*)
 read(*,*) grid
 read(*,*) 
 read(*,*) Nshell
-allocate(shell_n(Nshell),shell_l(Nshell),shell_occ(Nshell))
+allocate(shell_n(Nshell),shell_l(Nshell),shell_occ(Nshell),norm_arr(Nshell))
 read(*,*)
 do ish=1,Nshell
   read(*,*) shell_n(ish), shell_l(ish), shell_occ(ish)
@@ -272,7 +272,8 @@ do iscl=1,maxscl
 enddo
 
 elseif(version.eq.3) then
-allocate(vx_phi(Ngrid,Nshell),vx_phi1(Ngrid,Nshell),vx_psidot(Ngrid,Nshell),psidot(Ngrid,Nshell))
+allocate(vx_phi(Ngrid,Nshell),vx_phi1(Ngrid,Nshell),vx_psidot(Ngrid,Nshell),psidot(Ngrid,Nshell)&
+        ,psi_non_norm(Ngrid,Nshell))
 vx_phi=0d0*vx_phi
 vx_psidot=0d0*vx_psidot
 write(*,*)"********** version 3 *************"
@@ -284,59 +285,58 @@ do iscl=1,maxscl
 ! Diagonalize via the shooting method
 
 
-  call diashoot2(Ngrid,r,Z,vfull,il-1,count_l(il),il_icl,Nshell,vx_phi,vx_psidot,psidot,eig,psi)
+  call diashoot2(Ngrid,r,Z,vfull,il-1,count_l(il),il_icl,Nshell,vx_phi,vx_psidot,psidot,psi_eig,psi)
 
-
-  do ish=1,Nshell
-!    do jsh=1,Nshell 
-!      
-!    enddo
-  vx_phi1(:,ish)=psi(:,ish)
-  enddo
 
 
 ! Normalize WFs
     do icl=1,count_l(il)
       il_icl=il_icl+1
-      psi_eig(il_icl)=eig(icl)
-   call integ_sph_s38_value(Ngrid,r,psi(:,il_icl)**2d0,norm)
-   write(*,*)"NORM=",norm
-  if (il_icl.eq.2) then
-    open(11,file='norm.out',status='old', access='append')
-    write(11,*)il_icl, norm, "v",version
-    close(11)
-  endif
+      psi_non_norm(:,il_icl)=psi(:,il_icl)
+      call integ_sph_s38_value(Ngrid,r,psi(:,il_icl)**2d0,norm)
+      norm_arr(il_icl)=norm
+      write(*,*)"NORM=",norm
+      if (il_icl.eq.2) then
+        open(11,file='norm.out',status='old', access='append')
+        write(11,*)il_icl, norm, "v",version
+        close(11)
+      endif
 
-   psi(:,il_icl)=psi(:,il_icl)*norm**(-0.5d0)
+      psi(:,il_icl)=psi(:,il_icl)*norm**(-0.5d0)
 
-  !write 3 wave functions to file 
-!  write (filename, "(A5,I1)") "wf/wf_", iscl
-!  print *, trim(filename)
-!  open(11,file=filename,status='replace')
-!  write(11,*)"r psi1 psi2, psi3"
-!   do i = 1,Ngrid 
-!     write(11,*)r(i),psi(i,1),psi(i,2),psi(i,3)
-!   end do
-!   close(11)
 
 #ifdef debug
-  norm=0
-  do ir=1,Ngrid-1
-    hh=r(ir+1)-r(ir)
-    norm=norm+psi(ir,il_icl)**2d0*r(ir)**2d0*hh
-  enddo
-  write(*,*)"PSI l=",il-1," icl=",icl," il_cl=",il_icl," normalised to:",norm,&
+!  norm=0
+!  do ir=1,Ngrid-1
+!    hh=r(ir+1)-r(ir)
+!    norm=norm+psi(ir,il_icl)**2d0*r(ir)**2d0*hh
+!  enddo
+  write(*,*)"PSI l=",il-1," icl=",icl," il_cl=",il_icl," norm:",norm,&
             "eig:",psi_eig(il_icl)," occ:",shell_occ(il_icl)
 
 #endif
     enddo
   enddo
 
+  !write 3 wave functions to file 
+  write (filename, "(A2,I1)") "Be", iscl
+  print *, trim(filename)
+  open(11,file=filename,status='replace')
+  write(11,*)"r psi1 psi2, psi3"
+   do i = 1,Ngrid
+!     write(11,*)r(i),psi_non_norm(i,1),psi_non_norm(i,2)!,psi_non_norm(i,3)
+   end do
+   close(11)
+
+
+
+
   ! Calculate density
   rho=0d0*rho
   do ish=1,Nshell
      rho=rho+shell_occ(ish)*psi(:,ish)**2d0
   enddo
+
 
   ! Construct the Hartree potential
 
@@ -345,19 +345,34 @@ do iscl=1,maxscl
   vh=ftemp1/r+ftemp2
 
 
-  ! Caulculate vx_phi for every orbital  
-  call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
+!  Caulculate vx_phi for every orbital  
+   call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
+
+
+  !write vh to file 
+!  write (filename, "(A5,I1)") "vbe", iscl
+!  print *, trim(filename)
+!  open(11,file=filename,status='replace')
+!  write(11,*)"r vh"
+!   do i = 1,Ngrid
+!     write(11,*)r(i),vh(i)
+!   end do
+!   close(11)
+
+
+
 !  vxc=-0.5d0*vh !The line that works for He only
   do ish=1,Nshell
-!    do jsh=1,Nshell 
-!      
-!    enddo
-   vx_phi1(:,ish)=vx_phi1(:,ish)*vxc
-   vx_psidot(:,ish)=psidot(:,ish)*vxc
- 
+!   call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psi_non_norm(:,ish),psi,vx_phi1(:,ish))
+!   call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psidot(:,ish),psi,vx_psidot(:,ish))
+
+    vx_phi1(:,ish)=psi_non_norm(:,ish)*vxc
+    vx_psidot(:,ish)=psidot(:,ish)*vxc
+
   enddo
   vx_phi=alpha*vx_phi1+(1d0-alpha)*vx_phi
- 
+  !vx_phi=0d0*vx_phi
+  !vx_psidot=psidot*0d0
 
   ! Caulculate energy
 !Both give practicly the same result for e_ext
@@ -369,7 +384,8 @@ do iscl=1,maxscl
   write(*,*)"e_h=",e_h
   e_x=0d0
   do ish=1,Nshell
-    call integ_sph_s38_value(Ngrid,r,vxc*psi(:,ish)**2d0,e2)
+    !call integ_sph_s38_value(Ngrid,r,vxc*psi(:,ish)**2d0,e2)
+    call integ_sph_s38_value(Ngrid,r,0.5d0*shell_occ(ish)*psi(:,ish)*vx_phi(:,ish)*norm_arr(ish)**(-0.5d0),e2)
     e_x=e_x+e2
   enddo
   write(*,*)"e_x=",e_x
@@ -408,7 +424,7 @@ do iscl=1,maxscl
 enddo
 deallocate(vx_phi)
 
-deallocate(vx_phi1,vx_psidot,psidot)
+deallocate(vx_phi1,vx_psidot,psidot,psi_non_norm)
 endif
 
 
@@ -474,8 +490,9 @@ endif
   
   
   
-deallocate(r,vfull,vh,vxc,exc,eig,psi,rho,shell_n,shell_l,count_l,shell_occ)
+deallocate(r,vfull,vh,vxc,exc,eig,psi,rho,shell_n,shell_l,count_l,shell_occ,norm_arr)
 
-
+call wigner3j(3,3,2,rez)
+write(*,*)rez
 end program
 

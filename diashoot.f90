@@ -51,7 +51,7 @@ do ei=1,num
   
   !Searching_for bisection minimum and maximum
   do i=1,1000 !to avoid deadlock
-    call shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,eigtry_max-eigtry_min,euler)
+    call shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,euler)
     if (try_dir.EQ.-1) then
       eigtry_max_OK=.TRUE. 
       eigtry_max=eigtry
@@ -73,7 +73,7 @@ do ei=1,num
   eminNR=0
   do while((try_dir.NE.0))
     eigtry=(eigtry_max+eigtry_min)/2d0
-    call shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,eigtry_max-eigtry_min,euler)
+    call shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,euler)
     if (try_dir.EQ.-1) then
       eigtry_max=eigtry
     else if (try_dir.EQ.1) then
@@ -81,28 +81,19 @@ do ei=1,num
     endif
    ! write(*,*)"e_max",eigtry_max," eigmin",eigtry_min
 
-    if(((eigtry_max-eigtry_min).LT.1d-9).AND.(emaxNR.eq.0).AND.(eminNR.eq.0)) then !will be prepared to use Newton–Raphson method
+    if(((eigtry_max-eigtry_min).LT.1d-12)) then !will be prepared to use Newton–Raphson method
       
       emaxNR=eigtry_max
       eminNR=eigtry_min
- !     emaxNR=-51.914435599464900d0
- !     eminNR=-51.914435598882800d0
-     ! write(*,*)"Preparing for Newton–Raphson"
-    !for saving time we can put an exit here use Newton–Raphson mathod and remove the next if statement
-!    endif
-    
-!    if((eigtry_max-eigtry_min).LT.1d-13) then
-!      write(*,*)"FAILED to get a solution l=",l," ei=",ei," eigtry=",eigtry,&
-!              " e_max-e_min=",eigtry_max-eigtry_min," psi(Ngrid)=",psi(Ngrid)
 
-      call shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,eminNR,psi0NR,try_dir,.TRUE.,0d0,euler)
+      call shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,eminNR,psi0NR,try_dir,.TRUE.,euler)
 
-      call shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,emaxNR,psi1NR,try_dir,.TRUE.,0d0,euler)
+      call shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,emaxNR,psi1NR,try_dir,.TRUE.,euler)
 !This is the new way to get psidot
-      call getpsidot_euler(Ngrid,r,Z,vfull,l,psi0NR,eminNR,psidot) !
+!      call getpsidot_euler(Ngrid,r,Z,vfull,l,psi0NR,eminNR,psidot) !
       
 !This is the old way to get psidot
-!      psidot=(psi1NR-psi0NR)/(emaxNR-eminNR)
+      psidot=(psi1NR-psi0NR)/(emaxNR-eminNR)
 
       call NR_method(Ngrid,r,ei-1,eminNR,psi0NR,psi1NR,psidot,eigtry,psi)
 
@@ -130,8 +121,8 @@ real(8) :: k1s,k2s,k3s,k4s,k1v,k2v,k3v,k4v,r_interp(4),v_interp(4),vfull_interp,
 
 
 Euler=.false.
-s(1)=0 !boundary condition
-v(1)=0 !it is s'
+s(1)=0d0 !boundary condition
+v(1)=0d0 !it is s'
 
 u=psi0*r
 
@@ -139,7 +130,7 @@ u=psi0*r
 
 
 
-vprime(1)=(2d0*(vfull(1)-Z/r(1))+dble(l)*dble(l+1)*r(1)**(-2d0)-2*e0)*s(1)-2*u(1) 
+vprime(1)=(2d0*(vfull(1)-Z/r(1))+dble(l)*dble(l+1)*r(1)**(-2d0)-2*e0)*s(1)-2d0*u(1) 
 psidot(1)=s(1)/r(1)
 
 do ri=1,Ngrid-1
@@ -149,7 +140,7 @@ if (Euler) then
 !Euler
   s(ri+1)=s(ri)+v(ri)*h
   v(ri+1)=v(ri)+vprime(ri)*h
-  vprime(ri+1)=(2d0*(vfull(ri)-Z/r(ri))+dble(l)*dble(l+1)*r(ri)**(-2d0)-2d0*e0)*s(ri)-2*u(ri)
+  vprime(ri+1)=(2d0*(vfull(ri)-Z/r(ri))+dble(l)*dble(l+1)*r(ri)**(-2d0)-2d0*e0)*s(ri)-2d0*u(ri)
 
 
 else
@@ -171,13 +162,13 @@ else
   call interp(4,r_interp,u_interp,r(ri)+h/2d0,u_interp_rez)  
 
   k1s=v(ri)
-  k1v=(2d0*(vfull(ri)-Z/r(ri))+dble(l)*dble(l+1)*r(ri)**(-2d0)-2d0*e0)*                   s(ri)          -2*u(ri)
+  k1v=(2d0*(vfull(ri)-Z/r(ri))+dble(l)*dble(l+1)*r(ri)**(-2d0)-2d0*e0)*                   s(ri)          -2d0*u(ri)
   k2s=v(ri)+h*k1v/2d0
-  k2v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*e0)*(s(ri)+h*k1s/2)-2*u_interp_rez
+  k2v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*e0)*(s(ri)+h*k1s/2d0)-2d0*u_interp_rez
   k3s=v(ri)+h*k2v/2d0
-  k3v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*e0)*(s(ri)+h*k2s/2)-2*u_interp_rez
+  k3v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*e0)*(s(ri)+h*k2s/2d0)-2d0*u_interp_rez
   k4s=v(ri)+h*k3v
-  k4v=(2d0*(vfull(ri+1)-Z/r(ri+1))+dble(l)*dble(l+1)*(r(ri+1))**(-2d0)-2d0*e0)*           (s(ri)+h*k3s)  -2*u(ri+1)
+  k4v=(2d0*(vfull(ri+1)-Z/r(ri+1))+dble(l)*dble(l+1)*(r(ri+1))**(-2d0)-2d0*e0)*           (s(ri)+h*k3s)  -2d0*u(ri+1)
 
   s(ri+1)=s(ri)+h*(k1s+2d0*k2s+2d0*k3s+k4s)/6d0
   v(ri+1)=v(ri)+h*(k1v+2d0*k2v+2d0*k3v+k4v)/6d0
@@ -242,7 +233,7 @@ do ri=3,Ngrid
   if (nodes_i.eq.nodes) then
     if( ((psi0(ri-1)-psi0(ri-2)).LT.0d0).AND.((psi0(ri)-psi0(ri-1)).GT.0d0).AND.(even_nodes) ) then
       last_ri=ri-1
-      write(*,*)"FOUND LOCAL minimum r(last_ri):",r(last_ri)," psi0(last_ri)=",psi(last_ri),&
+      write(*,*)"FOUND LOCAL minimum r(last_ri):",r(last_ri)," psi0(last_ri)=",psi0(last_ri),&
               "psi0(last_ri+1)=",psi0(last_ri+1),"psi0(last_ri-1)=",psi0(last_ri-1) 
       EXIT
     else if ( ((psi0(ri-1)-psi0(ri-2)).GT.0d0).AND.((psi0(ri)-psi0(ri-1)).LT.0d0).AND.(.not.even_nodes) ) then
@@ -287,7 +278,7 @@ end subroutine
 
 
 
-subroutine shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,finish,bis_range,Euler)
+subroutine shoot_using_Euler(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,finish,Euler)
 implicit none
 
 integer, intent(in) :: Ngrid,l,ei
@@ -298,10 +289,9 @@ real(8), intent(out) :: psi(Ngrid)
 
 real(8) :: junct,ji,u(Ngrid),v(Ngrid),vprime(Ngrid),h,r_interp(4),v_interp(4),vfull_interp
 integer :: ri,i_interp
-real(8) :: bis_range,zerro_effective,minimum_bis_range
+real(8) :: zerro_effective
 real(8) :: k1u,k2u,k3u,k4u,k1v,k2v,k3v,k4v
-zerro_effective=1d-4
-minimum_bis_range=1d-9
+zerro_effective=1d-14
 ! u - Psi*r 
 ! v - du/dr
   
@@ -353,9 +343,9 @@ else
   k1u=v(ri)
   k1v=(2d0*(vfull(ri)-Z/r(ri))+dble(l)*dble(l+1)*r(ri)**(-2d0)-2d0*eigtry)*u(ri)
   k2u=v(ri)+h*k1v/2d0
-  k2v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*eigtry)*(u(ri)+h*k1u/2)
+  k2v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*eigtry)*(u(ri)+h*k1u/2d0)
   k3u=v(ri)+h*k2v/2d0
-  k3v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*eigtry)*(u(ri)+h*k2u/2)
+  k3v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*eigtry)*(u(ri)+h*k2u/2d0)
   k4u=v(ri)+h*k3v
   k4v=(2d0*(vfull(ri+1)-Z/r(ri+1))+dble(l)*dble(l+1)*(r(ri+1))**(-2d0)-2d0*eigtry)*(u(ri)+h*k3u)
   u(ri+1)=u(ri)+h*(k1u+2d0*k2u+2d0*k3u+k4u)/6d0
@@ -399,7 +389,7 @@ close(11)
 if (try_dir.eq.2)  then
         
   if (ji.EQ.junct) then
-    if (((abs(psi(Ngrid)).LT.zerro_effective)).AND.(bis_range.LT.minimum_bis_range)) then    !check if psi(rmax) is close enough to zerro
+    if (abs(psi(Ngrid)).LT.zerro_effective) then    !check if psi(rmax) is close enough to zerro
       try_dir=0
     else
       try_dir=1
@@ -419,7 +409,7 @@ subroutine interp(m,x,y,xp,yp)
 
  integer :: i, j
  real(8) :: sk,sauc
- yp=0
+ yp=0d0
  do i=1,m
    sk=1.0d0
    sauc=1.0d0

@@ -29,13 +29,18 @@ do ish=1, Nshell
     
   
     call wigner3j(l,lpri,lpripri,gc)
-    gc=dble(2*lpri+1)*gc**2d0  !(2*lpri+1) should be replaced with shell_occ 
+    gc=dble(2*lpri+1)*gc**2  !(2*lpri+1) should be replaced with shell_occ 
     
     write(*,*)"(l,l',l'') (",l,",",lpri,",",lpripri,")", " Gaunt_coef=",gc
     if (gc.ne.0d0) then
-      call integ_s38_fun(Ngrid,r,   u_all(:,ish)*u*r**lpripri    ,1,integ1)
+!      call integ_s38_fun(Ngrid,r,   u_all(:,ish)*u*r**lpripri    ,1,integ1)
+      call integ_Bodes6_fun(Ngrid,r,   u_all(:,ish)*u*r**lpripri    ,1,integ1)
+
       integ1=integ1/r**(lpripri+1)
-      call integ_s38_fun(Ngrid,r,   u_all(:,ish)*u/r**(lpripri+1),-1,integ2)
+!      call integ_s38_fun(Ngrid,r,   u_all(:,ish)*u/r**(lpripri+1),-1,integ2)
+      call integ_Bodes6_fun(Ngrid,r,   u_all(:,ish)*u/r**(lpripri+1),-1,integ2)
+      
+
       integ2=integ2*r**lpripri
       integ=integ+gc*u_all(:,ish)*(-integ1-integ2)
     endif

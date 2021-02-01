@@ -6,10 +6,10 @@ real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=0.5d0
 real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:),ftemp1(:),&
         ftemp2(:),vx_phi(:,:),vx_phi1(:,:),vx_psidot(:,:),psidot(:,:),psi_non_norm(:,:),norm_arr(:)
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
-real(8), allocatable :: shell_occ(:),psi_eig(:)
+real(8), allocatable :: shell_occ(:),psi_eig(:),psi_eig_temp(:)
 
 !real(8), parameter :: Rmax = 10d0
-integer, parameter :: maxscl =50 !Maximal itteration number
+integer, parameter :: maxscl =8 !Maximal itteration number
 integer :: ir,il,icl,il_icl,iscl,lmax
 
 real(8) :: Z,rez
@@ -20,7 +20,7 @@ integer :: i,j,countl0, version
 logical :: E_dE_file_exists, file_exists
 character(len=1024) :: filename
 
-dE_min=1d-9
+dE_min=1d-14
 
 
 !read input
@@ -61,7 +61,7 @@ enddo
 
 
 allocate(r(Ngrid),vfull(Ngrid),vh(Ngrid),vxc(Ngrid),exc(Ngrid),eig(Ngrid),rho(Ngrid),vfull1(Ngrid))
-allocate(psi(Ngrid,Nshell),psi_eig(Nshell))
+allocate(psi(Ngrid,Nshell),psi_eig(Nshell),psi_eig_temp(Nshell))
 allocate(ftemp1(Ngrid),ftemp2(Ngrid))
 
 call gengrid(grid,Ngrid,Rmin,Rmax,r)
@@ -70,7 +70,17 @@ hh=r(2)-r(1)
 
 ! Initial guess for potential
 !...
-vfull=0*r !vfull is vh+vxc, core potential -Z/r is used seperatly - version 1 has to be modified
+vfull=0d0*r !vfull is vh+vxc, core potential -Z/r is used seperatly - version 1 has to be modified
+
+  inquire(file='eigval_de.out',EXIST=E_dE_file_exists)
+  if (E_dE_file_exists) then
+     open(11,file='eigval_de.out',status='old', access='append')
+  else
+     open(11,file='eigval_de.out',status='new')
+  endif
+  write(11,*)"eigval de"
+  close(11)
+
 
   inquire(file='norm.out',EXIST=E_dE_file_exists)
   if (E_dE_file_exists) then
@@ -87,9 +97,18 @@ vfull=0*r !vfull is vh+vxc, core potential -Z/r is used seperatly - version 1 ha
   else
      open(11,file='E_dE.out',status='new')
   endif
-  write(11,*)"iter E dE"
+  write(11,*)"iter E dE E_ext E_h E_x eig_sum Z=",Z
+
   close(11)
 
+  inquire(file='results_short.dat',EXIST=file_exists)
+  if (file_exists) then
+     open(11,file='results_short.dat',status='old', access='append')
+  else
+     open(11,file='results_short.dat',status='new')
+     write(11,*)"Z E dE iterations Ngrid Rmax Rmin E_x"
+  endif
+  close(11)
 
 
 if (version.eq.1) then
@@ -267,7 +286,7 @@ do iscl=1,maxscl
           EXIT
   endif
   vfull1=vh+vxc
-  vfull=alpha*vfull1+(1-alpha)*vfull
+  vfull=alpha*vfull1+(1d0-alpha)*vfull
 
 enddo
 
@@ -293,9 +312,9 @@ do iscl=1,maxscl
     do icl=1,count_l(il)
       il_icl=il_icl+1
       psi_non_norm(:,il_icl)=psi(:,il_icl)
-      call integ_sph_s38_value(Ngrid,r,psi(:,il_icl)**2d0,norm)
+      call integ_sph_s38_value(Ngrid,r,psi(:,il_icl)**2,norm)
       norm_arr(il_icl)=norm
-      psi(:,il_icl)=psi(:,il_icl)*norm**(-0.5d0)
+      psi(:,il_icl)=psi(:,il_icl)/dsqrt(norm)
 
 
 #ifdef debug
@@ -327,7 +346,7 @@ do iscl=1,maxscl
   ! Calculate density
   rho=0d0*rho
   do ish=1,Nshell
-     rho=rho+shell_occ(ish)*psi(:,ish)**2d0
+     rho=rho+shell_occ(ish)*psi(:,ish)**2
   enddo
 
 
@@ -373,7 +392,7 @@ do iscl=1,maxscl
  !  close(11)
 
 
-!    vx_phi1(:,ish)=psi_non_norm(:,ish)*vxc
+!   vx_phi1(:,ish)=psi_non_norm(:,ish)*vxc
 !    vx_psidot(:,ish)=psidot(:,ish)*vxc
 
   enddo
@@ -387,12 +406,12 @@ do iscl=1,maxscl
 !  call integ_sph_s38_value(Ngrid,r,-rho*Z/r,e_ext)
 
   write(*,*)"e_ext=",e_ext
-  call integ_sph_s38_value(Ngrid,r,0.5*rho*vh,e_h)
+  call integ_sph_s38_value(Ngrid,r,0.5d0*rho*vh,e_h)
   write(*,*)"e_h=",e_h
   e_x=0d0
   do ish=1,Nshell
     !call integ_sph_s38_value(Ngrid,r,vxc*psi(:,ish)**2d0,e2)
-    call integ_sph_s38_value(Ngrid,r,0.5d0*shell_occ(ish)*psi(:,ish)*vx_phi(:,ish)*norm_arr(ish)**(-0.5d0),e2)
+    call integ_sph_s38_value(Ngrid,r,0.5d0*shell_occ(ish)*psi(:,ish)*vx_phi(:,ish)/dsqrt(norm_arr(ish)),e2)
     e_x=e_x+e2
   enddo
   write(*,*)"e_x=",e_x
@@ -405,21 +424,30 @@ do iscl=1,maxscl
   e_kin=e1-e_ext-2d0*e_h-2d0*e_x
   write(*,*)"e_kin=",e_kin
   e_pot=e_ext+e_h+e_x
+  energy0=energy
 
   write(*,*)"e_pot/e_kin=",e_pot/e_kin, "e_tot=",e_kin+e_pot, " (",iscl,")"
-
-  energy0=energy
-  energy=e_kin+e_pot
-
-  open(11,file='E_dE.out',status='old', access='append')
-  write(11,*)iscl, energy, energy-energy0
-  close(11)
-
+  !LDA LDA LDA energy
   call integ_sph_s38_value(Ngrid,r,-0.5d0*vh*rho,e2)
   call integ_sph_s38_value(Ngrid,r,(exc-vxc)*rho,e3)
-
   Print *,"Result in case of DFT vxc: ",iscl,".iter E=",e1,"+",e2,"+",e3,"=",e1+e2+e3
+!  energy=e1+e2+e3
 
+  !LDA LDA LDA energy
+
+ energy=e_kin+e_pot
+
+  open(11,file='E_dE.out',status='old', access='append')
+  write(11,*)iscl, energy, energy-energy0,e_ext,e_h,e_x,e1
+  close(11)
+
+  open(11,file='eigval_de.out',status='old', access='append')
+  do ish=1,Nshell
+    write(11,*)iscl, psi_eig(ish), psi_eig(ish)-psi_eig_temp(ish), shell_occ(ish)
+  enddo
+  close(11)
+
+  psi_eig_temp=psi_eig
 
   if (abs(energy-energy0).LT.dE_min) then
           EXIT
@@ -461,6 +489,11 @@ endif
 !enddo
 
 !  write results 
+  open(11,file='results_short.dat',status='old', access='append')
+!  write(11,*)"Z E dE iterations Ngrid Rmax Rmin E_x"
+  write(11,*)Z, energy, energy-energy0, iscl-1, Ngrid, Rmax, Rmin, e_x
+  close(11)
+
 
   inquire(file='results.dat',EXIST=file_exists)
   if (file_exists) then
@@ -468,8 +501,8 @@ endif
   else
      open(11,file='results.dat',status='new')
   endif
-  write(11,*)"Z version iterations Ngrid Rmax Grid"
-  write(11,*)Z, version, iscl-1, Ngrid, Rmax, grid
+  write(11,*)"Z E dE iterations Ngrid Rmax Rmin"
+  write(11,*)Z, version, iscl-1, Ngrid, Rmax
   write(11,*)"n l eigval"
   il_icl=0
   do il=1,lmax+1

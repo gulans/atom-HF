@@ -1,12 +1,14 @@
 Z Rmin Rmax Nrad version 
-18d0 1d-6 18d0 10000 3 
+30d0 1d-7 18d0 10000 3 
 Grid 0-equidistant 1-cubic 2-exponential
 1
 Number of shells - 1s 2s 2p 3s
-5
+7
 List of shells: n l occupation
 1 0 2.0d0
 2 0 2.0d0
 3 0 2.0d0
+4 0 2.0d0
 2 1 6.0d0
 3 1 6.0d0
+3 2 10.0d0

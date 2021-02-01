@@ -1,0 +1,23 @@
+Z Rmax Nrad - krypton-
+86d0 1d-7 20d0 10000 3 
+Grid 0-equidistant 1-cubic 2-exponential
+1
+Number of shells - 1s 2s 2p 3s 3p 3d 4s 4p
+15
+List of shells: n l occupation
+1 0 2.0d0
+2 0 2.0d0
+3 0 2.0d0
+4 0 2.0d0
+5 0 2.0d0
+6 0 2.0d0
+2 1 6.0d0
+3 1 6.0d0
+4 1 6.0d0
+5 1 6.0d0
+6 1 6.0d0
+3 2 10.0d0
+4 2 10.0d0
+5 2 10.0d0
+4 3 14.0d0
+

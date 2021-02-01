@@ -12,10 +12,10 @@ real(8) :: x(4),y(4)
 if (dir.eq.1) then
 i=1
 f3=fin(i) !in numerical recepies (4.1.5) every steps f0 is previous steps f3  
-rez(i)=0
+rez(i)=0d0
 
 do i=1,Ngrid-1
-  hh=(r(i+1)-r(i))/3
+  hh=(r(i+1)-r(i))/3d0
   if (i.lt.2) then
     i_interp=1
   else if(i.gt.Ngrid-3) then
@@ -42,10 +42,10 @@ elseif (dir.eq.-1) then
 
 i=Ngrid
 f0=fin(i)
-rez(i)=0
+rez(i)=0d0
 
 do i=Ngrid-1,1,-1
-  hh=(r(i+1)-r(i))/3
+  hh=(r(i+1)-r(i))/3d0
   if (i.lt.2) then
     i_interp=1
   else if(i.gt.Ngrid-3) then

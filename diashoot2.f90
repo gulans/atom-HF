@@ -1,4 +1,4 @@
-subroutine diashoot2(Ngrid,r,Z,vfull,l,num           ,shell0,nummax,vx_phi,vx_psidot,psidot_all,eigval,eigfun)
+subroutine diashoot2(Ngrid,r,Z,vfull,l,num,shell0,nummax,vx_phi,vx_psidot,psidot_all,eigval,eigfun)
         ! Ngrid
         ! r
         ! vfull - potential (v_h)
@@ -57,7 +57,7 @@ do ei=1,num
   
   !Searching_for bisection minimum and maximum
   do i=1,1000 !to avoid deadlock
-    call shoot2(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,eigtry_max-eigtry_min,euler,vx_u)
+    call shoot2(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,euler,vx_u)
     if (try_dir.EQ.-1) then
       eigtry_max_OK=.TRUE. 
       eigtry_max=eigtry
@@ -79,7 +79,7 @@ do ei=1,num
   eminNR=0
   do while((try_dir.NE.0))
     eigtry=(eigtry_max+eigtry_min)/2d0
-    call shoot2(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,eigtry_max-eigtry_min,euler,vx_u)
+    call shoot2(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,euler,vx_u)
     if (try_dir.EQ.-1) then
       eigtry_max=eigtry
     else if (try_dir.EQ.1) then
@@ -87,23 +87,14 @@ do ei=1,num
     endif
    ! write(*,*)"e_max",eigtry_max," eigmin",eigtry_min
 
-    if(((eigtry_max-eigtry_min).LT.1d-9).AND.(emaxNR.eq.0).AND.(eminNR.eq.0)) then !will be prepared to use Newton–Raphson method
+    if((eigtry_max-eigtry_min).LT.1d-12) then
       
       emaxNR=eigtry_max
       eminNR=eigtry_min
- !     emaxNR=-51.914435599464900d0
- !     eminNR=-51.914435598882800d0
-     ! write(*,*)"Preparing for Newton–Raphson"
-    !for saving time we can put an exit here use Newton–Raphson mathod and remove the next if statement
-!    endif
-    
-!    if((eigtry_max-eigtry_min).LT.1d-13) then
-!      write(*,*)"FAILED to get a solution l=",l," ei=",ei," eigtry=",eigtry,&
-!              " e_max-e_min=",eigtry_max-eigtry_min," psi(Ngrid)=",psi(Ngrid)
 
-      call shoot2(Ngrid,r,Z,vfull,l,ei,eminNR,psi0NR,try_dir,.TRUE.,0d0,euler,vx_u)
+      call shoot2(Ngrid,r,Z,vfull,l,ei,eminNR,psi0NR,try_dir,.TRUE.,euler,vx_u)
 
-      call shoot2(Ngrid,r,Z,vfull,l,ei,emaxNR,psi1NR,try_dir,.TRUE.,0d0,euler,vx_u)
+      call shoot2(Ngrid,r,Z,vfull,l,ei,emaxNR,psi1NR,try_dir,.TRUE.,euler,vx_u)
 !This is the new way to get psidot
 !      call getpsidot2(Ngrid,r,Z,vfull,l,psi0NR,eminNR,vx_udot,psidot_temp) !
       
@@ -118,7 +109,7 @@ do ei=1,num
 !   do i = 1,Ngrid 
 !     write(11,*)r(i), psidot_temp(i),psidot(i)
 !   end do
-1   close(11)
+!   close(11)
 
 
 ! psidot=psidot_temp
@@ -126,6 +117,16 @@ do ei=1,num
 
 
       call NR_method(Ngrid,r,ei-1,eminNR,psi0NR,psi1NR,psidot,eigtry,psi)
+ !   write 3 wave functions to file 
+ if (shell.eq.7) then
+  open(11,file='cd_test.dat',status='replace')
+  write(11,*)"r psi0 psi1 psi"
+   do i = 1,Ngrid 
+     write(11,*)r(i), psi0NR(i),psi1NR(i),psi(i)
+   end do
+   close(11)
+   endif
+
 
       EXIT
     endif
@@ -154,8 +155,8 @@ real(8) :: vx_udi(4),vx_udi_rez
 
 
 Euler=.false.
-s(1)=0 !boundary condition
-v(1)=0 !it is s'
+s(1)=0d0 !boundary condition
+v(1)=0d0 !it is s'
 
 u=psi0*r
 
@@ -201,10 +202,10 @@ else
   k1v=(2d0*(vfull(ri)-Z/r(ri))+dble(l)*dble(l+1)*r(ri)**(-2d0)-2d0*e0)*                   s(ri)          &
           -2d0*u(ri)       +2d0*vx_udot(ri)
   k2s=v(ri)+h*k1v/2d0
-  k2v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*e0)*(s(ri)+h*k1s/2)&
+  k2v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*e0)*(s(ri)+h*k1s/2d0)&
           -2d0*u_interp_rez+2d0*vx_udi_rez
   k3s=v(ri)+h*k2v/2d0
-  k3v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*e0)*(s(ri)+h*k2s/2)&
+  k3v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*e0)*(s(ri)+h*k2s/2d0)&
           -2d0*u_interp_rez+2d0*vx_udi_rez
   k4s=v(ri)+h*k3v
   k4v=(2d0*(vfull(ri+1)-Z/r(ri+1))+dble(l)*dble(l+1)*(r(ri+1))**(-2d0)-2d0*e0)*           (s(ri)+h*k3s)  &
@@ -233,7 +234,7 @@ enddo
 end subroutine
 
 
-subroutine shoot2(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,finish,bis_range,Euler,vx_u)
+subroutine shoot2(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,finish,Euler,vx_u)
 implicit none
 
 integer, intent(in) :: Ngrid,l,ei
@@ -244,10 +245,9 @@ real(8), intent(out) :: psi(Ngrid)
 
 real(8) :: junct,ji,u(Ngrid),v(Ngrid),vprime(Ngrid),h,r_interp(4),v_interp(4),vx_u_interp(4),vfull_interp,vx_u_i
 integer :: ri,i_interp
-real(8) :: bis_range,zerro_effective,minimum_bis_range
+real(8) :: zerro_effective,minimum_bis_range
 real(8) :: k1u,k2u,k3u,k4u,k1v,k2v,k3v,k4v
-zerro_effective=1d-4
-minimum_bis_range=1d-9
+zerro_effective=1d-20
 ! u - Psi*r 
 ! v - du/dr
   
@@ -258,7 +258,7 @@ ji=0
 !write(*,*)"junctions=", junct," l=",l," ei=",ei
 u(1)=r(1)**dble(l+1d0)   !boundary condition
 v(1)=dble(l+1)*r(1)**dble(l)
-vprime(1)=(2d0*(vfull(1)-Z/r(1))+dble(l)*dble(l+1)*r(1)**(-2d0)-2d0*eigtry)*u(1)+2*vx_u(1)
+vprime(1)=(2d0*(vfull(1)-Z/r(1))+dble(l)*dble(l+1)*r(1)**(-2d0)-2d0*eigtry)*u(1)+2d0*vx_u(1)
 psi(1)=u(1)/r(1)
 
 !  open(11,file='RK_rez.dat',status='replace')
@@ -272,7 +272,7 @@ if (Euler) then
 !Euler
   u(ri+1)=u(ri)+v(ri)*h
   v(ri+1)=v(ri)+vprime(ri)*h
-  vprime(ri+1)=(2d0*(vfull(ri+1)-Z/r(ri+1))+dble(l)*dble(l+1)*r(ri+1)**(-2d0)-2d0*eigtry)*u(ri+1)+2*vx_u(ri+1)
+  vprime(ri+1)=(2d0*(vfull(ri+1)-Z/r(ri+1))+dble(l)*dble(l+1)*r(ri+1)**(-2d0)-2d0*eigtry)*u(ri+1)+2d0*vx_u(ri+1)
 else
 !RK4
 !interpolation to obtain point vfull(ri+1/2) needed
@@ -302,11 +302,11 @@ else
   k1u=v(ri)
   k1v=(2d0*(vfull(ri)-Z/r(ri))+dble(l)*dble(l+1)*r(ri)**(-2d0)-2d0*eigtry)*u(ri)+2d0*vx_u(ri)
   k2u=v(ri)+h*k1v/2d0
-  k2v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*eigtry)*(u(ri)+h*k1u/2)+2d0*vx_u_i
+  k2v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*eigtry)*(u(ri)+h*k1u/2d0)+2d0*vx_u_i
   k3u=v(ri)+h*k2v/2d0
-  k3v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*eigtry)*(u(ri)+h*k2u/2)+2d0*vx_u_i
+  k3v=(2d0*(vfull_interp-Z/(r(ri)+h/2d0))+dble(l)*dble(l+1)*(r(ri)+h/2d0)**(-2d0)-2d0*eigtry)*(u(ri)+h*k2u/2d0)+2d0*vx_u_i
   k4u=v(ri)+h*k3v
-  k4v=(2d0*(vfull(ri+1)-Z/r(ri+1))+dble(l)*dble(l+1)*(r(ri+1))**(-2d0)-2d0*eigtry)*(u(ri)+h*k3u)+2*vx_u(ri+1)
+  k4v=(2d0*(vfull(ri+1)-Z/r(ri+1))+dble(l)*dble(l+1)*(r(ri+1))**(-2d0)-2d0*eigtry)*(u(ri)+h*k3u)+2d0*vx_u(ri+1)
   u(ri+1)=u(ri)+h*(k1u+2d0*k2u+2d0*k3u+k4u)/6d0
   v(ri+1)=v(ri)+h*(k1v+2d0*k2v+2d0*k3v+k4v)/6d0
 ! End of RK4
@@ -334,7 +334,7 @@ psi(ri+1)=u(ri+1)/r(ri+1)
   endif
 
   !if the wf>1 - then it will not come back to 0
-  if (abs(psi(ri+1)).GT.100d0) then 
+  if (abs(psi(ri+1)).GT.1d0) then 
         try_dir=1 !we have to try larger eigtry 
         if (.not.(finish)) then 
                 EXIT
@@ -348,7 +348,7 @@ close(11)
 if (try_dir.eq.2)  then
         
   if (ji.EQ.junct) then
-    if (((abs(psi(Ngrid)).LT.zerro_effective)).AND.(bis_range.LT.minimum_bis_range)) then    !check if psi(rmax) is close enough to zerro
+    if (abs(psi(Ngrid)).LT.zerro_effective) then    !check if psi(rmax) is close enough to zerro
       try_dir=0
     else
       try_dir=1

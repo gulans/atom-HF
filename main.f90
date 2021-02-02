@@ -9,7 +9,7 @@ integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 real(8), allocatable :: shell_occ(:),psi_eig(:),psi_eig_temp(:)
 
 !real(8), parameter :: Rmax = 10d0
-integer, parameter :: maxscl =8 !Maximal itteration number
+integer, parameter :: maxscl =50 !Maximal itteration number
 integer :: ir,il,icl,il_icl,iscl,lmax
 
 real(8) :: Z,rez
@@ -532,7 +532,5 @@ endif
   
 deallocate(r,vfull,vh,vxc,exc,eig,psi,rho,shell_n,shell_l,count_l,shell_occ,norm_arr)
 
-call wigner3j(3,3,2,rez)
-write(*,*)rez
 end program
 

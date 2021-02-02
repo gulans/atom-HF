@@ -28,10 +28,8 @@ real(8) :: vx_u(Ngrid),vx_udot(Ngrid),psidot_temp(Ngrid)
 logical ::eigtry_max_OK,eigtry_min_OK,euler
 euler=.false.
 ! try_dir: -1 if we have to try smaller eigtry, +1 - larger, 0 - we found the eigenvalue
-
-eigtry=-20d0
-eigtry_step=10d0
-
+!eigtry=-20d0
+eigtry_step=1d0 
 
 !call shoot_using_Euler(Ngrid,r,vfull,0,1,-50.0d0,psi,try_dir,.TRUE.,10.0d0)
 
@@ -47,16 +45,15 @@ do ei=1,num
   eigtry_max_OK=.false.
   eigtry_min_OK=.false.
 
+!  if (ei.NE.1) then
+!   eigtry_min_OK=.TRUE.
+!   eigtry_min=eigval(shell-1)
+!   eigtry=eigval(shell-1)+eigtry_step
+!  endif
+  eigtry=eigval(shell)
 
-  if (ei.NE.1) then
-   eigtry_min_OK=.TRUE.
-   eigtry_min=eigval(shell-1)
-   eigtry=eigval(shell-1)+eigtry_step
-  endif
-
-  
   !Searching_for bisection minimum and maximum
-  do i=1,1000 !to avoid deadlock
+  do i=1,1000000 !to avoid deadlock
     call shoot2(Ngrid,r,Z,vfull,l,ei,eigtry,psi,try_dir,.FALSE.,euler,vx_u)
     if (try_dir.EQ.-1) then
       eigtry_max_OK=.TRUE. 
@@ -118,15 +115,6 @@ do ei=1,num
 
       call NR_method(Ngrid,r,ei-1,eminNR,psi0NR,psi1NR,psidot,eigtry,psi)
  !   write 3 wave functions to file 
- if (shell.eq.7) then
-  open(11,file='cd_test.dat',status='replace')
-  write(11,*)"r psi0 psi1 psi"
-   do i = 1,Ngrid 
-     write(11,*)r(i), psi0NR(i),psi1NR(i),psi(i)
-   end do
-   close(11)
-   endif
-
 
       EXIT
     endif
@@ -139,6 +127,8 @@ do ei=1,num
 !  write(*,*)"ei=",ei," eigval=",eigtry," e_max-e_min=",eigtry_max-eigtry_min," psi(Ngrid)=",psi(Ngrid)
  
 enddo
+
+
 end subroutine
 
 subroutine getpsidot2(Ngrid,r,Z,vfull,l,psi0,e0,vx_udot,psidot) 
@@ -229,6 +219,8 @@ endif
   psidot(ri+1)=s(ri+1)/r(ri+1)
 !  write (*,*)ri,s(ri),v(ri),u(ri),vprime(ri),psidot(ri)
 enddo
+
+
 
 
 end subroutine
@@ -355,8 +347,10 @@ if (try_dir.eq.2)  then
     endif
   endif
 endif
-!write(*,*)"eigtry=",eigtry," ri",ri," try_dir=",try_dir," psi(Ngrid)="&
-!        ,psi(Ngrid)," bis_range: ",bis_range
+
+if ((l.eq.1).and.(ei.eq.2)) then
+  write(*,*)"eigtry=",eigtry, " try_dir=",try_dir
+endif
 
 end subroutine
 

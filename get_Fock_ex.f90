@@ -1,5 +1,3 @@
-!call subroutine get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psi_non_norm(:,ish),psi_all,vx_u)
-
 subroutine get_Fock_ex(Ngrid,r,shell,Nshell,shell_l,psi,psi_all,vx_psi)
 implicit none
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
@@ -23,7 +21,7 @@ integ=0d0*integ
 do ish=1, Nshell
   lpri=shell_l(ish)
 
-  write(*,*)"l'' sum range",abs(l-lpri), l+lpri, "step 2"
+!  write(*,*)"l'' sum range",abs(l-lpri), l+lpri, "step 2"
 
   do lpripri=abs(l-lpri),l+lpri,2
     
@@ -31,7 +29,7 @@ do ish=1, Nshell
     call wigner3j(l,lpri,lpripri,gc)
     gc=dble(2*lpri+1)*gc**2  !(2*lpri+1) should be replaced with shell_occ 
     
-    write(*,*)"(l,l',l'') (",l,",",lpri,",",lpripri,")", " Gaunt_coef=",gc
+!    write(*,*)"(l,l',l'') (",l,",",lpri,",",lpripri,")", " Gaunt_coef=",gc
     if (gc.ne.0d0) then
 !      call integ_s38_fun(Ngrid,r,   u_all(:,ish)*u*r**lpripri    ,1,integ1)
       call integ_Bodes6_fun(Ngrid,r,   u_all(:,ish)*u*r**lpripri    ,1,integ1)

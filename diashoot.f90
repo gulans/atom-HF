@@ -100,7 +100,7 @@ do ei=1,num
       EXIT
     endif
   enddo
-  write(*,*)"try_dir=",try_dir," Psi(Ngrid)=",psi(ngrid)," Bisection range etry_max-etry_min=",eigtry_max-eigtry_min
+!  write(*,*)"try_dir=",try_dir," Psi(Ngrid)=",psi(ngrid)," Bisection range etry_max-etry_min=",eigtry_max-eigtry_min
   eigfun(:,shell)=psi
   eigval(ei)=eigtry
 !  write(*,*)"ei=",ei," eigval=",eigtry," e_max-e_min=",eigtry_max-eigtry_min," psi(Ngrid)=",psi(Ngrid)
@@ -216,10 +216,10 @@ endif
 do ri=3,Ngrid
   if ((psi0(ri)*psi0(ri-1)).LE.0d0) then
      nodes_i=nodes_i+1
-     write(*,*)"node ri=",ri
+     !write(*,*)"node ri=",ri
      if (nodes_i.GT.nodes) then
         last_ri=ri-1 
-        write(*,*)"last_ri=",last_ri," psi(last_ri)=",psi0(last_ri)," psi(last_ri+1)=",psi0(last_ri+1) 
+        !write(*,*)"last_ri=",last_ri," psi(last_ri)=",psi0(last_ri)," psi(last_ri+1)=",psi0(last_ri+1) 
         EXIT
      endif
   endif
@@ -233,20 +233,20 @@ do ri=3,Ngrid
   if (nodes_i.eq.nodes) then
     if( ((psi0(ri-1)-psi0(ri-2)).LT.0d0).AND.((psi0(ri)-psi0(ri-1)).GT.0d0).AND.(even_nodes) ) then
       last_ri=ri-1
-      write(*,*)"FOUND LOCAL minimum r(last_ri):",r(last_ri)," psi0(last_ri)=",psi0(last_ri),&
-              "psi0(last_ri+1)=",psi0(last_ri+1),"psi0(last_ri-1)=",psi0(last_ri-1) 
+      !write(*,*)"FOUND LOCAL minimum r(last_ri):",r(last_ri)," psi0(last_ri)=",psi0(last_ri),&
+      !        "psi0(last_ri+1)=",psi0(last_ri+1),"psi0(last_ri-1)=",psi0(last_ri-1) 
       EXIT
     else if ( ((psi0(ri-1)-psi0(ri-2)).GT.0d0).AND.((psi0(ri)-psi0(ri-1)).LT.0d0).AND.(.not.even_nodes) ) then
       last_ri=ri-1
-      write(*,*)"FOUND LOCAL maximum r(last_ri):",r(last_ri)," psi(last_ri)=",psi0(last_ri),&
-              "psi(last_ri+1)=",psi0(last_ri+1),"psi(last_ri-1)=",psi0(last_ri-1)
+      !write(*,*)"FOUND LOCAL maximum r(last_ri):",r(last_ri)," psi(last_ri)=",psi0(last_ri),&
+       !       "psi(last_ri+1)=",psi0(last_ri+1),"psi(last_ri-1)=",psi0(last_ri-1)
       EXIT
     endif
   endif
 enddo
 if (last_ri.EQ.0) then 
         last_ri=Ngrid
-        write(*,*)"End point seems to be closest to 0 r(last_ri)=",r(last_ri), " psi(Ngrid)=",psi(last_ri)
+        !write(*,*)"End point seems to be closest to 0 r(last_ri)=",r(last_ri), " psi(Ngrid)=",psi(last_ri)
 
 endif
 
@@ -256,21 +256,21 @@ endif
 eig=e0-psi0(last_ri)/psidot(last_ri)
 
 psi=psi0-(psi0(last_ri)/psidot(last_ri))*psidot
-write(*,*)"Eigval from Newton–Raphson=",eig," New i_rmax=",last_ri," psi(i_rmax)=",psi(last_ri) 
+!write(*,*)"Eigval from Newton–Raphson=",eig," New i_rmax=",last_ri," psi(i_rmax)=",psi(last_ri) 
 
 do ri=last_ri+1, Ngrid
   psi(ri)=0d0
 enddo
 
-  !write 3 wave functions to file 
-  if (nodes.eq.1) then
-  open(11,file='psi0_psi1_NR.dat',status='replace')
-  write(11,*)"r psi0 psi1 psi"
-   do i = 1,Ngrid 
-     write(11,*)r(i),psi0(i),psi1(i),psi(i)
-   end do
-   close(11)
-   endif
+!!write 3 wave functions to file 
+!  if (nodes.eq.1) then
+!  open(11,file='psi0_psi1_NR.dat',status='replace')
+!  !write(11,*)"r psi0 psi1 psi"
+!   do i = 1,Ngrid 
+!     !write(11,*)r(i),psi0(i),psi1(i),psi(i)
+!   end do
+!   close(11)
+!   endif
 
 
 

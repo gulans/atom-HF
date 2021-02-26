@@ -4,23 +4,28 @@ implicit none
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=0.5d0
 !integer,parameter :: Ngrid = 500
 real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:),ftemp1(:),&
-        ftemp2(:),vx_phi(:,:),vx_phi1(:,:),vx_psidot(:,:),psidot(:,:),psi_non_norm(:,:),norm_arr(:)
+        ftemp2(:),vx_phi(:,:),vx_phi1(:,:),vx_psidot(:,:),psidot(:,:),psi_non_norm(:,:),norm_arr(:),&
+        vhp(:),vxcp(:)
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 real(8), allocatable :: shell_occ(:),psi_eig(:),psi_eig_temp(:)
-
+real(8), allocatable :: psip(:,:),eigp(:)
 !real(8), parameter :: Rmax = 10d0
 integer, parameter :: maxscl =50 !Maximal itteration number
-integer :: ir,il,icl,il_icl,iscl,lmax
+integer :: ir,il,icl,il_icl,iscl,lmax,l_n,inn
 
 real(8) :: Z,rez
 real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0,e_kin,e_ext,e_h,e_x,e_pot
+real(8) :: e11,e22,e33
 integer :: grid,Ngrid, Nshell, ish
 integer :: i,j,countl0, version
    
 logical :: E_dE_file_exists, file_exists
 character(len=1024) :: filename
 
-dE_min=1d-14
+Real (8)  :: besrez (0:50)
+
+
+dE_min=1d-8
 
 
 !read input
@@ -275,8 +280,12 @@ do iscl=1,maxscl
   call integ_sph_s38_value(Ngrid,r,(exc-vxc)*rho,e3) 
   energy0=energy
   energy=e1+e2+e3
-
-
+!to test Laplaciam subroutine alternative energy calculation for Helium
+  call laplacian(Ngrid,r,psi(:,1),ftemp1)
+  call integ_sph_s38_value(Ngrid,r,2d0*psi(:,1)*(-ftemp1/2d0-psi(:,1)*Z/r),e11)
+  call integ_sph_s38_value(Ngrid,r,(vh/2d0+exc)*rho,e22)
+  write(*,*)"Alternative Energy calculation:",e11,e22,e11+e22
+!end Laplacian test
   open(11,file='E_dE.out',status='old', access='append')
   write(11,*)iscl, energy, energy-energy0
   close(11)
@@ -289,6 +298,19 @@ do iscl=1,maxscl
   vfull=alpha*vfull1+(1d0-alpha)*vfull
 
 enddo
+  open(11,file='charge_potential.dat',status='replace')
+  write(11,*)"r rho vc+vh+vxc"
+   do ir = 1,Ngrid
+     write(11,*)r(ir), rho(ir), vh(ir)+vxc(ir)+Z/r(ir)
+   end do
+   close(11)
+
+  open(11,file='H_wf.dat',status='replace')
+  write(11,*)"r psi"
+   do ir = 1,Ngrid
+     write(11,*)r(ir), psi(ir,1)
+   end do
+   close(11)
 
 elseif(version.eq.3) then
 allocate(vx_phi(Ngrid,Nshell),vx_phi1(Ngrid,Nshell),vx_psidot(Ngrid,Nshell),psidot(Ngrid,Nshell)&
@@ -303,10 +325,7 @@ do iscl=1,maxscl
   do il=1,lmax+1
 ! Diagonalize via the shooting method
 
-
   call diashoot2(Ngrid,r,Z,vfull,il-1,count_l(il),il_icl,Nshell,vx_phi,vx_psidot,psidot,psi_eig,psi)
-
-
 
 ! Normalize WFs
     do icl=1,count_l(il)
@@ -316,34 +335,13 @@ do iscl=1,maxscl
       norm_arr(il_icl)=norm
       psi(:,il_icl)=psi(:,il_icl)/dsqrt(norm)
 
-
 #ifdef debug
-!  norm=0
-!  do ir=1,Ngrid-1
-!    hh=r(ir+1)-r(ir)
-!    norm=norm+psi(ir,il_icl)**2d0*r(ir)**2d0*hh
-!  enddo
   write(*,*)"PSI l=",il-1," icl=",icl," il_cl=",il_icl," norm:",norm,&
             "eig:",psi_eig(il_icl)," occ:",shell_occ(il_icl)
-
 #endif
     enddo
   enddo
-
-  !write 3 wave functions to file 
-!  write (filename, "(A2,I1)") "Be", iscl
-!  print *, trim(filename)
-!  open(11,file=filename,status='replace')
-!  write(11,*)"r psi1 psi2, psi3"
-!   do i = 1,Ngrid
-!     write(11,*)r(i),psi_non_norm(i,1),psi_non_norm(i,2)!,psi_non_norm(i,3)
-!   end do
-!   close(11)
-
-
-
-
-  ! Calculate density
+! Calculate density
   rho=0d0*rho
   do ish=1,Nshell
      rho=rho+shell_occ(ish)*psi(:,ish)**2
@@ -356,55 +354,15 @@ do iscl=1,maxscl
   call integ_s38_fun(Ngrid,r,r*rho,-1,ftemp2)
   vh=ftemp1/r+ftemp2
 
-
-!  Caulculate vx_phi for every orbital  
 !   call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
-
-
-  !write vh to file 
-!  write (filename, "(A5,I1)") "vbe", iscl
-!  print *, trim(filename)
-!  open(11,file=filename,status='replace')
-!  write(11,*)"r vh"
-!   do i = 1,Ngrid
-!     write(11,*)r(i),vh(i)
-!   end do
-!   close(11)
-
-
-
-!  vxc=-0.5d0*vh !The line that works for He only
+!  Caulculate vx_phi for every orbital  
   do ish=1,Nshell
    call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psi_non_norm(:,ish),psi,vx_phi1(:,ish))
-!   call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psidot(:,ish),psi,vx_psidot(:,ish))
-
-
-
-  !write vh to file 
-!  write (filename, "(A8,I1,A1,I1)") "wf/vxpsi", iscl,"_",ish
-!  print *, trim(filename)
-!  open(11,file=filename,status='replace')
-!  write(11,*)"r vx*psi vx_psi", iscl, ish 
-!   do i = 1,Ngrid
-!     write(11,*)r(i),psi_non_norm(i,ish)*vxc(i),vx_phi1(i,ish)
- !    write(11,*)r(i),psidot(i,ish)!*vxc(i),vx_psidot(i,ish)
- !  end do
- !  close(11)
-
-
-!   vx_phi1(:,ish)=psi_non_norm(:,ish)*vxc
-!    vx_psidot(:,ish)=psidot(:,ish)*vxc
-
   enddo
   vx_phi=alpha*vx_phi1+(1d0-alpha)*vx_phi
-  !vx_phi=0d0*vx_phi
-  !vx_psidot=psidot*0d0
 
   ! Caulculate energy
-!Both give practicly the same result for e_ext
-  call get_energy_ext(Ngrid,r,rho,Z,e_ext)
-!  call integ_sph_s38_value(Ngrid,r,-rho*Z/r,e_ext)
-
+  call integ_sph_s38_value(Ngrid,r,-rho*Z/r,e_ext)
   write(*,*)"e_ext=",e_ext
   call integ_sph_s38_value(Ngrid,r,0.5d0*rho*vh,e_h)
   write(*,*)"e_h=",e_h
@@ -415,8 +373,6 @@ do iscl=1,maxscl
     e_x=e_x+e2
   enddo
   write(*,*)"e_x=",e_x
-
-
   e1=0d0
   do ish=1,Nshell
     e1=e1+shell_occ(ish)*psi_eig(ish)
@@ -427,6 +383,8 @@ do iscl=1,maxscl
   energy0=energy
 
   write(*,*)"e_pot/e_kin=",e_pot/e_kin, "e_tot=",e_kin+e_pot, " (",iscl,")"
+
+
   !LDA LDA LDA energy
   call integ_sph_s38_value(Ngrid,r,-0.5d0*vh*rho,e2)
   call integ_sph_s38_value(Ngrid,r,(exc-vxc)*rho,e3)
@@ -447,6 +405,7 @@ do iscl=1,maxscl
   enddo
   close(11)
 
+
   psi_eig_temp=psi_eig
 
   if (abs(energy-energy0).LT.dE_min) then
@@ -457,24 +416,111 @@ do iscl=1,maxscl
   vfull=alpha*vfull1+(1d0-alpha)*vfull
 !  vfull=vfull1
 enddo
+
+
+  open(11,file='H_wf.dat',status='replace')
+  write(11,*)"r psi"
+   do ir = 1,Ngrid
+     write(11,*)r(ir), psi(ir,1)
+   end do
+   close(11)
+
+
 deallocate(vx_phi)
 
 deallocate(vx_phi1,vx_psidot,psidot,psi_non_norm)
-endif
+
+elseif(version.eq.4) then
+
+write(*,*)"Version 4"
+write(*,*)"lmax=",lmax
 
 
 
-
-
-
-! ----- version x3 -------
-! Self-consistency loop
-!do iscl=1,maxscl
-
-! integrate the screened Poisson equation
+! ----- version x4 -------
+! Lippmann–Schwinger iterations and solving screened Poisson equation.
 ! $\left( \nabla^2+ 2\epsilon \right \psi(\mathbf{r}) = v(\mathbf{r}) \psi(\mathbf{r})$
 
-! Normalize WFs
+ 
+ l_n=0
+  do il=1,lmax+1
+    call diashoot(Ngrid,r,Z,vfull,il-1,count_l(il),l_n,Nshell,eig,psi)
+    do inn=1,count_l(il)
+      l_n=l_n+1
+      psi_eig(l_n)=eig(inn)
+      call integ_sph_s38_value(Ngrid,r,psi(:,l_n)**2d0,norm)
+      psi(:,l_n)=psi(:,l_n)/dsqrt(norm)
+      norm_arr(l_n)=dsqrt(norm)
+      write(*,*)"l_n",l_n,"eig=",psi_eig(l_n),"norm=",norm
+#ifdef debug
+      write(*,*)"PSI l=",il-1," n=",inn," l_n=",l_n,&
+            "eig:",psi_eig(l_n)," occ:",shell_occ(l_n)
+#endif
+    enddo
+  enddo
+
+Allocate(psip(Ngrid,Nshell),eigp(Nshell),vhp(Ngrid),vxcp(Ngrid))
+vh=0d0*r
+vxc=0d0*r
+do iscl=1,20
+! Calculate density
+  rho=0d0*rho
+  do ish=1,Nshell
+     rho=rho+shell_occ(ish)*psi(:,ish)**2
+  enddo
+
+vhp=vh
+vxcp=vxc
+! Get exchange potential
+  call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
+! Get Coulomb potential
+  call integ_s38_fun(Ngrid,r,r**2*rho,1,ftemp1)
+  call integ_s38_fun(Ngrid,r,r*rho,-1,ftemp2)
+  vh=ftemp1/r+ftemp2
+
+vh=vh*alpha+(1d0-alpha)*vhp
+vxc=vxc*alpha+(1d0-alpha)*vxcp
+  write(*,*)"EXTERNAL cycle begining:"
+l_n=0
+do il=1,lmax+1
+  do inn=1,count_l(il)
+    l_n=l_n+1
+    write(*,*)"l=",il-1," n=",inn," eig=",psi_eig(l_n)
+  enddo
+enddo
+l_n=0
+
+  do il=1,lmax+1
+    psip=psi
+    eigp=psi_eig
+    call LS_iteration(Ngrid,r,Z,il-1,count_l(il),l_n,Nshell,vxc,vh,psip,eigp,norm_arr,psi,psi_eig)
+    do inn=1,count_l(il)
+       l_n=l_n+1
+    enddo
+
+  enddo
+
+  open(11,file='psi_new.dat',status='replace')
+  write(11,*)"r psi1 psi2 psi3"
+   do ir = 1,Ngrid 
+!     write(11,*)r(ir), psi(ir,1),psi(ir,2),psi(ir,3)
+   end do  
+   close(11)
+
+   enddo
+
+write(*,*)"RESULT::"
+l_n=0
+do il=1,lmax+1
+  do inn=1,count_l(il)
+    l_n=l_n+1
+    write(*,*)"l=",il-1," n=",inn," eig=",psi_eig(l_n)
+  enddo
+enddo
+
+  Deallocate(psip,eigp,vxcp,vhp)
+
+
 
 ! Calculate \epsilon as an expectation value
 
@@ -487,6 +533,9 @@ endif
 ! Davidson method 
 
 !enddo
+
+
+endif
 
 !  write results 
   open(11,file='results_short.dat',status='old', access='append')
@@ -531,6 +580,24 @@ endif
   
   
 deallocate(r,vfull,vh,vxc,exc,eig,psi,rho,shell_n,shell_l,count_l,shell_occ,norm_arr)
+
+
+!e2=10d0
+!i=0
+!j=1
+!
+!do j=2,50  
+!call msbesseli (j, e2, besrez)
+!write(*,*)"lmax",j,"x=",e2,"l=",i,"msbeseli=",besrez(i)
+!enddo
+
+!e2=1.7d-5
+!i=2
+!do j=2,50
+!call msbesseli (j, e2, besrez)
+!write(*,*)"lmax",j,"x=",e2,"l=",i,"msbeseli=",besrez(i)
+!enddo
+
 
 end program
 

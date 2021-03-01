@@ -68,3 +68,103 @@ subroutine msbesseli (lmax, x, il)
       End If
   Return
 End Subroutine
+
+function msta1 ( x, mp )
+  implicit none
+  real (8) :: a0
+  real (8) :: envj
+  real (8) :: f
+  real (8) :: f0
+  real (8) :: f1
+  integer (4) :: it
+  integer (4) :: mp
+  integer (4) :: msta1
+  integer (4) :: n0
+  integer (4) :: n1
+  integer (4) :: nn
+  real (8) :: x
+  a0 = abs ( x )
+  n0 = int ( 1.1D+00 * a0 ) + 1
+  f0 = envj ( n0, a0 ) - mp
+  n1 = n0 + 5
+  f1 = envj ( n1, a0 ) - mp
+  do it = 1, 20       
+    nn = n1 - ( n1 - n0 ) / ( 1.0D+00 - f0 / f1 )                  
+    f = envj ( nn, a0 ) - mp
+    if ( abs ( nn - n1 ) .Lt. 1 ) then
+      exit
+    end if
+    n0 = n1
+    f0 = f1
+    n1 = nn
+    f1 = f
+  end do
+  msta1 = nn
+  return
+end function
+
+function msta2 ( x, n, mp )
+  implicit none
+  real (8) :: a0
+  real (8) :: ejn
+  real (8) :: envj
+  real (8) :: f
+  real (8) :: f0
+  real (8) :: f1
+  real (8) :: hmp
+  integer (4) :: it
+  integer (4) :: mp
+  integer (4) :: msta2
+  integer (4) :: n
+  integer (4) :: n0
+  integer (4) :: n1
+  integer (4) :: nn
+  real (8) :: obj
+  real (8) :: x
+  a0 = abs ( x )
+  hmp = 0.5D+00 * mp
+  ejn = envj ( n, a0 )
+  if ( ejn .Le. hmp ) then
+    obj = mp
+!
+!  Original code:
+!
+!   n0 = int ( 1.1D+00 * a0 )
+!
+!  Updated code:
+!
+    n0 = int ( 1.1D+00 * a0 ) + 1
+  else
+    obj = hmp + ejn
+    n0 = n
+  end if
+  f0 = envj ( n0, a0 ) - obj
+  n1 = n0 + 5
+  f1 = envj ( n1, a0 ) - obj
+  do it = 1, 20
+    nn = n1 - ( n1 - n0 ) / ( 1.0D+00 - f0 / f1 )
+    f = envj ( nn, a0 ) - obj
+    if ( abs ( nn - n1 ) .Lt. 1 ) then
+      exit
+    end if
+    n0 = n1
+    f0 = f1
+    n1 = nn
+    f1 = f
+  end do
+  msta2 = nn + 10
+  return
+end function
+
+function envj ( n, x )
+!
+  implicit none
+  real (8) :: envj
+  integer (4) :: n
+  real (8) :: x
+!
+    envj = 0.5D+00 * log10 ( 6.28D+00 * n ) &
+      - n * log10 ( 1.36D+00 * x / n )
+!
+  return
+end function

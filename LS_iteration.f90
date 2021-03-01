@@ -30,7 +30,7 @@ real(8) :: lambda(nmax),temp1(nmax,nmax),temp2(nmax,nmax)
 real(8) :: f1(Ngrid),f2(Ngrid),f3(Ngrid),lambda_test(nmax,nmax)
 real(8) :: phi(Ngrid,nmax),norm
 integer :: iscl,maxscl,ir
-maxscl=5
+maxscl=10
 
 eig=eig_in
 do iscl=1,maxscl
@@ -66,6 +66,7 @@ do inn=1,nmax
     S(inn,inp)=Snn
     call laplacian(Ngrid,r,psi(:,inp+shell0),f1)
     f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+vxc)*psi(:,inp+shell0)
+!Hydrogen
 !    f2=(0.5d0*dble(l)*dble(l+1)/r**2-1d0/r)*psi(:,inp+shell0)
 
     f3=-0.5d0*f1+f2
@@ -216,35 +217,28 @@ f=-2d0*(-Z/r+vh+vxc)*phi!+2d0*vx_phi
 !l=2
 !!!!!!!!!!!!!!
 
+f11=0d0*r
+f12=0d0*r
+f21=0d0*r
+f22=0d0*r
+!write(*,*)"argument       besi         besk"
 
 do ri=1, Ngrid
-!call Bessel_k(0,dble(lam*r(ri)),besk)
-!call Bessel_i(0,dble(lam*r(ri)),besi)
-!i=l
-!call sph_i(l,i,lam*r(ri),besi)
-!call sph_k(l,i,lam*r(ri),besk)
-
-if (l.lt.2)then
+if((lam*r(ri)).gt.100d0) then
+exit
+endif
 call msbesseli(l,lam*r(ri), besrezi)
-call msbesselk(l,lam*r(ri), besrezk)
+!call msbesselk(l,lam*r(ri), besrezk)
 besi=besrezi(l)
-besk=besrezk(l)
-else
-call msbesseli(32,lam*r(ri), besrezi)
-call msbesselk(32,lam*r(ri), besrezk)
-besi=besrezi(l)
-besk=besrezk(l)
-endif
-
-if (e.lt.-300d0) then
-!  write(*,*)"lam*r=",lam*r(ri),besi,besk
-endif
+!besk=besrezk(l)
+!call besi_simp(l,lam*r(ri),besi)
+call besk_simp(l,lam*r(ri),besk)
 
 f11(ri)=lam*besk
 f12(ri)=besi*f(ri)
 f21(ri)=lam*besi
 f22(ri)=besk*f(ri)
-!write(*,*)lam*r(ri),f11(ri),f12(ri),f21(ri),f22(ri)
+!write(*,*)lam*r(ri),besi, besk
 enddo
 
 call integ_s38_fun(Ngrid,r,f12*r**2,1,int1)
@@ -254,77 +248,17 @@ psi=f11*int1+f21*int2
 
 
 !write(*,*)"r*lam","f11","int1","f21","int2","psi"
-!do ri=1, Ngrid
+
+if (e.lt.-300d0) then
+!if (l.eq.2) then
+!write(*,*)"arguments    ","besk*lam    ","integr1    ","besi*lam    ","integr2    ","psi"
+do ri=1, Ngrid
 !write(*,*)lam*r(ri),f11(ri),int1(ri),f21(ri),int2(ri),psi(ri)
-!enddo
-
-end subroutine
-
-
-
-subroutine solve_sch(Ngrid, r, Z, l, vh, vxc,vx_phi,phi, e, psi)
-
-integer, intent(in) :: Ngrid, l
-real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid),vh(Ngrid),phi(Ngrid),vx_phi(Ngrid)
-real(8), intent(in) :: e
-
-real(8), intent(out) :: psi(Ngrid)
-
-real(8) :: f(Ngrid),u(Ngrid),w(Ngrid),wp(Ngrid)
-real(8) :: r_interp(4),f_interp(4),f_int
-real(8) :: k1u,k2u,k3u,k4u,k1w,k2w,k3w,k4w
-logical :: Euler
-integer :: ri
-write(*,*)"e=",e
-Euler=.false.
-
-f=r*(-Z/r+vh+vxc)*phi!+r*vx_phi
-
-u(1)=r(1)**dble(l+1d0)   !boundary condition
-w(1)=dble(l+1)*r(1)**dble(l)
-wp(1)=2d0*f(1)+(-2d0*e+dble(l)*dble(l+1)/r(1)**2)*u(1)
-psi(1)=u(1)/r(1)
-
-do ri=1,Ngrid-1
-  h=r(ri+1)-r(ri)
-
-if (Euler) then
-!Euler
-  u(ri+1)=u(ri)+w(ri)*h
-  w(ri+1)=w(ri)+wp(ri)*h
-  wp(ri+1)=2d0*f(ri+1)+(-2d0*e+dble(l)*dble(l+1)/r(ri+1)**2)*u(ri+1)
-else
-!RK4
-!interpolation to obtain point f(ri+1/2) needed
-  if (ri.lt.2) then
-  i_interp=1
-  else if(ri.gt.Ngrid-3) then
-  i_interp=Ngrid-3
-  else
-  i_interp=ri-1
-  endif
-
-  r_interp=(/r(i_interp),r(i_interp+1),r(i_interp+2),r(i_interp+3)/)
-  f_interp=(/f(i_interp),f(i_interp+1),f(i_interp+2),f(i_interp+3)/)
-  call interp(4,r_interp,f_interp,r(ri)+h/2d0,f_int)
-
-  k1u=w(ri)
-  k1w=2d0*f(ri)+   (-2d0*e+dble(l)*dble(l+1)/r(ri)**2)*        u(ri)
-  k2u=w(ri)+h*k1w/2d0
-  k2w=2d0*f_int+   (-2d0*e+dble(l)*dble(l+1)/(r(ri)+h/2d0)**2)*(u(ri)+h*k1u/2d0)
-  k3u=w(ri)+h*k2w/2d0
-  k3w=2d0*f_int+   (-2d0*e+dble(l)*dble(l+1)/(r(ri)+h/2d0)**2)*(u(ri)+h*k2u/2d0)
-  k4u=w(ri)+h*k3w
-  k4w=2d0*f(ri+1)+ (-2d0*e+dble(l)*dble(l+1)/r(ri+1)**2)*       (u(ri)+h*k3u)
-  u(ri+1)=u(ri)+h*(k1u+2d0*k2u+2d0*k3u+k4u)/6d0
-  w(ri+1)=w(ri)+h*(k1w+2d0*k2w+2d0*k3w+k4w)/6d0
-! End of RK4
-
-endif
-psi(ri+1)=u(ri+1)/r(ri+1)
-
 enddo
+endif
+
 end subroutine
+
 
 subroutine laplacian(Ngrid,r,f1,upp) 
   IMPLICIT NONE

@@ -1,7 +1,7 @@
 program atomHF
 
 implicit none
-real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=0.5d0
+real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=1d0
 !integer,parameter :: Ngrid = 500
 real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:),ftemp1(:),&
         ftemp2(:),vx_phi(:,:),vx_phi1(:,:),vx_psidot(:,:),psidot(:,:),psi_non_norm(:,:),norm_arr(:),&
@@ -201,11 +201,12 @@ deallocate(H)
 
 
 else if (version.eq.2) then
-        
+vfull=0d0*r       
 write(*,*)"********** version 2 *************"
 ! ----- version 2 -------
 ! Self-consistency loop
 do iscl=1,maxscl
+  psi_eig_temp=psi_eig
   il_icl=0
   do il=1,lmax+1
     ! Diagonalize via the shooting method
@@ -289,6 +290,15 @@ do iscl=1,maxscl
   open(11,file='E_dE.out',status='old', access='append')
   write(11,*)iscl, energy, energy-energy0
   close(11)
+
+
+  open(11,file='eigval_de.out',status='old', access='append')
+  do ish=1,Nshell
+    write(11,*)iscl, psi_eig(ish), psi_eig(ish)-psi_eig_temp(ish), shell_occ(ish)
+  enddo
+  close(11)
+
+
 
   Print *,iscl,".iter E=",e1,"+",e2,"+",e3,"=",energy
   if (abs(energy-energy0).LT.dE_min) then
@@ -582,21 +592,29 @@ endif
 deallocate(r,vfull,vh,vxc,exc,eig,psi,rho,shell_n,shell_l,count_l,shell_occ,norm_arr)
 
 
-!e2=10d0
-!i=0
-!j=1
-!
-!do j=2,50  
-!call msbesseli (j, e2, besrez)
-!write(*,*)"lmax",j,"x=",e2,"l=",i,"msbeseli=",besrez(i)
-!enddo
+e1=0.8d0
+i=0
+j=0
+do i=1,5
+j=2
+e1=dble(i)
+call msbesselk (j, e1,besrez)
+call besk_simp(j,e1,e3)
 
-!e2=1.7d-5
-!i=2
-!do j=2,50
-!call msbesseli (j, e2, besrez)
-!write(*,*)"lmax",j,"x=",e2,"l=",i,"msbeseli=",besrez(i)
-!enddo
+write(*,*)"x=",e1,"l=",j,"msbeselk=",besrez(j)," simple: ",e3
+
+enddo
+
+
+do i=1,5
+j=2
+e1=dble(i)
+call msbesseli (j, e1,besrez)
+call besi_simp(j,e1,e3)
+
+write(*,*)"x=",e1,"l=",j,"msbeseli=",besrez(j)," simple: ",e3
+
+enddo
 
 
 end program

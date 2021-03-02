@@ -7,7 +7,7 @@ real(8), intent(in)  :: psi_all(Ngrid,Nshell),r(Ngrid),psi(Ngrid)
 real(8), intent(out) :: vx_psi(Ngrid)
 
 
-integer :: ish,l,lpri,lpripri
+integer :: ir,ish,l,lpri,lpripri
 real(8) :: gc,u_all(Ngrid,Nshell),u(Ngrid)
 real(8) :: integ1(Ngrid),integ2(Ngrid),integ(Ngrid)
 
@@ -17,7 +17,7 @@ do ish=1, Nshell
   u_all(:,ish)=psi_all(:,ish)*r
 enddo
 l=shell_l(shell)
-integ=0d0*integ
+integ=0d0*r
 do ish=1, Nshell
   lpri=shell_l(ish)
 
@@ -28,7 +28,6 @@ do ish=1, Nshell
   
     call wigner3j(l,lpri,lpripri,gc)
     gc=dble(2*lpri+1)*gc**2  !(2*lpri+1) should be replaced with shell_occ 
-    
 !    write(*,*)"(l,l',l'') (",l,",",lpri,",",lpripri,")", " Gaunt_coef=",gc
     if (gc.ne.0d0) then
 !      call integ_s38_fun(Ngrid,r,   u_all(:,ish)*u*r**lpripri    ,1,integ1)
@@ -44,5 +43,7 @@ do ish=1, Nshell
     endif
   enddo
 enddo
+
 vx_psi=integ/r
+
 end subroutine

@@ -4,7 +4,7 @@ implicit none
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=0.5d0
 !integer,parameter :: Ngrid = 500
 real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:),ftemp1(:),&
-        ftemp2(:),vx_phi(:,:),vx_phi1(:,:),vx_psidot(:,:),psidot(:,:),psi_non_norm(:,:),norm_arr(:),&
+        ftemp2(:),vx_psi(:,:),vx_phi(:,:),vx_phi1(:,:),vx_psidot(:,:),psidot(:,:),psi_non_norm(:,:),norm_arr(:),&
         vhp(:),vxcp(:)
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 real(8), allocatable :: shell_occ(:),psi_eig(:),psi_eig_temp(:)
@@ -469,10 +469,12 @@ write(*,*)"lmax=",lmax
     enddo
   enddo
 
-Allocate(psip(Ngrid,Nshell),eigp(Nshell),vhp(Ngrid),vxcp(Ngrid))
+Allocate(psip(Ngrid,Nshell),vx_psi(Ngrid,Nshell),eigp(Nshell),vhp(Ngrid),vxcp(Ngrid))
 vh=0d0*r
 vxc=0d0*r
-do iscl=1,20
+do iscl=1,100
+
+
 ! Calculate density
   rho=0d0*rho
   do ish=1,Nshell
@@ -483,6 +485,11 @@ vhp=vh
 vxcp=vxc
 ! Get exchange potential
   call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
+  do ish=1,Nshell
+   call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psi(:,ish),psi,vx_psi(:,ish))
+  enddo
+
+  
 ! Get Coulomb potential
   call integ_s38_fun(Ngrid,r,r**2*rho,1,ftemp1)
   call integ_s38_fun(Ngrid,r,r*rho,-1,ftemp2)
@@ -491,6 +498,11 @@ vxcp=vxc
 vh=vh*alpha+(1d0-alpha)*vhp
 vxc=vxc*alpha+(1d0-alpha)*vxcp
   write(*,*)"EXTERNAL cycle begining:"
+!  write(*,*)"r psi1 psi2 psi3"
+   do ir = 1,Ngrid
+!     write(*,*)r(ir), psi(ir,1),psi(ir,2),psi(ir,3)
+   enddo
+
 l_n=0
 do il=1,lmax+1
   do inn=1,count_l(il)
@@ -498,12 +510,70 @@ do il=1,lmax+1
     write(*,*)"l=",il-1," n=",inn," eig=",psi_eig(l_n)
   enddo
 enddo
-l_n=0
 
+
+!Check convergence
+if((maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))).lt.1d-11)then
+        write(*,*)"Arējais ceikls konverģē:"
+        write(*,*)"konverģence absolūtā: ",maxval(abs(psi_eig-eigp))," relatīvā: ",maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))
+
+        exit
+endif
+
+
+
+
+! Caulculate energy
+  call integ_sph_s38_value(Ngrid,r,-rho*Z/r,e_ext)
+  write(*,*)"e_ext=",e_ext
+  call integ_sph_s38_value(Ngrid,r,0.5d0*rho*vh,e_h)
+  write(*,*)"e_h=",e_h
+  e_x=0d0
+  do ish=1,Nshell
+    !call integ_sph_s38_value(Ngrid,r,vxc*psi(:,ish)**2d0,e2)
+    call integ_sph_s38_value(Ngrid,r,0.5d0*shell_occ(ish)*psi(:,ish)*vx_psi(:,ish),e2)
+    e_x=e_x+e2
+  enddo
+  write(*,*)"e_x=",e_x
+  e1=0d0
+  do ish=1,Nshell
+    e1=e1+shell_occ(ish)*psi_eig(ish)
+  enddo
+  e_kin=e1-e_ext-2d0*e_h-2d0*e_x
+  write(*,*)"e_kin=",e_kin
+  e_pot=e_ext+e_h+e_x
+  energy0=energy
+
+  write(*,*)"e_pot/e_kin=",e_pot/e_kin, "e_tot=",e_kin+e_pot, " (",iscl,")"
+
+
+  !LDA LDA LDA energy
+  call integ_sph_s38_value(Ngrid,r,-0.5d0*vh*rho,e2)
+  call integ_sph_s38_value(Ngrid,r,(exc-vxc)*rho,e3)
+  Print *,"Result in case of DFT vxc: ",iscl,".iter E=",e1,"+",e2,"+",e3,"=",e1+e2+e3
+!  energy=e1+e2+e3
+
+  !LDA LDA LDA energy
+
+ energy=e_kin+e_pot
+
+  open(11,file='E_dE.out',status='old', access='append')
+  write(11,*)iscl, energy, energy-energy0,e_ext,e_h,e_x,e1
+  close(11)
+
+  open(11,file='eigval_de.out',status='old', access='append')
+  do ish=1,Nshell
+    write(11,*)iscl, psi_eig(ish), psi_eig(ish)-eigp(ish), shell_occ(ish)
+  enddo
+  close(11)
+
+!END Caulculate energy
+
+l_n=0
   do il=1,lmax+1
     psip=psi
     eigp=psi_eig
-    call LS_iteration(Ngrid,r,Z,il-1,count_l(il),l_n,Nshell,vxc,vh,psip,eigp,norm_arr,psi,psi_eig)
+    call LS_iteration(Ngrid,r,Z,il-1,shell_l,count_l(il),l_n,Nshell,vxc,vh,vx_psi,psip,eigp,norm_arr,psi,psi_eig)
     do inn=1,count_l(il)
        l_n=l_n+1
     enddo
@@ -517,6 +587,7 @@ l_n=0
    end do  
    close(11)
 
+
    enddo
 
 write(*,*)"RESULT::"
@@ -528,7 +599,7 @@ do il=1,lmax+1
   enddo
 enddo
 
-  Deallocate(psip,eigp,vxcp,vhp)
+  Deallocate(vx_psi,psip,eigp,vxcp,vhp)
 
 
 

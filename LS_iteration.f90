@@ -1,4 +1,4 @@
-subroutine LS_iteration(Ngrid, r, Z, l, nmax, shell0, Nshell, vxc, vh, psi_in, eig_in,norm_arr,psi,eig)
+subroutine LS_iteration(Ngrid, r, Z,l, shell_l, nmax, shell0, Nshell, vxc, vh,vx_psi, psi_in, eig_in,norm_arr,psi,eig)
         ! Ngrid
         ! r
         ! vfull - potential (v_n+v_h+v_xc)
@@ -13,36 +13,41 @@ subroutine LS_iteration(Ngrid, r, Z, l, nmax, shell0, Nshell, vxc, vh, psi_in, e
 implicit none
 
 integer, intent(in) :: Ngrid, nmax, shell0, Nshell
-integer, intent(inout) :: l 
+integer, intent(in) :: l, shell_l(Nshell) 
 real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid),vh(Ngrid)
 real(8), intent(in) :: eig_in(Nshell),norm_arr(Nshell)
-real(8), intent(in) :: psi_in(Ngrid,Nshell)
+real(8), intent(in) :: psi_in(Ngrid,Nshell),vx_psi(Ngrid,Nshell)
 
 real(8), intent(out) :: eig(Nshell)
 real(8), intent(out) :: psi(Ngrid,Nshell)
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 integer :: inn,inp,ish,i,j 
-
+real(8) :: vx_chi(Ngrid,Nshell)
 real(8) :: S(nmax,nmax),H(nmax,nmax),Snn,Hnn !Overlap and Hamiltonian matrix
 real(8) :: Sevec(nmax,nmax),Seval(nmax),s12(nmax,nmax),W(nmax,nmax),test(nmax,nmax)
 real(8) :: Winv(nmax,nmax),x(nmax,nmax),xp(nmax,nmax),Hevec(nmax,nmax),Heval(nmax),Hp(nmax,nmax)
 real(8) :: lambda(nmax),temp1(nmax,nmax),temp2(nmax,nmax)
 real(8) :: f1(Ngrid),f2(Ngrid),f3(Ngrid),f4(Ngrid),lambda_test(nmax,nmax)
-real(8) :: phi(Ngrid,nmax),norm
+real(8) :: phi(Ngrid,nmax),norm,eigp(Nshell)
 integer :: iscl,maxscl,ir
-maxscl=10
+maxscl=20
 
 eig=eig_in
 do iscl=1,maxscl
+if((maxval(abs((eig-eigp)/(eig+1d0)))).lt.1d-11)then
+        write(*,*)"konverģence absolūtā: ",maxval(abs(eig-eigp))," relatīvā: ",maxval(abs((eig-eigp)/(eig+1d0)))
 
-
+        exit
+endif
 do inn=1,nmax
   ish=shell0+inn
 !  write(*,*)"SOLVING", ish
-  call scrPoisson(Ngrid, r, Z, l, vh, vxc,psi_in(:,ish)*0d0,psi_in(:,ish)*norm_arr(ish), eig(ish), psi(:,ish))
+  call scrPoisson(Ngrid, r, Z, l, vh, vxc,vx_psi(:,ish),psi_in(:,ish), eig(ish), psi(:,ish))
   
   call integ_sph_s38_value(Ngrid,r,psi(:,ish)**2,norm)
+  psi(:,ish)=psi(:,ish)/dsqrt(norm)
 !  write(*,*)"shell",ish,"norm=",norm
+
 enddo
   open(11,file='psi_base.dat',status='replace')
   write(11,*)"r psi1 psi2 psi3"
@@ -60,6 +65,15 @@ enddo
    close(11)
 
 !Overlap and Hamiltonian matrix
+
+ do inn=1,nmax
+   ish=inn+shell0
+   call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psi(:,ish),psi_in,vx_chi(:,ish))
+!   write(*,*)"vx_chi(",ish,")"
+!   write(*,*)vx_chi(:,ish)
+   enddo
+
+
 do inn=1,nmax
   do inp=1,nmax
     call integ_sph_s38_value(Ngrid,r,psi(:,inn+shell0)*psi(:,inp+shell0),Snn)
@@ -69,8 +83,10 @@ do inn=1,nmax
     call rderivative_lagr3(Ngrid,r,r*psi(:,inp+shell0),f4)
     call rderivative_lagr3(Ngrid,r,f4,f1)
     f1=f1/r
-
-    f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+vxc)*psi(:,inp+shell0)
+!LDA
+!    f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+vxc)*psi(:,inp+shell0)
+!Fock exchange
+    f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh)*psi(:,inp+shell0)+vx_chi(:,inp+shell0)
 !Hydrogen
 !    f2=(0.5d0*dble(l)*dble(l+1)/r**2-1d0/r)*psi(:,inp+shell0)
 
@@ -151,10 +167,12 @@ enddo
 !!STORE WF and eigenvalues
   do inn=1,nmax
   psi(:,inn+shell0)=phi(:,inn)
+  eigp=eig
   eig(inn+shell0)=lambda(inn)
+ 
   call integ_sph_s38_value(Ngrid,r,psi(:,inn+shell0)**2,norm)
 
-  write(*,*)"l=",l," eig(",inn,")=",eig(inn+shell0),"norm=",norm
+  write(*,*)"l=",l," eig(",inn,")=",eig(inn+shell0),"norm=",norm," eigp(",inn,")=",eigp(inn+shell0)
   enddo
 
   open(11,file='psi_wf.dat',status='replace')
@@ -179,7 +197,7 @@ end subroutine
 subroutine scrPoisson(Ngrid, r, Z, l, vh, vxc,vx_phi,phi, e, psi)
 
 integer, intent(in) :: Ngrid
-integer, intent(inout) :: l
+integer, intent(in) :: l
 real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid),vh(Ngrid),phi(Ngrid),vx_phi(Ngrid)
 real(8), intent(inout) :: e
 
@@ -204,8 +222,12 @@ if (e.lt.-600) then
 endif
 
 lam=dsqrt(-2d0*e)
-f=-2d0*(-Z/r+vh+vxc)*phi!+2d0*vx_phi
 
+!LDA
+!f=-2d0*(-Z/r+vh+vxc)*phi!+2d0*vx_phi
+
+!Fock
+f=-2d0*(-Z/r+vh)*phi-2d0*vx_phi
 
 !!! Ūdeņradis 1s
 !lam=1d0
@@ -254,13 +276,13 @@ psi=f11*int1+f21*int2
 
 !write(*,*)"r*lam","f11","int1","f21","int2","psi"
 
-if (e.lt.-300d0) then
+!if (e.lt.-300d0) then
 !if (l.eq.2) then
 !write(*,*)"arguments    ","besk*lam    ","integr1    ","besi*lam    ","integr2    ","psi"
 do ri=1, Ngrid
 !write(*,*)lam*r(ri),f11(ri),int1(ri),f21(ri),int2(ri),psi(ri)
 enddo
-endif
+!endif
 
 end subroutine
 

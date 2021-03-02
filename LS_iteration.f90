@@ -27,7 +27,7 @@ real(8) :: S(nmax,nmax),H(nmax,nmax),Snn,Hnn !Overlap and Hamiltonian matrix
 real(8) :: Sevec(nmax,nmax),Seval(nmax),s12(nmax,nmax),W(nmax,nmax),test(nmax,nmax)
 real(8) :: Winv(nmax,nmax),x(nmax,nmax),xp(nmax,nmax),Hevec(nmax,nmax),Heval(nmax),Hp(nmax,nmax)
 real(8) :: lambda(nmax),temp1(nmax,nmax),temp2(nmax,nmax)
-real(8) :: f1(Ngrid),f2(Ngrid),f3(Ngrid),lambda_test(nmax,nmax)
+real(8) :: f1(Ngrid),f2(Ngrid),f3(Ngrid),f4(Ngrid),lambda_test(nmax,nmax)
 real(8) :: phi(Ngrid,nmax),norm
 integer :: iscl,maxscl,ir
 maxscl=10
@@ -64,7 +64,12 @@ do inn=1,nmax
   do inp=1,nmax
     call integ_sph_s38_value(Ngrid,r,psi(:,inn+shell0)*psi(:,inp+shell0),Snn)
     S(inn,inp)=Snn
-    call laplacian(Ngrid,r,psi(:,inp+shell0),f1)
+!    call laplacian(Ngrid,r,psi(:,inp+shell0),f1)
+
+    call rderivative_lagr3(Ngrid,r,r*psi(:,inp+shell0),f4)
+    call rderivative_lagr3(Ngrid,r,f4,f1)
+    f1=f1/r
+
     f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+vxc)*psi(:,inp+shell0)
 !Hydrogen
 !    f2=(0.5d0*dble(l)*dble(l+1)/r**2-1d0/r)*psi(:,inp+shell0)

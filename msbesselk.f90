@@ -53,7 +53,8 @@ Subroutine msbesselk (lmax, x, kl)
          k0 = kl (0)
          k1 = kl (1)
          Do l = 2, lmax
-            kt = k0 + (dble (2*l+1) * xi * k1)
+!            kt = k0 + (dble (2*l+1) * xi * k1)
+           kt = k0 + (dble (2*l-1) * xi * k1)
             k0 = k1
             k1 = kt
             kl (l) = k1

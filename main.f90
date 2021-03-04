@@ -463,8 +463,8 @@ write(*,*)"lmax=",lmax
       norm_arr(l_n)=dsqrt(norm)
       write(*,*)"l_n",l_n,"eig=",psi_eig(l_n),"norm=",norm
 #ifdef debug
-      write(*,*)"PSI l=",il-1," n=",inn," l_n=",l_n,&
-            "eig:",psi_eig(l_n)," occ:",shell_occ(l_n)
+!      write(*,*)"PSI l=",il-1," n=",inn," l_n=",l_n,&
+!            "eig:",psi_eig(l_n)," occ:",shell_occ(l_n)
 #endif
     enddo
   enddo
@@ -472,7 +472,7 @@ write(*,*)"lmax=",lmax
 Allocate(psip(Ngrid,Nshell),vx_psi(Ngrid,Nshell),eigp(Nshell),vhp(Ngrid),vxcp(Ngrid))
 vh=0d0*r
 vxc=0d0*r
-do iscl=1,100
+do iscl=1,400
 
 
 ! Calculate density
@@ -507,13 +507,15 @@ l_n=0
 do il=1,lmax+1
   do inn=1,count_l(il)
     l_n=l_n+1
-    write(*,*)"l=",il-1," n=",inn," eig=",psi_eig(l_n)
+!    write(*,*)"l=",il-1," n=",inn," eig=",psi_eig(l_n)
   enddo
 enddo
 
 
 !Check convergence
-if((maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))).lt.1d-11)then
+
+write(*,*)"External psi_eig-eigp: ",psi_eig-eigp
+if((maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))).lt.1d-13)then
         write(*,*)"Arējais ceikls konverģē:"
         write(*,*)"konverģence absolūtā: ",maxval(abs(psi_eig-eigp))," relatīvā: ",maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))
 
@@ -570,10 +572,17 @@ endif
 !END Caulculate energy
 
 l_n=0
+ psip=psi
+ eigp=psi_eig
+
   do il=1,lmax+1
-    psip=psi
-    eigp=psi_eig
-    call LS_iteration(Ngrid,r,Z,il-1,shell_l,count_l(il),l_n,Nshell,vxc,vh,vx_psi,psip,eigp,norm_arr,psi,psi_eig)
+    call LS_iteration(Ngrid,r,Z,il-1,shell_l,count_l(il),l_n,Nshell,vxc,vh,vx_psi,psip,norm_arr,psi,psi_eig)
+
+
+write(*,*)"psi_eig: ",psi_eig
+write(*,*)"eigp: ",eigp
+
+
     do inn=1,count_l(il)
        l_n=l_n+1
     enddo
@@ -620,8 +629,8 @@ endif
 
 !  write results 
   open(11,file='results_short.dat',status='old', access='append')
-!  write(11,*)"Z E dE iterations Ngrid Rmax Rmin E_x"
-  write(11,*)Z, energy, energy-energy0, iscl-1, Ngrid, Rmax, Rmin, e_x
+!  write(11,*)"Z E dE iterations Ngrid Rmax Rmin E_x, e_pot/e_kin, e_homo"
+  write(11,*)Z, energy, energy-energy0, iscl-1, Ngrid, Rmax, Rmin, e_x, e_pot/e_kin, maxval(psi_eig) 
   close(11)
 
 

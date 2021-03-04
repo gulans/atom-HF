@@ -1,4 +1,4 @@
-subroutine LS_iteration(Ngrid, r, Z,l, shell_l, nmax, shell0, Nshell, vxc, vh,vx_psi, psi_in, eig_in,norm_arr,psi,eig)
+subroutine LS_iteration(Ngrid, r, Z,l, shell_l, nmax, shell0, Nshell, vxc, vh,vx_psi, psi_in,norm_arr,psi,eig)
         ! Ngrid
         ! r
         ! vfull - potential (v_n+v_h+v_xc)
@@ -15,10 +15,10 @@ implicit none
 integer, intent(in) :: Ngrid, nmax, shell0, Nshell
 integer, intent(in) :: l, shell_l(Nshell) 
 real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid),vh(Ngrid)
-real(8), intent(in) :: eig_in(Nshell),norm_arr(Nshell)
+real(8), intent(in) :: norm_arr(Nshell)
 real(8), intent(in) :: psi_in(Ngrid,Nshell),vx_psi(Ngrid,Nshell)
 
-real(8), intent(out) :: eig(Nshell)
+real(8), intent(inout) :: eig(Nshell)
 real(8), intent(out) :: psi(Ngrid,Nshell)
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 integer :: inn,inp,ish,i,j 
@@ -32,9 +32,10 @@ real(8) :: phi(Ngrid,nmax),norm,eigp(Nshell)
 integer :: iscl,maxscl,ir
 maxscl=20
 
-eig=eig_in
 do iscl=1,maxscl
-if((maxval(abs((eig-eigp)/(eig+1d0)))).lt.1d-11)then
+
+write(*,*)iscl,". eig-eigp: ",eig-eigp
+if((maxval(abs((eig-eigp)/(eig+1d0)))).lt.1d-13)then
         write(*,*)"konverģence absolūtā: ",maxval(abs(eig-eigp))," relatīvā: ",maxval(abs((eig-eigp)/(eig+1d0)))
 
         exit
@@ -49,20 +50,20 @@ do inn=1,nmax
 !  write(*,*)"shell",ish,"norm=",norm
 
 enddo
-  open(11,file='psi_base.dat',status='replace')
-  write(11,*)"r psi1 psi2 psi3"
-   do ir = 1,Ngrid
-      if ((Z.lt.2.5).and.(Z.gt.0.5)) then
-      write(11,*)r(ir),psi(ir,1)
-      elseif ((Z.lt.4.5).and.(Z.gt.3.5)) then
-      write(11,*)r(ir),psi(ir,1),psi(ir,2)
-      elseif ((Z.lt.10.5).and.(Z.gt.9.5)) then
-      write(11,*)r(ir),psi(ir,1),psi(ir,2),psi(ir,3)     
-      else
-      write(11,*)r(ir),psi(ir,1)
-      endif
-   end do
-   close(11)
+!  open(11,file='psi_base.dat',status='replace')
+!  write(11,*)"r psi1 psi2 psi3"
+!   do ir = 1,Ngrid
+!      if ((Z.lt.2.5).and.(Z.gt.0.5)) then
+!      write(11,*)r(ir),psi(ir,1)
+!      elseif ((Z.lt.4.5).and.(Z.gt.3.5)) then
+!      write(11,*)r(ir),psi(ir,1),psi(ir,2)
+!      elseif ((Z.lt.10.5).and.(Z.gt.9.5)) then
+!      write(11,*)r(ir),psi(ir,1),psi(ir,2),psi(ir,3)     
+!      else
+!      write(11,*)r(ir),psi(ir,1)
+!      endif
+!   end do
+!   close(11)
 
 !Overlap and Hamiltonian matrix
 
@@ -165,9 +166,11 @@ do inn=1,nmax
   enddo 
 enddo
 !!STORE WF and eigenvalues
-  do inn=1,nmax
-  psi(:,inn+shell0)=phi(:,inn)
+
   eigp=eig
+
+do inn=1,nmax
+  psi(:,inn+shell0)=phi(:,inn)
   eig(inn+shell0)=lambda(inn)
  
   call integ_sph_s38_value(Ngrid,r,psi(:,inn+shell0)**2,norm)
@@ -175,18 +178,18 @@ enddo
   write(*,*)"l=",l," eig(",inn,")=",eig(inn+shell0),"norm=",norm," eigp(",inn,")=",eigp(inn+shell0)
   enddo
 
-  open(11,file='psi_wf.dat',status='replace')
-  write(11,*)"r psi1 psi2 psi3"
-   do ir = 1,Ngrid
-      if ((Z.lt.2.5).and.(Z.gt.0.5)) then
-      write(11,*)r(ir),psi(ir,1)
-      elseif ((Z.lt.4.5).and.(Z.gt.3.5)) then
-      write(11,*)r(ir),psi(ir,1),psi(ir,2)
-      elseif ((Z.lt.10.5).and.(Z.gt.9.5)) then
-      write(11,*)r(ir),psi(ir,1),psi(ir,2),psi(ir,3)  
-      endif
-   end do
-   close(11)
+!  open(11,file='psi_wf.dat',status='replace')
+!  write(11,*)"r psi1 psi2 psi3"
+!   do ir = 1,Ngrid
+!      if ((Z.lt.2.5).and.(Z.gt.0.5)) then
+!      write(11,*)r(ir),psi(ir,1)
+!      elseif ((Z.lt.4.5).and.(Z.gt.3.5)) then
+!      write(11,*)r(ir),psi(ir,1),psi(ir,2)
+!      elseif ((Z.lt.10.5).and.(Z.gt.9.5)) then
+!      write(11,*)r(ir),psi(ir,1),psi(ir,2),psi(ir,3)  
+!      endif
+!   end do
+!   close(11)
 
 
 
@@ -215,10 +218,6 @@ real(8) :: besi,besk
 if (e.gt.0) then
         write(*,*)"scrPoisson Error: positive eigenvalue!"
         e=-1d-3
-endif
-if (e.lt.-600) then
-        write(*,*)"scrPoisson Error:  e<-600!"
-        e=-600d0
 endif
 
 lam=dsqrt(-2d0*e)
@@ -255,11 +254,11 @@ if((lam*r(ri)).gt.100d0) then
 exit
 endif
 call msbesseli(l,lam*r(ri), besrezi)
-!call msbesselk(l,lam*r(ri), besrezk)
+call msbesselk(l,lam*r(ri), besrezk)
 besi=besrezi(l)
-!besk=besrezk(l)
+besk=besrezk(l)
 !call besi_simp(l,lam*r(ri),besi)
-call besk_simp(l,lam*r(ri),besk)
+!call besk_simp(l,lam*r(ri),besk)
 
 f11(ri)=lam*besk
 f12(ri)=besi*f(ri)

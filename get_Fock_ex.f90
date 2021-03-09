@@ -1,6 +1,8 @@
-subroutine get_Fock_ex(Ngrid,r,shell,Nshell,shell_l,psi,psi_all,vx_psi)
+subroutine get_Fock_ex(Ngrid,r,tools,tools_info,shell,Nshell,shell_l,psi,psi_all,vx_psi)
 implicit none
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
+integer, intent(in) :: tools_info(3)
+real(8), intent(in) :: tools(Ngrid,tools_info(1))
 
 integer, intent(in)  :: Nshell,Ngrid,shell,shell_l(Nshell)
 real(8), intent(in)  :: psi_all(Ngrid,Nshell),r(Ngrid),psi(Ngrid)
@@ -31,12 +33,14 @@ do ish=1, Nshell
 !    write(*,*)"(l,l',l'') (",l,",",lpri,",",lpripri,")", " Gaunt_coef=",gc
     if (gc.ne.0d0) then
 !      call integ_s38_fun(Ngrid,r,   u_all(:,ish)*u*r**lpripri    ,1,integ1)
-      call integ_Bodes6_fun(Ngrid,r,   u_all(:,ish)*u*r**lpripri    ,1,integ1)
+!      call integ_Bodes6_fun(Ngrid,r,   u_all(:,ish)*u*r**lpripri    ,1,integ1)
+     call integ_BodesN_fun(Ngrid,r, tools, tools_info,1,  u_all(:,ish)*u*r**lpripri    ,integ1)
 
       integ1=integ1/r**(lpripri+1)
 !      call integ_s38_fun(Ngrid,r,   u_all(:,ish)*u/r**(lpripri+1),-1,integ2)
-      call integ_Bodes6_fun(Ngrid,r,   u_all(:,ish)*u/r**(lpripri+1),-1,integ2)
-      
+!      call integ_Bodes6_fun(Ngrid,r,   u_all(:,ish)*u/r**(lpripri+1),-1,integ2)
+      call integ_BodesN_fun(Ngrid,r,tools,tools_info,-1, u_all(:,ish)*u/r**(lpripri+1),integ2)
+
 
       integ2=integ2*r**lpripri
       integ=integ+gc*u_all(:,ish)*(-integ1-integ2)

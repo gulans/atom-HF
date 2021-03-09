@@ -12,18 +12,18 @@ real(8), allocatable :: psip(:,:),eigp(:)
 !real(8), parameter :: Rmax = 10d0
 integer, parameter :: maxscl =50 !Maximal itteration number
 integer :: ir,il,icl,il_icl,iscl,lmax,l_n,inn
-
 real(8) :: Z,rez
 real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0,e_kin,e_ext,e_h,e_x,e_pot
 real(8) :: e11,e22,e33
 integer :: grid,Ngrid, Nshell, ish
-integer :: i,j,countl0, version
+integer :: i,j,countl0, version,tools_info(3)
    
 logical :: E_dE_file_exists, file_exists
 character(len=1024) :: filename
 
 Real (8)  :: besrez (0:50)
 
+real(8), allocatable :: tools(:,:)
 
 dE_min=1d-8
 
@@ -442,6 +442,17 @@ deallocate(vx_phi1,vx_psidot,psidot,psi_non_norm)
 
 elseif(version.eq.4) then
 
+        tools_info=(/40,8,7/)!oriģināli 5,5
+ !info about tools_info array:
+ !tools_info(1) - (2-nd dimenstion size of tools array 1-10 - coefficinets for Lagrange interp,
+ !                11-20 coefficints for (ri+1/4) interpolation, and 21-30 for (ri+2/4), 31-40 for (ri+3/4) 
+ !tools_info(2) - order of intrpolation polynom for Lagrange interpolation when calculating derivative,
+ !tools_info(3) - order for inperolation for integration with Bodes folmula)
+
+Allocate(tools(Ngrid,tools_info(1)))
+call generate_tools(Ngrid,r,tools,tools_info)
+
+
 write(*,*)"Version 4"
 write(*,*)"lmax=",lmax
 
@@ -470,6 +481,8 @@ write(*,*)"lmax=",lmax
   enddo
 
 Allocate(psip(Ngrid,Nshell),vx_psi(Ngrid,Nshell),eigp(Nshell),vhp(Ngrid),vxcp(Ngrid))
+
+
 vh=0d0*r
 vxc=0d0*r
 do iscl=1,400
@@ -486,13 +499,19 @@ vxcp=vxc
 ! Get exchange potential
   call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
   do ish=1,Nshell
-   call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psi(:,ish),psi,vx_psi(:,ish))
+   call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,psi(:,ish),psi,vx_psi(:,ish))
   enddo
 
   
 ! Get Coulomb potential
-  call integ_s38_fun(Ngrid,r,r**2*rho,1,ftemp1)
-  call integ_s38_fun(Ngrid,r,r*rho,-1,ftemp2)
+!  call integ_s38_fun(Ngrid,r,r**2*rho,1,ftemp1)
+!  call integ_s38_fun(Ngrid,r,r*rho,-1,ftemp2)
+!call  integ_Bodes6_fun(Ngrid,r,r**2*rho,1,ftemp1)
+!call  integ_Bodes6_fun(Ngrid,r,r*rho,-1,ftemp2)
+
+call  integ_BodesN_fun(Ngrid,r,tools,tools_info,1,r**2*rho,ftemp1)
+call  integ_BodesN_fun(Ngrid,r,tools,tools_info,-1,r*rho,ftemp2)
+
   vh=ftemp1/r+ftemp2
 
 vh=vh*alpha+(1d0-alpha)*vhp
@@ -515,7 +534,7 @@ enddo
 !Check convergence
 
 write(*,*)"External psi_eig-eigp: ",psi_eig-eigp
-if((maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))).lt.1d-13)then
+if((maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))).lt.1d-10)then !1d-13 bija
         write(*,*)"Arējais ceikls konverģē:"
         write(*,*)"konverģence absolūtā: ",maxval(abs(psi_eig-eigp))," relatīvā: ",maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))
 
@@ -526,14 +545,22 @@ endif
 
 
 ! Caulculate energy
-  call integ_sph_s38_value(Ngrid,r,-rho*Z/r,e_ext)
+  !call integ_sph_s38_value(Ngrid,r,-rho*Z/r,e_ext)
+  !call integ_sph_B6_value(Ngrid,r,-rho*Z/r,e_ext)
+  call integ_BodesN_value(Ngrid,r,tools,tools_info,-r*rho*Z,e_ext)
+
+
   write(*,*)"e_ext=",e_ext
-  call integ_sph_s38_value(Ngrid,r,0.5d0*rho*vh,e_h)
+  !call integ_sph_s38_value(Ngrid,r,0.5d0*rho*vh,e_h)
+  !call integ_sph_B6_value(Ngrid,r,0.5d0*rho*vh,e_h)
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*rho*vh,e_h)
+
   write(*,*)"e_h=",e_h
   e_x=0d0
   do ish=1,Nshell
-    !call integ_sph_s38_value(Ngrid,r,vxc*psi(:,ish)**2d0,e2)
-    call integ_sph_s38_value(Ngrid,r,0.5d0*shell_occ(ish)*psi(:,ish)*vx_psi(:,ish),e2)
+   ! call integ_sph_s38_value(Ngrid,r,0.5d0*shell_occ(ish)*psi(:,ish)*vx_psi(:,ish),e2)
+   !call integ_sph_B6_value(Ngrid,r,0.5d0*shell_occ(ish)*psi(:,ish)*vx_psi(:,ish),e2)
+   call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish)*psi(:,ish)*vx_psi(:,ish),e2)
     e_x=e_x+e2
   enddo
   write(*,*)"e_x=",e_x
@@ -576,7 +603,7 @@ l_n=0
  eigp=psi_eig
 
   do il=1,lmax+1
-    call LS_iteration(Ngrid,r,Z,il-1,shell_l,count_l(il),l_n,Nshell,vxc,vh,vx_psi,psip,norm_arr,psi,psi_eig)
+    call LS_iteration(Ngrid,r,tools,tools_info,Z,il-1,shell_l,count_l(il),l_n,Nshell,vxc,vh,vx_psi,psip,norm_arr,psi,psi_eig)
 
 
 write(*,*)"psi_eig: ",psi_eig
@@ -608,7 +635,8 @@ do il=1,lmax+1
   enddo
 enddo
 
-  Deallocate(vx_psi,psip,eigp,vxcp,vhp)
+  Deallocate(vx_psi,psip,eigp,vxcp,vhp,tools)
+
 
 
 
@@ -665,36 +693,11 @@ endif
   write(11,*)Z, iscl-1, Ngrid, Rmax, grid, energy, energy-energy0
   close(11)
 
-  
-  
+
+
   
   
 deallocate(r,vfull,vh,vxc,exc,eig,psi,rho,shell_n,shell_l,count_l,shell_occ,norm_arr)
-
-
-e1=0.8d0
-i=0
-j=0
-do i=1,5
-j=2
-e1=dble(i)
-call msbesselk (j, e1,besrez)
-call besk_simp(j,e1,e3)
-
-write(*,*)"x=",e1,"l=",j,"msbeselk=",besrez(j)," simple: ",e3
-
-enddo
-
-
-do i=1,5
-j=2
-e1=dble(i)
-call msbesseli (j, e1,besrez)
-call besi_simp(j,e1,e3)
-
-write(*,*)"x=",e1,"l=",j,"msbeseli=",besrez(j)," simple: ",e3
-
-enddo
 
 
 end program

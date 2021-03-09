@@ -63,9 +63,9 @@ do i=Ngrid-1,1,-1
   y=(/fin(i_interp),fin(i_interp+1),fin(i_interp+2),fin(i_interp+3),fin(i_interp+4),fin(i_interp+5)/)
 
   !interpolation is done twice for the same points, for saving time i could create an array to store the results from the first time  
-  call interp(4,x,y,r(i)+hh,fin1)
-  call interp(4,x,y,r(i)+2d0*hh,fin2)
-  call interp(4,x,y,r(i)+3d0*hh,fin3)
+  call interp(6,x,y,r(i)+hh,fin1)
+  call interp(6,x,y,r(i)+2d0*hh,fin2)
+  call interp(6,x,y,r(i)+3d0*hh,fin3)
 
 
   f4=f0 !every iteration f3 is previous iterations f0 (becouse of the oposit intergration direction)  

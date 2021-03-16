@@ -1,4 +1,5 @@
-subroutine LS_iteration(Ngrid, r,tools,tools_info, Z,l, shell_l, nmax, shell0, Nshell, vxc, vh,vx_psi, psi_in,norm_arr,psi,eig)
+subroutine LS_iteration(Ngrid, r,tools,tools_info,version, Z,l, shell_l, nmax,&
+                shell0, Nshell, vxc, vh,vx_psi, psi_in,norm_arr,psi,eig)
         ! Ngrid
         ! r
         ! vfull - potential (v_n+v_h+v_xc)
@@ -11,7 +12,7 @@ subroutine LS_iteration(Ngrid, r,tools,tools_info, Z,l, shell_l, nmax, shell0, N
 
 !--input and output variables--
 implicit none
-integer, intent(in) :: tools_info(3)
+integer, intent(in) :: tools_info(3),version
 real(8), intent(in) :: tools(Ngrid,tools_info(1))
 integer, intent(in) :: Ngrid, nmax, shell0, Nshell
 integer, intent(in) :: l, shell_l(Nshell) 
@@ -36,80 +37,50 @@ maxscl=20
 do iscl=1,maxscl
 
 write(*,*)iscl,". eig-eigp: ",eig-eigp
-if((maxval(abs((eig-eigp)/(eig+1d0)))).lt.1d-10)then !1d-13 bija
+if((maxval(abs((eig-eigp)/(eig+1d0)))).lt.1d-12)then !1d-13 bija
         write(*,*)"konverģence absolūtā: ",maxval(abs(eig-eigp))," relatīvā: ",maxval(abs((eig-eigp)/(eig+1d0)))
 
         exit
 endif
 do inn=1,nmax
   ish=shell0+inn
-!  write(*,*)"SOLVING", ish
-  call scrPoisson(Ngrid, r,tools,tools_info, Z, l, vh, vxc,vx_psi(:,ish),psi_in(:,ish), eig(ish), psi(:,ish))
-  
-!  call integ_sph_s38_value(Ngrid,r,psi(:,ish)**2,norm)
-!  call integ_sph_B6_value(Ngrid,r,psi(:,ish)**2,norm)
+  call scrPoisson(Ngrid, r,tools,tools_info,version, Z, l, vh, vxc,vx_psi(:,ish),psi_in(:,ish), eig(ish), psi(:,ish))
    call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,ish)**2,norm)
-
    psi(:,ish)=psi(:,ish)/dsqrt(norm)
-!  write(*,*)"shell",ish,"norm=",norm
 
 enddo
-!  open(11,file='psi_base.dat',status='replace')
-!  write(11,*)"r psi1 psi2 psi3"
-!   do ir = 1,Ngrid
-!      if ((Z.lt.2.5).and.(Z.gt.0.5)) then
-!      write(11,*)r(ir),psi(ir,1)
-!      elseif ((Z.lt.4.5).and.(Z.gt.3.5)) then
-!      write(11,*)r(ir),psi(ir,1),psi(ir,2)
-!      elseif ((Z.lt.10.5).and.(Z.gt.9.5)) then
-!      write(11,*)r(ir),psi(ir,1),psi(ir,2),psi(ir,3)     
-!      else
-!      write(11,*)r(ir),psi(ir,1)
-!      endif
-!   end do
-!   close(11)
 
 !Overlap and Hamiltonian matrix
-
- do inn=1,nmax
+if (version.eq.4) then
+   do inn=1,nmax
    ish=inn+shell0
    call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,psi(:,ish),psi_in,vx_chi(:,ish))
-!   write(*,*)"vx_chi(",ish,")"
-!   write(*,*)vx_chi(:,ish)
    enddo
-
+endif
 
 do inn=1,nmax
   do inp=1,nmax
-    !call integ_sph_s38_value(Ngrid,r,psi(:,inn+shell0)*psi(:,inp+shell0),Snn)
-    !call integ_sph_B6_value(Ngrid,r,psi(:,inn+shell0)*psi(:,inp+shell0),Snn)
     call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn+shell0)*psi(:,inp+shell0),Snn)
 
 
     S(inn,inp)=Snn
-!    call laplacian(Ngrid,r,psi(:,inp+shell0),f1)
-
-    !call rderivative_lagr5(Ngrid,r,r*psi(:,inp+shell0),f4)
-    !call rderivative_lagr5(Ngrid,r,f4,f1)
     call rderivative_lagrN(Ngrid,r,tools,tools_info,r*psi(:,inp+shell0),f4)
     call rderivative_lagrN(Ngrid,r,tools,tools_info,f4,f1)
-
-    !    call rderivative2_lagr5(Ngrid,r,r*psi(:,inp+shell0),f1)
-
 
     f1=f1/r
     call integ_BodesN_value(Ngrid,r,tools,tools_info,psi(:,inn+shell0)*f3*r**2,Hnn)
 
+if (version.eq.5) then    
 !LDA
-!    f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+vxc)*psi(:,inp+shell0)
+    f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+vxc)*psi(:,inp+shell0)
+else if (version.eq.4) then
 !Fock exchange
     f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh)*psi(:,inp+shell0)+vx_chi(:,inp+shell0)
+endif
 !Hydrogen
 !    f2=(0.5d0*dble(l)*dble(l+1)/r**2-1d0/r)*psi(:,inp+shell0)
 
     f3=-0.5d0*f1+f2
-!    call integ_sph_s38_value(Ngrid,r,psi(:,inn+shell0)*f3,Hnn)
-!    call integ_sph_B6_value(Ngrid,r,psi(:,inn+shell0)*f3,Hnn)
      call integ_BodesN_value(Ngrid,r,tools,tools_info,psi(:,inn+shell0)*f3*r**2,Hnn)
     H(inn,inp)=Hnn
   enddo
@@ -191,8 +162,6 @@ do inn=1,nmax
   psi(:,inn+shell0)=phi(:,inn)
   eig(inn+shell0)=lambda(inn)
  
-!  call integ_sph_s38_value(Ngrid,r,psi(:,inn+shell0)**2,norm)
-!  call integ_sph_B6_value(Ngrid,r,psi(:,inn+shell0)**2,norm)
   call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn+shell0)**2,norm)
 
   write(*,*)"l=",l," eig(",inn,")=",eig(inn+shell0),"norm=",norm," eigp(",inn,")=",eigp(inn+shell0)
@@ -217,9 +186,9 @@ do inn=1,nmax
 enddo
 end subroutine
 
-subroutine scrPoisson(Ngrid, r,tools,tools_info, Z, l, vh, vxc,vx_phi,phi, e, psi)
+subroutine scrPoisson(Ngrid, r,tools,tools_info,version, Z, l, vh, vxc,vx_phi,phi, e, psi)
 
-integer, intent(in) :: tools_info(3)
+integer, intent(in) :: tools_info(3),version
 real(8), intent(in) :: tools(Ngrid,tools_info(1))
 integer, intent(in) :: Ngrid
 integer, intent(in) :: l
@@ -244,12 +213,13 @@ endif
 
 lam=dsqrt(-2d0*e)
 
+if (version.eq.5)then
 !LDA
-!f=-2d0*(-Z/r+vh+vxc)*phi!+2d0*vx_phi
-
+f=-2d0*(-Z/r+vh+vxc)*phi
+else if (version.eq.4)then
 !Fock
 f=-2d0*(-Z/r+vh)*phi-2d0*vx_phi
-
+endif
 !!! Ūdeņradis 1s
 !lam=1d0
 !f=2d0/r*(2d0*dexp(-1d0*r))

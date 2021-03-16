@@ -15,18 +15,18 @@ integer :: ir,il,icl,il_icl,iscl,lmax,l_n,inn
 real(8) :: Z,rez
 real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0,e_kin,e_ext,e_h,e_x,e_pot
 real(8) :: e11,e22,e33
-integer :: grid,Ngrid, Nshell, ish
+integer :: grid,Ngrid, Nshell, ish, d_order,i_order
 integer :: i,j,countl0, version,tools_info(3)
    
 logical :: E_dE_file_exists, file_exists
 character(len=1024) :: filename
 
-Real (8)  :: besrez (0:50)
+Real (8)  :: besrez (0:50),time0,time1
 
 real(8), allocatable :: tools(:,:)
 
 dE_min=1d-8
-
+call timesec(time0)
 
 !read input
 read(*,*) 
@@ -440,9 +440,10 @@ deallocate(vx_phi)
 
 deallocate(vx_phi1,vx_psidot,psidot,psi_non_norm)
 
-elseif(version.eq.4) then
-
-        tools_info=(/40,8,7/)!oriģināli 5,5
+elseif((version.eq.4).or.(version.eq.5)) then
+d_order=8
+i_order=7
+        tools_info=(/40,d_order,i_order/)!optimal 8,7
  !info about tools_info array:
  !tools_info(1) - (2-nd dimenstion size of tools array 1-10 - coefficinets for Lagrange interp,
  !                11-20 coefficints for (ri+1/4) interpolation, and 21-30 for (ri+2/4), 31-40 for (ri+3/4) 
@@ -494,33 +495,30 @@ do iscl=1,400
      rho=rho+shell_occ(ish)*psi(:,ish)**2
   enddo
 
-vhp=vh
-vxcp=vxc
-! Get exchange potential
+if (version.eq.5) then
+  vxcp=vxc
   call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
+  vxc=vxc*alpha+(1d0-alpha)*vxcp
+
+endif
+
+! Get exchange potential
+
+if (version.eq.4) then
   do ish=1,Nshell
    call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,psi(:,ish),psi,vx_psi(:,ish))
   enddo
-
+endif
   
 ! Get Coulomb potential
-!  call integ_s38_fun(Ngrid,r,r**2*rho,1,ftemp1)
-!  call integ_s38_fun(Ngrid,r,r*rho,-1,ftemp2)
-!call  integ_Bodes6_fun(Ngrid,r,r**2*rho,1,ftemp1)
-!call  integ_Bodes6_fun(Ngrid,r,r*rho,-1,ftemp2)
 
 call  integ_BodesN_fun(Ngrid,r,tools,tools_info,1,r**2*rho,ftemp1)
 call  integ_BodesN_fun(Ngrid,r,tools,tools_info,-1,r*rho,ftemp2)
-
-  vh=ftemp1/r+ftemp2
-
+vhp=vh
+vh=ftemp1/r+ftemp2
 vh=vh*alpha+(1d0-alpha)*vhp
-vxc=vxc*alpha+(1d0-alpha)*vxcp
-  write(*,*)"EXTERNAL cycle begining:"
-!  write(*,*)"r psi1 psi2 psi3"
-   do ir = 1,Ngrid
-!     write(*,*)r(ir), psi(ir,1),psi(ir,2),psi(ir,3)
-   enddo
+
+write(*,*)"EXTERNAL cycle begining:"
 
 l_n=0
 do il=1,lmax+1
@@ -534,8 +532,8 @@ enddo
 !Check convergence
 
 write(*,*)"External psi_eig-eigp: ",psi_eig-eigp
-if((maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))).lt.1d-10)then !1d-13 bija
-        write(*,*)"Arējais ceikls konverģē:"
+if((maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))).lt.1d-12)then !1d-13 bija
+        write(*,*)"Arējais cikls konverģē:"
         write(*,*)"konverģence absolūtā: ",maxval(abs(psi_eig-eigp))," relatīvā: ",maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))
 
         exit
@@ -545,46 +543,40 @@ endif
 
 
 ! Caulculate energy
-  !call integ_sph_s38_value(Ngrid,r,-rho*Z/r,e_ext)
-  !call integ_sph_B6_value(Ngrid,r,-rho*Z/r,e_ext)
-  call integ_BodesN_value(Ngrid,r,tools,tools_info,-r*rho*Z,e_ext)
 
-
-  write(*,*)"e_ext=",e_ext
-  !call integ_sph_s38_value(Ngrid,r,0.5d0*rho*vh,e_h)
-  !call integ_sph_B6_value(Ngrid,r,0.5d0*rho*vh,e_h)
-  call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*rho*vh,e_h)
-
-  write(*,*)"e_h=",e_h
-  e_x=0d0
-  do ish=1,Nshell
-   ! call integ_sph_s38_value(Ngrid,r,0.5d0*shell_occ(ish)*psi(:,ish)*vx_psi(:,ish),e2)
-   !call integ_sph_B6_value(Ngrid,r,0.5d0*shell_occ(ish)*psi(:,ish)*vx_psi(:,ish),e2)
-   call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish)*psi(:,ish)*vx_psi(:,ish),e2)
-    e_x=e_x+e2
-  enddo
-  write(*,*)"e_x=",e_x
   e1=0d0
   do ish=1,Nshell
     e1=e1+shell_occ(ish)*psi_eig(ish)
   enddo
+if (version.eq.4)then
+  call integ_BodesN_value(Ngrid,r,tools,tools_info,-r*rho*Z,e_ext)
+  write(*,*)"e_ext=",e_ext
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*rho*vh,e_h)
+  write(*,*)"e_h=",e_h
+  e_x=0d0
+  do ish=1,Nshell
+   call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish)*psi(:,ish)*vx_psi(:,ish),e2)
+    e_x=e_x+e2
+  enddo
+  write(*,*)"e_x=",e_x
   e_kin=e1-e_ext-2d0*e_h-2d0*e_x
   write(*,*)"e_kin=",e_kin
   e_pot=e_ext+e_h+e_x
   energy0=energy
 
   write(*,*)"e_pot/e_kin=",e_pot/e_kin, "e_tot=",e_kin+e_pot, " (",iscl,")"
-
-
+  energy=e_kin+e_pot
+ 
+else if(version.eq.5) then
   !LDA LDA LDA energy
-  call integ_sph_s38_value(Ngrid,r,-0.5d0*vh*rho,e2)
-  call integ_sph_s38_value(Ngrid,r,(exc-vxc)*rho,e3)
+
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,-0.5d0*vh*rho*r**2,e2)
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,(exc-vxc)*rho*r**2,e3)
   Print *,"Result in case of DFT vxc: ",iscl,".iter E=",e1,"+",e2,"+",e3,"=",e1+e2+e3
-!  energy=e1+e2+e3
-
-  !LDA LDA LDA energy
-
- energy=e_kin+e_pot
+  energy0=energy
+  energy=e1+e2+e3
+endif
+!END LDA LDA LDA energy
 
   open(11,file='E_dE.out',status='old', access='append')
   write(11,*)iscl, energy, energy-energy0,e_ext,e_h,e_x,e1
@@ -603,7 +595,8 @@ l_n=0
  eigp=psi_eig
 
   do il=1,lmax+1
-    call LS_iteration(Ngrid,r,tools,tools_info,Z,il-1,shell_l,count_l(il),l_n,Nshell,vxc,vh,vx_psi,psip,norm_arr,psi,psi_eig)
+    call LS_iteration(Ngrid,r,tools,tools_info,version,Z,il-1,shell_l,count_l(il),l_n,&
+            Nshell,vxc,vh,vx_psi,psip,norm_arr,psi,psi_eig)
 
 
 write(*,*)"psi_eig: ",psi_eig
@@ -616,15 +609,11 @@ write(*,*)"eigp: ",eigp
 
   enddo
 
-  open(11,file='psi_new.dat',status='replace')
-  write(11,*)"r psi1 psi2 psi3"
-   do ir = 1,Ngrid 
-!     write(11,*)r(ir), psi(ir,1),psi(ir,2),psi(ir,3)
-   end do  
-   close(11)
 
+enddo
+!End of self consistent loop
 
-   enddo
+call timesec(time1)
 
 write(*,*)"RESULT::"
 l_n=0
@@ -657,8 +646,9 @@ endif
 
 !  write results 
   open(11,file='results_short.dat',status='old', access='append')
-!  write(11,*)"Z E dE iterations Ngrid Rmax Rmin E_x, e_pot/e_kin, e_homo"
-  write(11,*)Z, energy, energy-energy0, iscl-1, Ngrid, Rmax, Rmin, e_x, e_pot/e_kin, maxval(psi_eig) 
+!  write(11,*)"version Z E dE iterations Ngrid Rmax Rmin E_x, e_pot/e_kin, e_homo"
+!  write(11,*)Z, energy, energy-energy0, iscl-1, Ngrid, Rmax, Rmin, e_x, e_pot/e_kin, maxval(psi_eig) 
+  write(11,*)version,",",Z,",",d_order,",",i_order,",",Ngrid,",", Rmin,",", Rmax,",", energy,",", time1-time0
   close(11)
 
 

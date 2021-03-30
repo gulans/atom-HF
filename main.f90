@@ -532,7 +532,7 @@ enddo
 !Check convergence
 
 write(*,*)"External psi_eig-eigp: ",psi_eig-eigp
-if((maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))).lt.1d-12)then !1d-13 bija
+if((maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))).lt.1d-13)then !1d-13 bija
         write(*,*)"Arējais cikls konverģē:"
         write(*,*)"konverģence absolūtā: ",maxval(abs(psi_eig-eigp))," relatīvā: ",maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))
 

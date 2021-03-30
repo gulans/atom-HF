@@ -1,8 +1,9 @@
-Z Rmax Nrad version
-2d0 1d-5 15d0 150 4 
+Z Rmax Nrad - neon
+4 1d-5 22d0 400 4 
 Grid 0-equidistant 1-cubic 2-exponential
 1
 Number of shells - 1s 2s
-1
+2
 List of shells: n l occupation
 1 0 2.0d0
+2 0 2.0d0

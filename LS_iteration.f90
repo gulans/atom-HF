@@ -37,7 +37,7 @@ maxscl=20
 do iscl=1,maxscl
 
 write(*,*)iscl,". eig-eigp: ",eig-eigp
-if((maxval(abs((eig-eigp)/(eig+1d0)))).lt.1d-12)then !1d-13 bija
+if((maxval(abs((eig-eigp)/(eig+1d0)))).lt.1d-13)then !1d-13 bija
         write(*,*)"konverģence absolūtā: ",maxval(abs(eig-eigp))," relatīvā: ",maxval(abs((eig-eigp)/(eig+1d0)))
 
         exit

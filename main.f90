@@ -5,7 +5,7 @@ real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=0.5d0
 !integer,parameter :: Ngrid = 500
 real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:),ftemp1(:),&
         ftemp2(:),vx_psi(:,:),vx_phi(:,:),vx_phi1(:,:),vx_psidot(:,:),psidot(:,:),psi_non_norm(:,:),norm_arr(:),&
-        vhp(:),vxcp(:)
+        vhp(:),vxcp(:),grho(:),g2rho(:),g3rho(:),vx_gga(:),vc_gga(:),ex_gga(:),ec_gga(:)
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 real(8), allocatable :: shell_occ(:),psi_eig(:),psi_eig_temp(:)
 real(8), allocatable :: psip(:,:),eigp(:)
@@ -21,7 +21,7 @@ integer :: i,j,countl0, version,tools_info(3)
 logical :: E_dE_file_exists, file_exists
 character(len=1024) :: filename
 
-Real (8)  :: besrez (0:50),time0,time1
+Real (8)  :: besrez (0:50),time0,time1, t11
 
 real(8), allocatable :: tools(:,:)
 
@@ -202,6 +202,22 @@ deallocate(H)
 
 else if (version.eq.2) then
 vfull=0d0*r       
+
+d_order=8
+i_order=7
+        tools_info=(/40,d_order,i_order/)!optimal 8,7
+ !info about tools_info array:
+ !tools_info(1) - (2-nd dimenstion size of tools array 1-10 - coefficinets for Lagrange interp,
+ !                11-20 coefficints for (ri+1/4) interpolation, and 21-30 for (ri+2/4), 31-40 for (ri+3/4) 
+ !tools_info(2) - order of intrpolation polynom for Lagrange interpolation when calculating derivative,
+ !tools_info(3) - order for inperolation for integration with Bodes folmula)
+
+Allocate(tools(Ngrid,tools_info(1)))
+call generate_tools(Ngrid,r,tools,tools_info)
+
+
+
+
 write(*,*)"********** version 2 *************"
 ! ----- version 2 -------
 ! Self-consistency loop
@@ -264,6 +280,8 @@ do iscl=1,maxscl
 
   ! Construct the exchange-correlation potential
   call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
+!  call getxc_pbe(Ngrid,r,tools,tools_info,rho/(4d0*Pi),vxc,exc)
+
   ! Caulculate energy
   e1=0
   do ish=1,Nshell
@@ -440,7 +458,7 @@ deallocate(vx_phi)
 
 deallocate(vx_phi1,vx_psidot,psidot,psi_non_norm)
 
-elseif((version.eq.4).or.(version.eq.5)) then
+elseif((version.eq.4).or.(version.eq.5).or.(version.eq.6)) then
 d_order=8
 i_order=7
         tools_info=(/40,d_order,i_order/)!optimal 8,7
@@ -453,8 +471,13 @@ i_order=7
 Allocate(tools(Ngrid,tools_info(1)))
 call generate_tools(Ngrid,r,tools,tools_info)
 
-
-write(*,*)"Version 4"
+if(version.eq.4)then
+write(*,*)"Version 4 - Fock"
+elseif  (version.eq.5) then
+write(*,*)"Version 5 - LDA"
+elseif (version.eq.6) then
+write(*,*)"Version 6 - GGA_PBA"
+endif
 write(*,*)"lmax=",lmax
 
 
@@ -486,7 +509,7 @@ Allocate(psip(Ngrid,Nshell),vx_psi(Ngrid,Nshell),eigp(Nshell),vhp(Ngrid),vxcp(Ng
 
 vh=0d0*r
 vxc=0d0*r
-do iscl=1,400
+do iscl=1,100
 
 
 ! Calculate density
@@ -494,12 +517,40 @@ do iscl=1,400
   do ish=1,Nshell
      rho=rho+shell_occ(ish)*psi(:,ish)**2
   enddo
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*rho,t11)
+  write(*,*)"rho summa pirms:", t11
 
 if (version.eq.5) then
   vxcp=vxc
   call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
   vxc=vxc*alpha+(1d0-alpha)*vxcp
+else if (version.eq.6) then
+  vxcp=vxc
 
+  !rho=exp(-r)*(4d0*Pi)
+
+!   open (2, file = 'rho_vxc.dat', status = 'old')
+!   read(2,*)
+!   do i = 1,Ngrid  
+!      read(2,*) t11, rho(i)
+!   end do 
+   
+!   close(2)
+   call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*rho,t11)
+   write(*,*)"rho summa pēc", t11
+
+
+  call getxc_pbe(Ngrid,r,tools,tools_info,rho/(4*Pi),vxc,exc)
+
+open(11,file='vxc_atom.out',status='replace')
+write(11,*)"r vxc"
+do i=1, Ngrid
+  write(11,*)r(i),vxc(i)
+enddo
+
+close(11)
+!stop
+  vxc=vxc*alpha+(1d0-alpha)*vxcp
 endif
 
 ! Get exchange potential
@@ -567,7 +618,7 @@ if (version.eq.4)then
   write(*,*)"e_pot/e_kin=",e_pot/e_kin, "e_tot=",e_kin+e_pot, " (",iscl,")"
   energy=e_kin+e_pot
  
-else if(version.eq.5) then
+else if((version.eq.5).or.(version.eq.6)) then
   !LDA LDA LDA energy
 
   call integ_BodesN_value(Ngrid,r,tools, tools_info,-0.5d0*vh*rho*r**2,e2)
@@ -589,7 +640,6 @@ endif
   close(11)
 
 !END Caulculate energy
-
 l_n=0
  psip=psi
  eigp=psi_eig

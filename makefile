@@ -1,5 +1,5 @@
 F90 = gfortran 
-F90_OPTS = -cpp -Ddebug -fcheck=all 
+F90_OPTS = -cpp -Ddebug -fcheck=all -g -fbacktrace 
 
 
 SRCS := $(wildcard *.f90)

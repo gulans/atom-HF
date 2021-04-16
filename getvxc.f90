@@ -6,6 +6,7 @@ real(8), intent(out) :: vxc(Ngrid),exc(Ngrid)
 integer :: i
 real(8) :: rhoi, vxc_fun,exc_fun
 
+
 do i=1, Ngrid
   rhoi=rho(i)
   if (rhoi.lt.(1e-20)) then

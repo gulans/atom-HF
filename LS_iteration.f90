@@ -70,7 +70,7 @@ do inn=1,nmax
     f1=f1/r
     call integ_BodesN_value(Ngrid,r,tools,tools_info,psi(:,inn+shell0)*f3*r**2,Hnn)
 
-if (version.eq.5) then    
+if ((version.eq.5).or.(version.eq.6)) then    
 !LDA
     f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+vxc)*psi(:,inp+shell0)
 else if (version.eq.4) then
@@ -213,7 +213,7 @@ endif
 
 lam=dsqrt(-2d0*e)
 
-if (version.eq.5)then
+if ((version.eq.5).or.(version.eq.6)) then
 !LDA
 f=-2d0*(-Z/r+vh+vxc)*phi
 else if (version.eq.4)then

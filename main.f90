@@ -517,8 +517,6 @@ do iscl=1,100
   do ish=1,Nshell
      rho=rho+shell_occ(ish)*psi(:,ish)**2
   enddo
-  call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*rho,t11)
-  write(*,*)"rho summa pirms:", t11
 
 if (version.eq.5) then
   vxcp=vxc
@@ -526,30 +524,7 @@ if (version.eq.5) then
   vxc=vxc*alpha+(1d0-alpha)*vxcp
 else if (version.eq.6) then
   vxcp=vxc
-
-  !rho=exp(-r)*(4d0*Pi)
-
-!   open (2, file = 'rho_vxc.dat', status = 'old')
-!   read(2,*)
-!   do i = 1,Ngrid  
-!      read(2,*) t11, rho(i)
-!   end do 
-   
-!   close(2)
-   call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*rho,t11)
-   write(*,*)"rho summa pēc", t11
-
-
-  call getxc_pbe(Ngrid,r,tools,tools_info,rho/(4*Pi),vxc,exc)
-
-open(11,file='vxc_atom.out',status='replace')
-write(11,*)"r vxc"
-do i=1, Ngrid
-  write(11,*)r(i),vxc(i)
-enddo
-
-close(11)
-!stop
+  call getxc_pbe(Ngrid,r,tools,tools_info,rho/(4d0*Pi),vxc,exc)
   vxc=vxc*alpha+(1d0-alpha)*vxcp
 endif
 
@@ -569,7 +544,7 @@ vhp=vh
 vh=ftemp1/r+ftemp2
 vh=vh*alpha+(1d0-alpha)*vhp
 
-write(*,*)"EXTERNAL cycle begining:"
+!write(*,*)"EXTERNAL cycle begining:"
 
 l_n=0
 do il=1,lmax+1
@@ -582,10 +557,10 @@ enddo
 
 !Check convergence
 
-write(*,*)"External psi_eig-eigp: ",psi_eig-eigp
+!write(*,*)"External psi_eig-eigp: ",psi_eig-eigp
 if((maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))).lt.1d-13)then !1d-13 bija
-        write(*,*)"Arējais cikls konverģē:"
-        write(*,*)"konverģence absolūtā: ",maxval(abs(psi_eig-eigp))," relatīvā: ",maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))
+!        write(*,*)"Arējais cikls konverģē:"
+!        write(*,*)"konverģence absolūtā: ",maxval(abs(psi_eig-eigp))," relatīvā: ",maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))
 
         exit
 endif
@@ -601,17 +576,17 @@ endif
   enddo
 if (version.eq.4)then
   call integ_BodesN_value(Ngrid,r,tools,tools_info,-r*rho*Z,e_ext)
-  write(*,*)"e_ext=",e_ext
+!  write(*,*)"e_ext=",e_ext
   call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*rho*vh,e_h)
-  write(*,*)"e_h=",e_h
+!  write(*,*)"e_h=",e_h
   e_x=0d0
   do ish=1,Nshell
    call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish)*psi(:,ish)*vx_psi(:,ish),e2)
     e_x=e_x+e2
   enddo
-  write(*,*)"e_x=",e_x
+!  write(*,*)"e_x=",e_x
   e_kin=e1-e_ext-2d0*e_h-2d0*e_x
-  write(*,*)"e_kin=",e_kin
+!  write(*,*)"e_kin=",e_kin
   e_pot=e_ext+e_h+e_x
   energy0=energy
 
@@ -649,8 +624,8 @@ l_n=0
             Nshell,vxc,vh,vx_psi,psip,norm_arr,psi,psi_eig)
 
 
-write(*,*)"psi_eig: ",psi_eig
-write(*,*)"eigp: ",eigp
+!write(*,*)"psi_eig: ",psi_eig
+!write(*,*)"eigp: ",eigp
 
 
     do inn=1,count_l(il)

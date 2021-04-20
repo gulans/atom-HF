@@ -36,9 +36,9 @@ maxscl=20
 
 do iscl=1,maxscl
 
-write(*,*)iscl,". eig-eigp: ",eig-eigp
+!write(*,*)iscl,". eig-eigp: ",eig-eigp
 if((maxval(abs((eig-eigp)/(eig+1d0)))).lt.1d-13)then !1d-13 bija
-        write(*,*)"konverģence absolūtā: ",maxval(abs(eig-eigp))," relatīvā: ",maxval(abs((eig-eigp)/(eig+1d0)))
+       ! write(*,*)"konverģence absolūtā: ",maxval(abs(eig-eigp))," relatīvā: ",maxval(abs((eig-eigp)/(eig+1d0)))
 
         exit
 endif
@@ -86,13 +86,13 @@ endif
   enddo
 enddo
 !write(*,*)"S:"
-do inn=1,nmax
+!do inn=1,nmax
 !  write(*,*)S(inn,:)
-enddo
+!enddo
 !write(*,*)"H:"
-do inn=1,nmax
+!do inn=1,nmax
 !  write(*,*)H(inn,:)
-enddo
+!enddo
 
 !!!!!!!!Caulculate W=S^-0.5 matrix
  Sevec=s
@@ -164,7 +164,7 @@ do inn=1,nmax
  
   call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn+shell0)**2,norm)
 
-  write(*,*)"l=",l," eig(",inn,")=",eig(inn+shell0),"norm=",norm," eigp(",inn,")=",eigp(inn+shell0)
+!  write(*,*)"l=",l," eig(",inn,")=",eig(inn+shell0),"norm=",norm," eigp(",inn,")=",eigp(inn+shell0)
   enddo
 
 !  open(11,file='psi_wf.dat',status='replace')
@@ -207,7 +207,7 @@ real(8) :: besi,besk
 
 !write(*,*)"e=",e
 if (e.gt.0) then
-        write(*,*)"scrPoisson Error: positive eigenvalue!"
+!        write(*,*)"scrPoisson Error: positive eigenvalue!"
         e=-1d-3
 endif
 

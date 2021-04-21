@@ -1,10 +1,10 @@
-subroutine getxc_pbe(Ngrid,r,tools,tools_info,rho,vxc,exc)
+subroutine getxc_pbe(Ngrid,r,tools,tools_info,rho,vxc,exc,vx,vc,ex,ec)
 implicit none
 
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 integer, intent(in) :: Ngrid
 real(8), intent(inout) :: r(Ngrid),rho(Ngrid) 
-real(8), intent(out) :: vxc(Ngrid),exc(Ngrid)
+real(8), intent(out) :: vxc(Ngrid),exc(Ngrid),vx(Ngrid),vc(Ngrid),ex(Ngrid),ec(Ngrid)
 
 integer, intent(in) :: tools_info(3)
 real(8), intent(in) :: tools(Ngrid,tools_info(1))
@@ -14,7 +14,7 @@ integer :: i
 
 real(8) :: kappa,mu,beta,g2rho(Ngrid),test,t11
 real(8) :: rhoup(Ngrid),rhodn(Ngrid),grho(Ngrid),gup(Ngrid),gdn(Ngrid),g2up(Ngrid),g2dn(Ngrid),g3rho(Ngrid),g3up(Ngrid),&
-     g3dn(Ngrid),ex(Ngrid),ec(Ngrid),vxup(Ngrid),vxdn(Ngrid),vcup(Ngrid),vcdn(Ngrid),temp(Ngrid)
+     g3dn(Ngrid),vxup(Ngrid),vxdn(Ngrid),vcup(Ngrid),vcdn(Ngrid),temp(Ngrid)
 
 !rho=exp(-r)
 
@@ -48,5 +48,7 @@ call xc_pbe(Ngrid,kappa,mu,beta,rhoup,rhodn,grho,gup,gdn,g2up,g2dn,g3rho,g3up, &
      g3dn,ex,ec,vxup,vxdn,vcup,vcdn)
 exc=ex+ec
 vxc=vxup+vcup!+vxdn+vcdn
+vx=vxup
+vc=vcup
 
 end subroutine

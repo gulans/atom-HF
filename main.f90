@@ -5,7 +5,8 @@ real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=0.5d0
 !integer,parameter :: Ngrid = 500
 real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:),ftemp1(:),&
         ftemp2(:),vx_psi(:,:),vx_phi(:,:),vx_phi1(:,:),vx_psidot(:,:),psidot(:,:),psi_non_norm(:,:),norm_arr(:),&
-        vhp(:),vxcp(:),grho(:),g2rho(:),g3rho(:),vx_gga(:),vc_gga(:),ex_gga(:),ec_gga(:)
+        vhp(:),vxcp(:),grho(:),g2rho(:),g3rho(:),vx_gga(:),vc_gga(:),ex_gga(:),ec_gga(:),vx(:),vc(:),&
+        ex(:),ec(:)
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 real(8), allocatable :: shell_occ(:),psi_eig(:),psi_eig_temp(:)
 real(8), allocatable :: psip(:,:),eigp(:)
@@ -67,7 +68,7 @@ enddo
 
 allocate(r(Ngrid),vfull(Ngrid),vh(Ngrid),vxc(Ngrid),exc(Ngrid),eig(Ngrid),rho(Ngrid),vfull1(Ngrid))
 allocate(psi(Ngrid,Nshell),psi_eig(Nshell),psi_eig_temp(Nshell))
-allocate(ftemp1(Ngrid),ftemp2(Ngrid))
+allocate(ftemp1(Ngrid),ftemp2(Ngrid),vx(Ngrid),vc(Ngrid),ex(Ngrid),ec(Ngrid))
 
 call gengrid(grid,Ngrid,Rmin,Rmax,r)
 hh=r(2)-r(1)
@@ -458,7 +459,11 @@ deallocate(vx_phi)
 
 deallocate(vx_phi1,vx_psidot,psidot,psi_non_norm)
 
-elseif((version.eq.4).or.(version.eq.5).or.(version.eq.6)) then
+elseif((version.eq.4).or.(version.eq.5).or.(version.eq.6).or.(version.eq.7)) then
+!4-Fock exchange
+!5 - LDA exchange correlation
+!6 - GGA-PBE
+!7 - PBE0 
 d_order=8
 i_order=7
         tools_info=(/40,d_order,i_order/)!optimal 8,7
@@ -476,7 +481,13 @@ write(*,*)"Version 4 - Fock"
 elseif  (version.eq.5) then
 write(*,*)"Version 5 - LDA"
 elseif (version.eq.6) then
-write(*,*)"Version 6 - GGA_PBA"
+write(*,*)"Version 6 - GGA_PBE"
+
+elseif (version.eq.7) then
+write(*,*)"Version 7 - PBE0"
+
+
+
 endif
 write(*,*)"lmax=",lmax
 
@@ -521,19 +532,17 @@ do iscl=1,100
 if (version.eq.5) then
   vxcp=vxc
   call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
-  vxc=vxc*alpha+(1d0-alpha)*vxcp
-else if (version.eq.6) then
+else if ((version.eq.6).or.(version.eq.7)) then
   vxcp=vxc
-  call getxc_pbe(Ngrid,r,tools,tools_info,rho/(4d0*Pi),vxc,exc)
-  vxc=vxc*alpha+(1d0-alpha)*vxcp
+  call getxc_pbe(Ngrid,r,tools,tools_info,rho/(4d0*Pi),vxc,exc,vx,vc,ex,ec)
 endif
 
 ! Get exchange potential
 
-if (version.eq.4) then
+if ((version.eq.4).or.(version.eq.7)) then
   do ish=1,Nshell
    call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,psi(:,ish),psi,vx_psi(:,ish))
-  enddo
+  enddo 
 endif
   
 ! Get Coulomb potential
@@ -576,32 +585,68 @@ endif
   enddo
 if (version.eq.4)then
   call integ_BodesN_value(Ngrid,r,tools,tools_info,-r*rho*Z,e_ext)
-!  write(*,*)"e_ext=",e_ext
+  write(*,*)"e_ext=",e_ext
   call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*rho*vh,e_h)
-!  write(*,*)"e_h=",e_h
+  write(*,*)"e_h=",e_h
   e_x=0d0
   do ish=1,Nshell
-   call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish)*psi(:,ish)*vx_psi(:,ish),e2)
+    call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish)*psi(:,ish)*vx_psi(:,ish),e2)
     e_x=e_x+e2
+  
   enddo
-!  write(*,*)"e_x=",e_x
+e3=0d0
+  write(*,*)"e_x=",e_x
   e_kin=e1-e_ext-2d0*e_h-2d0*e_x
-!  write(*,*)"e_kin=",e_kin
+  write(*,*)"e_kin=",e_kin
   e_pot=e_ext+e_h+e_x
   energy0=energy
-
   write(*,*)"e_pot/e_kin=",e_pot/e_kin, "e_tot=",e_kin+e_pot, " (",iscl,")"
   energy=e_kin+e_pot
- 
+
+
 else if((version.eq.5).or.(version.eq.6)) then
   !LDA LDA LDA energy
 
   call integ_BodesN_value(Ngrid,r,tools, tools_info,-0.5d0*vh*rho*r**2,e2)
   call integ_BodesN_value(Ngrid,r,tools, tools_info,(exc-vxc)*rho*r**2,e3)
-  Print *,"Result in case of DFT vxc: ",iscl,".iter E=",e1,"+",e2,"+",e3,"=",e1+e2+e3
+  Print *,iscl,".iter E=",e1,"+",e2,"+",e3,"=",e1+e2+e3
   energy0=energy
   energy=e1+e2+e3
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+else if(version.eq.7)then
+  e_kin=0d0
+  do ish=1,Nshell
+
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish),ftemp1)
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,ftemp1*r**2,ftemp2)
+  ftemp2=ftemp2/r**2
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,-0.5d0*psi(:,ish)*ftemp2*r**2,e1)
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,0.5d0*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish)**2,e2)
+  e_kin=e_kin+shell_occ(ish)*(e1+e2)
+  enddo
+  !write(*,*)"e_kin_new:",e_kin
+  call integ_BodesN_value(Ngrid,r,tools,tools_info,-r*rho*Z,e_ext)
+  !write(*,*)"e_ext=",e_ext
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*rho*vh,e_h)
+  !write(*,*)"e_h=",e_h
+  e2=0d0
+  do ish=1,Nshell
+    call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish)*psi(:,ish)*0.25d0*vx_psi(:,ish),e1)
+    e2=e2+e1
+  enddo
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,(0.75d0*ex+ec)*rho*r**2,e3)
+
+ e_x=e2+e3
+  energy0=energy
+  energy=e_kin+e_ext+e_h+e_x
+
+  write(*,*)"Energy_tot:",energy, " (",iscl,")"
 endif
+  
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 !END LDA LDA LDA energy
 
   open(11,file='E_dE.out',status='old', access='append')
@@ -621,7 +666,7 @@ l_n=0
 
   do il=1,lmax+1
     call LS_iteration(Ngrid,r,tools,tools_info,version,Z,il-1,shell_l,count_l(il),l_n,&
-            Nshell,vxc,vh,vx_psi,psip,norm_arr,psi,psi_eig)
+            Nshell,vxc,vx,vc,vh,vx_psi,psip,norm_arr,psi,psi_eig)
 
 
 !write(*,*)"psi_eig: ",psi_eig

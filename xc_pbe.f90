@@ -80,17 +80,17 @@ integer :: xctype(3)
 xctype=(/20,0,0/)
 
 
-write(*,*)"xc_pbe.f90"
-write(*,*)"kappa:", kappa
-write(*,*)"mu",mu
-write(*,*)"beta", beta
-write(*,*)"xctpype",xctype
+!write(*,*)"xc_pbe.f90"
+!write(*,*)"kappa:", kappa
+!write(*,*)"mu",mu
+!write(*,*)"beta", beta
+!write(*,*)"xctpype",xctype
 
-open(11,file='rho_up_down.out',status='replace')
-  do i=1,n
-    write(11,*)rhoup(i),rhodn(i) 
-  enddo
-close(11)
+!open(11,file='rho_up_down.out',status='replace')
+!  do i=1,n
+!    write(11,*)rhoup(i),rhodn(i) 
+!  enddo
+!close(11)
 
 
 do i=1,n

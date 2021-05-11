@@ -1,30 +1,45 @@
 program atomHF
 
-implicit none
+
+!!!!!!!!!! libxc !!!!!!!!!
+  use xc_f03_lib_m
+  implicit none
+  TYPE(xc_f03_func_t) :: x_func,c_func
+  TYPE(xc_f03_func_info_t) :: x_info,c_info
+  integer :: vmajor, vminor, vmicro
+  character(len=120) :: kind,family,version_text
+  logical :: polarised
+  !!!!!!!!!! libxc !!!!!!!!!
+
+
+
+
+
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=0.5d0
 !integer,parameter :: Ngrid = 500
 real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:),ftemp1(:),&
         ftemp2(:),vx_psi(:,:),vx_phi(:,:),vx_phi1(:,:),vx_psidot(:,:),psidot(:,:),psi_non_norm(:,:),norm_arr(:),&
-        vhp(:),vxcp(:),grho(:),g2rho(:),g3rho(:),vx_gga(:),vc_gga(:),ex_gga(:),ec_gga(:),vx(:),vc(:),&
-        ex(:),ec(:)
+        vhp(:),vxcp(:),grho(:),grho2(:),g2rho(:),g3rho(:),vx_gga(:),vc_gga(:),ex_gga(:),ec_gga(:),vx(:),vc(:),&
+        ex(:),ec(:),vxsigma(:),vcsigma(:),rho_pol(:,:),vx_pol(:,:),vc_pol(:,:),grho_pol(:,:),vsigma_pol(:,:)
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 real(8), allocatable :: shell_occ(:),psi_eig(:),psi_eig_temp(:)
 real(8), allocatable :: psip(:,:),eigp(:)
 !real(8), parameter :: Rmax = 10d0
 integer, parameter :: maxscl =50 !Maximal itteration number
-integer :: ir,il,icl,il_icl,iscl,lmax,l_n,inn
+integer :: il,icl,il_icl,iscl,lmax,l_n,inn
 real(8) :: Z,rez
 real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0,e_kin,e_ext,e_h,e_x,e_pot
 real(8) :: e11,e22,e33
-integer :: grid,Ngrid, Nshell, ish, d_order,i_order
-integer :: i,j,countl0, version,tools_info(3)
-   
+integer :: grid, Nshell, ish, d_order,i_order
+integer :: ir,i,j,countl0, version,tools_info(3)
+integer(8) :: Ngrid 
 logical :: E_dE_file_exists, file_exists
 character(len=1024) :: filename
 
 Real (8)  :: besrez (0:50),time0,time1, t11
 
 real(8), allocatable :: tools(:,:)
+integer :: x_num,c_num
 
 dE_min=1d-8
 call timesec(time0)
@@ -32,6 +47,8 @@ call timesec(time0)
 !read input
 read(*,*) 
 read(*,*) Z, Rmin, Rmax, Ngrid, version
+read(*,*)
+read(*,*) x_num, c_num 
 read(*,*)
 read(*,*) grid
 read(*,*) 
@@ -41,6 +58,116 @@ read(*,*)
 do ish=1,Nshell
   read(*,*) shell_n(ish), shell_l(ish), shell_occ(ish)
 enddo
+
+
+!!!!!!!!!! libxc !!!!!!!!!
+if (version.eq.5) then 
+! Print out the version
+          call xc_f03_version(vmajor, vminor, vmicro)
+  write(*,'("Libxc version: ",I1,".",I1,".",I1)') vmajor, vminor, vmicro
+!  x_num=1
+!  c_num=12
+!  c_num=7
+!  x_num=101
+!  c_num=130
+
+if (x_num.ne.0) then
+!!!info Exchange!!!!!!!
+
+  call xc_f03_func_init(x_func, x_num, XC_UNPOLARIZED)
+
+  x_info = xc_f03_func_get_info(x_func)
+  ! Get the type of the functional
+  select case(xc_f03_func_info_get_kind(x_info))
+  case (XC_EXCHANGE)
+    write(kind, '(a)') 'an exchange functional'
+  case (XC_CORRELATION)
+    write(kind, '(a)') 'a correlation functional'
+  case (XC_EXCHANGE_CORRELATION)
+    write(kind, '(a)') 'an exchange-correlation functional'
+  case (XC_KINETIC)
+    write(kind, '(a)') 'a kinetic energy functional'
+  case default
+    write(kind, '(a)') 'of unknown kind'
+  end select
+  ! Get the family
+write(*,*)"FAMILY:"
+  write(*,*)xc_f03_func_info_get_family(x_info)
+write(*,*)XC_FAMILY_LDA
+  select case (xc_f03_func_info_get_family(x_info))
+  case (XC_FAMILY_LDA);
+    write(family,'(a)') "LDA"
+  case (XC_FAMILY_GGA);
+    write(family,'(a)') "GGA"
+  case (XC_FAMILY_HYB_GGA);
+    write(family,'(a)') "Hybrid GGA"
+  case (XC_FAMILY_MGGA);
+    write(family,'(a)') "MGGA"
+  case (XC_FAMILY_HYB_MGGA);
+    write(family,'(a)') "Hybrid MGGA"
+  case default;
+    write(family,'(a)') "unknown"
+  end select
+  ! Print out information
+  write(*,'("The functional ''", a, "'' is ", a, ", it belongs to the ''", a, "'' family and is defined in the reference(s):")') &
+    trim(xc_f03_func_info_get_name(x_info)), trim(kind), trim(family)
+  ! Print out references
+  i = 0
+  do while(i >= 0)
+    write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(x_info, i)))
+  end do
+  endif
+
+if (c_num.ne.0) then
+
+!!!!info correlation
+
+  call xc_f03_func_init(c_func, c_num, XC_UNPOLARIZED)
+
+  c_info = xc_f03_func_get_info(c_func)
+  ! Get the type of the functional
+  select case(xc_f03_func_info_get_kind(c_info))
+  case (XC_EXCHANGE)
+    write(kind, '(a)') 'an exchange functional'
+  case (XC_CORRELATION)
+    write(kind, '(a)') 'a correlation functional'
+  case (XC_EXCHANGE_CORRELATION)
+    write(kind, '(a)') 'an exchange-correlation functional'
+  case (XC_KINETIC)
+    write(kind, '(a)') 'a kinetic energy functional'
+  case default
+    write(kind, '(a)') 'of unknown kind'
+  end select
+  ! Get the family
+  select case (xc_f03_func_info_get_family(c_info))
+  case (XC_FAMILY_LDA);
+    write(family,'(a)') "LDA"
+  case (XC_FAMILY_GGA);
+    write(family,'(a)') "GGA"
+  case (XC_FAMILY_HYB_GGA);
+    write(family,'(a)') "Hybrid GGA"
+  case (XC_FAMILY_MGGA);
+    write(family,'(a)') "MGGA"
+  case (XC_FAMILY_HYB_MGGA);
+    write(family,'(a)') "Hybrid MGGA"
+  case default;
+    write(family,'(a)') "unknown"
+  end select
+  ! Print out information
+  write(*,'("The functional ''", a, "'' is ", a, ", it belongs to the ''", a, "'' family and is defined in the reference(s):")') &
+    trim(xc_f03_func_info_get_name(c_info)), trim(kind), trim(family)
+  ! Print out references
+  i = 0
+  do while(i >= 0)
+    write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(c_info, i)))
+  end do
+  endif
+
+!!!!!!!!!! libxc !!!!!!!!!
+endif
+
+
+
 #ifdef debug
   write(*,*) "shell_n ", shell_n(:)
   write(*,*) "shell_l ", shell_l(:)
@@ -67,9 +194,10 @@ enddo
 
 
 allocate(r(Ngrid),vfull(Ngrid),vh(Ngrid),vxc(Ngrid),exc(Ngrid),eig(Ngrid),rho(Ngrid),vfull1(Ngrid))
-allocate(psi(Ngrid,Nshell),psi_eig(Nshell),psi_eig_temp(Nshell))
-allocate(ftemp1(Ngrid),ftemp2(Ngrid),vx(Ngrid),vc(Ngrid),ex(Ngrid),ec(Ngrid))
-
+allocate(psi(Ngrid,Nshell),psi_eig(Nshell),psi_eig_temp(Nshell),grho2(Ngrid))
+allocate(ftemp1(Ngrid),ftemp2(Ngrid),vx(Ngrid),vc(Ngrid),ex(Ngrid),ec(Ngrid),vxsigma(Ngrid),vcsigma(Ngrid),grho(Ngrid))
+allocate(rho_pol(2,Ngrid),vx_pol(2,Ngrid),vc_pol(2,Ngrid),grho_pol(3,Ngrid),vsigma_pol(3,Ngrid))
+allocate(g2rho(Ngrid))
 call gengrid(grid,Ngrid,Rmin,Rmax,r)
 hh=r(2)-r(1)
 
@@ -107,12 +235,12 @@ vfull=0d0*r !vfull is vh+vxc, core potential -Z/r is used seperatly - version 1 
 
   close(11)
 
-  inquire(file='results_short.dat',EXIST=file_exists)
+  inquire(file='res.dat',EXIST=file_exists)
   if (file_exists) then
-     open(11,file='results_short.dat',status='old', access='append')
+     open(11,file='res.dat',status='old', access='append')
   else
-     open(11,file='results_short.dat',status='new')
-     write(11,*)"Z E dE iterations Ngrid Rmax Rmin E_x"
+     open(11,file='res.dat',status='new')
+     write(11,*)"v-text,version,x_num,c_num,d_order,i_order,Ngrid,Rmin,Rmax,Z,energy,time"
   endif
   close(11)
 
@@ -479,10 +607,13 @@ call generate_tools(Ngrid,r,tools,tools_info)
 if(version.eq.4)then
 write(*,*)"Version 4 - Fock"
 elseif  (version.eq.5) then
-write(*,*)"Version 5 - LDA"
+write(*,*)"Version 5 - libxc functionals"
 elseif (version.eq.6) then
-write(*,*)"Version 6 - GGA_PBE"
-
+        if (x_num.eq.1) then
+         write(*,*)"Version 6 - Bult-in functional LDA"
+        elseif (x_num.eq.2) then
+         write(*,*)"Version 6 - Bult-in functional GGA-PBE"
+        endif
 elseif (version.eq.7) then
 write(*,*)"Version 7 - PBE0"
 
@@ -531,8 +662,103 @@ do iscl=1,100
 
 if (version.eq.5) then
   vxcp=vxc
-  call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
-else if ((version.eq.6).or.(version.eq.7)) then
+!  call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
+
+rho=rho/(4d0*Pi)
+vx=0d0*r
+vc=0d0*r
+ex=0d0*r
+ec=0d0*r
+
+!! EXCHANGE  !!!
+if (x_num.ne.0)then
+if (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_LDA) then
+        
+  call xc_f03_lda_exc_vxc(x_func, Ngrid, rho(1), ex(1),vx(1))
+
+elseif  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_GGA) then
+
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
+  g2rho=g2rho*r**(-2)
+  grho2=grho**2
+  call xc_f03_gga_exc_vxc(x_func, Ngrid, rho(1), grho2(1), ex(1),vx(1),vxsigma(1))
+
+  !!!!! formula 6.0.8 !!!!!!
+!  call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho*vxsigma,ftemp1)
+!  ftemp1=ftemp1*r**(-2)
+!  vx=vx-2d0*ftemp1
+  !!!!! end formula 6.0.8 !!!!!!
+
+
+!   !!!!! formula 6.0.5 (exciting variants) !!!!!!
+   call rderivative_lagrN(Ngrid,r,tools,tools_info,vxsigma,ftemp1)
+   vx=vx-2d0*(grho*ftemp1+vxsigma*g2rho)
+!   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
+
+else
+
+   write(*,*)"Exchange not supported!"
+endif
+endif
+!! END EXCHANGE  !!!
+
+!! CORRELATION !!!
+if (c_num.ne.0) then
+if (xc_f03_func_info_get_family(c_info).eq.XC_FAMILY_LDA) then
+
+  call xc_f03_lda_exc_vxc(c_func, Ngrid, rho(1), ec(1),vc(1))
+
+elseif  (xc_f03_func_info_get_family(c_info).eq.XC_FAMILY_GGA) then
+
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
+  g2rho=g2rho*r**(-2)
+  grho2=grho**2
+  call xc_f03_gga_exc_vxc(c_func, Ngrid, rho(1), grho2(1), ec(1),vc(1),vcsigma(1))
+
+  !!!!! formula 6.0.8 !!!!!!
+!  call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho*vcsigma,ftemp1)
+!  ftemp1=ftemp1*r**(-2)
+!  vc=vc-2d0*ftemp1
+  !!!!! end formula 6.0.8 !!!!!!
+
+!   !!!!! formula 6.0.5 (exciting variants) !!!!!!
+   call rderivative_lagrN(Ngrid,r,tools,tools_info,vcsigma,ftemp1)
+   vc=vc-2d0*(grho*ftemp1+vcsigma*g2rho)
+!   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
+
+else
+   write(*,*)"Correlation not supported!"
+endif
+endif
+!! END CORRELATION !!
+
+vxc=vx+vc
+exc=ex+ec
+rho=rho*(4d0*Pi)
+
+else if (version.eq.6) then
+        c_num=0
+        if (x_num.eq.1) then
+        vxcp=vxc
+        vx=0d0*r
+        vc=0d0*r
+        ex=0d0*r
+        ec=0d0*r
+
+
+        call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
+
+        elseif (x_num.eq.2) then
+        vxcp=vxc
+        call getxc_pbe(Ngrid,r,tools,tools_info,rho/(4d0*Pi),vxc,exc,vx,vc,ex,ec)
+
+        endif
+
+else if (version.eq.7) then
+  c_num=0
+  x_num=0
   vxcp=vxc
   call getxc_pbe(Ngrid,r,tools,tools_info,rho/(4d0*Pi),vxc,exc,vx,vc,ex,ec)
 endif
@@ -540,7 +766,9 @@ endif
 ! Get exchange potential
 
 if ((version.eq.4).or.(version.eq.7)) then
-  do ish=1,Nshell
+  c_num=0
+  x_num=0
+ do ish=1,Nshell
    call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,psi(:,ish),psi,vx_psi(:,ish))
   enddo 
 endif
@@ -713,20 +941,39 @@ enddo
 
 
 endif
+if (version.eq.4) then
+version_text='HF'
+elseif (version.eq.5) then
+  version_text='Libxc'
+elseif (version.eq.6) then
+        if (x_num.eq.1) then
+        version_text='LDA'
+        elseif (x_num.eq.2) then
+        version_text='PBE'
+        endif
+elseif (version.eq.7) then
+version_text='PBE0'
+else
+        version_text='unknown'
+endif
 
 !  write results 
-  open(11,file='results_short.dat',status='old', access='append')
+  open(11,file='res.dat',status='old', access='append')
 !  write(11,*)"version Z E dE iterations Ngrid Rmax Rmin E_x, e_pot/e_kin, e_homo"
 !  write(11,*)Z, energy, energy-energy0, iscl-1, Ngrid, Rmax, Rmin, e_x, e_pot/e_kin, maxval(psi_eig) 
-  write(11,*)version,",",Z,",",d_order,",",i_order,",",Ngrid,",", Rmin,",", Rmax,",", energy,",", time1-time0
+  !write(11,*)version,",",Z,",",d_order,",",i_order,",",Ngrid,",", Rmin,",", Rmax,",", energy,",", time1-time0
+  write(11, '(a8,a1)',advance="no")trim(version_text),","
+  write(11, '(i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i5,a1)',advance="no") version,",",x_num,",",c_num,","&
+          ,d_order,",",i_order,",",Ngrid,","
+  write(11, *)Rmin,",", Rmax,",",Z,",", energy,",", time1-time0
   close(11)
 
 
-  inquire(file='results.dat',EXIST=file_exists)
+  inquire(file='output.dat',EXIST=file_exists)
   if (file_exists) then
-     open(11,file='results.dat',status='old', access='append')
+     open(11,file='output.dat',status='old', access='append')
   else
-     open(11,file='results.dat',status='new')
+     open(11,file='output.dat',status='new')
   endif
   write(11,*)"Z E dE iterations Ngrid Rmax Rmin"
   write(11,*)Z, version, iscl-1, Ngrid, Rmax

@@ -1,5 +1,7 @@
 Z Rmax Nrad - krypton-
-36d0 1d-6 20d0 400 4
+36d0 1d-6 20d0 400 5
+Exchange-id Correlation-id (version 5 (libxc id), version  6 0-None,1-LDA,2-PBE) 
+101 130
 Grid 0-equidistant 1-cubic 2-exponential
 1
 Number of shells - 1s 2s 2p 3s 3p 3d 4s 4p

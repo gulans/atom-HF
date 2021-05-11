@@ -221,7 +221,7 @@ lam=dsqrt(-2d0*e)
 
 if ((version.eq.5).or.(version.eq.6)) then
 !LDA
-f=-2d0*(-Z/r+vh+vx+vc)*phi
+f=-2d0*(-Z/r+vh+vxc)*phi
 else if (version.eq.4)then
 !Fock
 f=-2d0*(-Z/r+vh)*phi-2d0*vx_phi

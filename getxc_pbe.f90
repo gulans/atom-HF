@@ -50,5 +50,9 @@ exc=ex+ec
 vxc=vxup+vcup!+vxdn+vcdn
 vx=vxup
 vc=vcup
-
+!write(*,*)'rho grho ex ec vx vc'
+!do i=1,40
+! write(*,*)rho(i),grho(i),ex(i),ec(i),vx(i),vc(i)
+!enddo
+!stop
 end subroutine

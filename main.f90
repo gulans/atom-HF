@@ -16,6 +16,7 @@ program atomHF
 
 
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=0.5d0
+real(8) :: Dnk,PHInk
 !integer,parameter :: Ngrid = 500
 real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:),ftemp1(:),&
         ftemp2(:),vx_psi(:,:),vx_phi(:,:),vx_phi1(:,:),vx_psidot(:,:),psidot(:,:),psi_non_norm(:,:),norm_arr(:),&
@@ -939,8 +940,65 @@ enddo
 
 !enddo
 
+else if (version.eq.8)then
+
+e1=1.d0
+e2=1d0
+i=2
+
+do ir=1,Ngrid
+  !call PHIn(1,2.5d0,r(ir),rho(ir))
+enddo
+ open(11,file='Da.dat',status='replace')
+ open(12,file='Db.dat',status='replace')
+ open(13,file='Dc.dat',status='replace')
+ open(14,file='Dd.dat',status='replace')
+
+
+  write(11,*)"r 0 1 2"
+  write(12,*)"r 0 1 2"
+  write(13,*)"r 0 1 2"
+  write(14,*)"r 0 1 2"
+
+   do ir = 1,Ngrid
+     write(11,*)r(ir), Dnk(0,0,r(ir)),Dnk(0,1,r(ir)),Dnk(0,2,r(ir))
+     write(12,*)r(ir), Dnk(1,0,r(ir)),Dnk(1,1,r(ir)),Dnk(1,2,r(ir))
+     write(13,*)r(ir), Dnk(2,0,r(ir)),Dnk(2,1,r(ir)),Dnk(2,2,r(ir))
+     write(14,*)r(ir), Dnk(3,0,r(ir)),Dnk(3,1,r(ir)),Dnk(3,2,r(ir))
+  end do
+   close(11)
+   close(12)
+   close(13)
+   close(14)
+
+   open(11,file='Fig2_a.dat',status='replace')
+   open(12,file='Fig2_b.dat',status='replace')
+   open(13,file='Fig2_c.dat',status='replace')
+   open(14,file='Fig2_d.dat',status='replace')
+
+  write(11,*)"r 0 1 2"
+ do ir = 1,Ngrid
+
+   !write(11,*)r(ir), PHInk(1,0,r(ir),r(ir)),PHInk(1,1,r(ir),r(ir)),PHInk(1,2,r(ir),r(ir))
+   !write(12,*)r(ir), PHInk(1,3,r(ir),r(ir)),PHInk(1,4,r(ir),r(ir)),PHInk(1,5,r(ir),r(ir))
+   !write(13,*)r(ir), PHInk(1,6,r(ir),r(ir)),PHInk(1,7,r(ir),r(ir)),PHInk(1,8,r(ir),r(ir))
+   !write(14,*)r(ir), PHInk(1,9,r(ir),r(ir)),PHInk(1,10,r(ir),r(ir)),PHInk(1,11,r(ir),r(ir))
+
+   write(11,*)r(ir), PHInk(1,0,r(ir),r(ir)),PHInk(1,1,r(ir),r(ir)),PHInk(1,100,r(ir),r(ir))
+   write(12,*)r(ir), PHInk(2,0,r(ir),r(ir)),PHInk(2,1,r(ir),r(ir)),PHInk(2,100,r(ir),r(ir))
+   write(13,*)r(ir), PHInk(3,0,r(ir),r(ir)),PHInk(3,1,r(ir),r(ir)),PHInk(3,100,r(ir),r(ir))
+   write(14,*)r(ir), PHInk(4,0,r(ir),r(ir)),PHInk(4,1,r(ir),r(ir)),PHInk(4,100,r(ir),r(ir))
+ enddo
+   close(11)
+   close(12)
+   close(13)
+   close(14)
+
 
 endif
+
+
+
 if (version.eq.4) then
 version_text='HF'
 elseif (version.eq.5) then

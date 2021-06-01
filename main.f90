@@ -9,7 +9,11 @@ program atomHF
   integer :: vmajor, vminor, vmicro
   character(len=120) :: kind,family,version_text
   logical :: polarised
-  !!!!!!!!!! libxc !!!!!!!!!
+  real(8) :: hybx_w(4)  
+!  integer,external :: xc_family_from_id !!tā ir funkcija
+
+  !!!!!!!!!! libxc !!!!!!!!
+  !
 
 
 
@@ -21,10 +25,13 @@ real(8) :: Dnk,PHInk
 real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:),ftemp1(:),&
         ftemp2(:),vx_psi(:,:),vx_phi(:,:),vx_phi1(:,:),vx_psidot(:,:),psidot(:,:),psi_non_norm(:,:),norm_arr(:),&
         vhp(:),vxcp(:),grho(:),grho2(:),g2rho(:),g3rho(:),vx_gga(:),vc_gga(:),ex_gga(:),ec_gga(:),vx(:),vc(:),&
-        ex(:),ec(:),vxsigma(:),vcsigma(:),rho_pol(:,:),vx_pol(:,:),vc_pol(:,:),grho_pol(:,:),vsigma_pol(:,:)
+        ex(:),ec(:),vxsigma(:),vcsigma(:),rho_pol(:,:),vx_pol(:,:),vc_pol(:,:),grho_pol(:,:),vsigma_pol(:,:),&
+        vx_psi_sr(:,:),vx_psi_lr(:,:)
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 real(8), allocatable :: shell_occ(:),psi_eig(:),psi_eig_temp(:)
 real(8), allocatable :: psip(:,:),eigp(:)
+complex(8), allocatable :: Bess_ik(:,:,:,:)
+
 !real(8), parameter :: Rmax = 10d0
 integer, parameter :: maxscl =50 !Maximal itteration number
 integer :: il,icl,il_icl,iscl,lmax,l_n,inn
@@ -38,9 +45,16 @@ logical :: E_dE_file_exists, file_exists
 character(len=1024) :: filename
 
 Real (8)  :: besrez (0:50),time0,time1, t11
-
+complex(8) :: besrezc (0:50)
 real(8), allocatable :: tools(:,:)
 integer :: x_num,c_num
+
+complex(8) :: ac,bc,cc
+real(8) :: rsmu
+integer :: rs,Nrsfun
+complex(8), allocatable :: rsfunC(:,:)
+
+
 
 dE_min=1d-8
 call timesec(time0)
@@ -515,7 +529,7 @@ do iscl=1,maxscl
 !   call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
 !  Caulculate vx_phi for every orbital  
   do ish=1,Nshell
-   call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psi_non_norm(:,ish),psi,vx_phi1(:,ish))
+   call get_Fock_ex(Ngrid,r,ish,Nshell,shell_l,psi_non_norm(:,ish),psi,vx_phi1(:,ish),rs,rsfunC,Nrsfun)
   enddo
   vx_phi=alpha*vx_phi1+(1d0-alpha)*vx_phi
 
@@ -588,11 +602,28 @@ deallocate(vx_phi)
 
 deallocate(vx_phi1,vx_psidot,psidot,psi_non_norm)
 
-elseif((version.eq.4).or.(version.eq.5).or.(version.eq.6).or.(version.eq.7)) then
+elseif((version.eq.4).or.(version.eq.5).or.(version.eq.6).or.(version.eq.7).or.(version.eq.8)) then
 !4-Fock exchange
 !5 - LDA exchange correlation
 !6 - GGA-PBE
 !7 - PBE0 
+
+rs=1 
+Nrsfun=8
+rsmu=0.5d0
+allocate(rsfunC(Nrsfun+1,2))
+allocate(Bess_ik(Ngrid,Nrsfun,2*lmax+1,2)) !last atgument 1- 1-st kind (msbesi), 2- 2-nd kind (msbesk) 
+
+if (rs.ne.0) then
+!set array rsfunC - array of complex coeficients for erfc expantion
+call errfun(Ngrid,r,Nrsfun,rsmu,rsfunC)
+!obrain Bessel function Real part for each erfc expantion element 
+call get_Bess_fun(Ngrid,r,lmax,Nrsfun,rsfunC,Bess_ik)
+
+
+
+endif
+
 d_order=8
 i_order=7
         tools_info=(/40,d_order,i_order/)!optimal 8,7
@@ -647,7 +678,8 @@ write(*,*)"lmax=",lmax
     enddo
   enddo
 
-Allocate(psip(Ngrid,Nshell),vx_psi(Ngrid,Nshell),eigp(Nshell),vhp(Ngrid),vxcp(Ngrid))
+Allocate(psip(Ngrid,Nshell),vx_psi(Ngrid,Nshell),vx_psi_sr(Ngrid,Nshell),vx_psi_lr(Ngrid,Nshell),&
+        eigp(Nshell),vhp(Ngrid),vxcp(Ngrid))
 
 
 vh=0d0*r
@@ -697,6 +729,20 @@ elseif  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_GGA) then
    vx=vx-2d0*(grho*ftemp1+vxsigma*g2rho)
 !   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
 
+elseif  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_HYB_GGA) then
+  write(*,*)"Hybrid Exchange!"
+  e1= xc_f03_hyb_exx_coef(x_func) !hyb_exx - exact-exchange - Foka apmaiņas svars
+  write(*,*) "Foka apmaiņas svars: ",e1
+  write(*,*) xc_f03_family_from_id(406)
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
+  g2rho=g2rho*r**(-2)
+  grho2=grho**2
+  call xc_f03_gga_exc_vxc(x_func, Ngrid, rho(1), grho2(1), ex(1),vx(1),vxsigma(1))
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,vxsigma,ftemp1)
+  vx=vx-2d0*(grho*ftemp1+vxsigma*g2rho)
+
+stop
 else
 
    write(*,*)"Exchange not supported!"
@@ -770,7 +816,9 @@ if ((version.eq.4).or.(version.eq.7)) then
   c_num=0
   x_num=0
  do ish=1,Nshell
-   call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,psi(:,ish),psi,vx_psi(:,ish))
+ write(*,*)"GET FOCK"
+   call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,lmax,psi(:,ish),psi,&
+           vx_psi(:,ish),vx_psi_sr(:,ish),vx_psi_lr(:,ish),rs,rsfunC,Nrsfun,Bess_ik)
   enddo 
 endif
   
@@ -894,8 +942,17 @@ l_n=0
  eigp=psi_eig
 
   do il=1,lmax+1
-    call LS_iteration(Ngrid,r,tools,tools_info,version,Z,il-1,shell_l,count_l(il),l_n,&
-            Nshell,vxc,vx,vc,vh,vx_psi,psip,norm_arr,psi,psi_eig)
+ write(*,*)"LS"
+  call LS_iteration(Ngrid,r,tools,tools_info,rs,rsfunC,Nrsfun,version,Z,il-1,shell_l,count_l(il),l_n,&
+            Nshell,lmax,vxc,vx,vc,vh,vx_psi,vx_psi_sr,vx_psi_lr,psip,norm_arr,psi,psi_eig,Bess_ik)
+
+!   open(11,file='Fock_vxpsi.dat',status='replace')
+!   write(11,*)"r(i), vx_psi(i), vx_psi_sr(i),vx_psi_lr(i)",rsmu
+!   do i=1, Ngrid
+!     write(11,*)r(i), vx_psi(i,2), vx_psi_sr(i,2),vx_psi_lr(i,2)
+!   enddo
+!   close(11)
+!   stop
 
 
 !write(*,*)"psi_eig: ",psi_eig
@@ -940,59 +997,16 @@ enddo
 
 !enddo
 
-else if (version.eq.8)then
+else if (version.eq.9)then
 
-e1=1.d0
-e2=1d0
-i=2
-
-do ir=1,Ngrid
-  !call PHIn(1,2.5d0,r(ir),rho(ir))
-enddo
- open(11,file='Da.dat',status='replace')
- open(12,file='Db.dat',status='replace')
- open(13,file='Dc.dat',status='replace')
- open(14,file='Dd.dat',status='replace')
+call errfun(Ngrid,r,8,0.5d0,rsfunC)
 
 
-  write(11,*)"r 0 1 2"
-  write(12,*)"r 0 1 2"
-  write(13,*)"r 0 1 2"
-  write(14,*)"r 0 1 2"
-
-   do ir = 1,Ngrid
-     write(11,*)r(ir), Dnk(0,0,r(ir)),Dnk(0,1,r(ir)),Dnk(0,2,r(ir))
-     write(12,*)r(ir), Dnk(1,0,r(ir)),Dnk(1,1,r(ir)),Dnk(1,2,r(ir))
-     write(13,*)r(ir), Dnk(2,0,r(ir)),Dnk(2,1,r(ir)),Dnk(2,2,r(ir))
-     write(14,*)r(ir), Dnk(3,0,r(ir)),Dnk(3,1,r(ir)),Dnk(3,2,r(ir))
-  end do
-   close(11)
-   close(12)
-   close(13)
-   close(14)
-
-   open(11,file='Fig2_a.dat',status='replace')
-   open(12,file='Fig2_b.dat',status='replace')
-   open(13,file='Fig2_c.dat',status='replace')
-   open(14,file='Fig2_d.dat',status='replace')
-
-  write(11,*)"r 0 1 2"
- do ir = 1,Ngrid
-
-   !write(11,*)r(ir), PHInk(1,0,r(ir),r(ir)),PHInk(1,1,r(ir),r(ir)),PHInk(1,2,r(ir),r(ir))
-   !write(12,*)r(ir), PHInk(1,3,r(ir),r(ir)),PHInk(1,4,r(ir),r(ir)),PHInk(1,5,r(ir),r(ir))
-   !write(13,*)r(ir), PHInk(1,6,r(ir),r(ir)),PHInk(1,7,r(ir),r(ir)),PHInk(1,8,r(ir),r(ir))
-   !write(14,*)r(ir), PHInk(1,9,r(ir),r(ir)),PHInk(1,10,r(ir),r(ir)),PHInk(1,11,r(ir),r(ir))
-
-   write(11,*)r(ir), PHInk(1,0,r(ir),r(ir)),PHInk(1,1,r(ir),r(ir)),PHInk(1,100,r(ir),r(ir))
-   write(12,*)r(ir), PHInk(2,0,r(ir),r(ir)),PHInk(2,1,r(ir),r(ir)),PHInk(2,100,r(ir),r(ir))
-   write(13,*)r(ir), PHInk(3,0,r(ir),r(ir)),PHInk(3,1,r(ir),r(ir)),PHInk(3,100,r(ir),r(ir))
-   write(14,*)r(ir), PHInk(4,0,r(ir),r(ir)),PHInk(4,1,r(ir),r(ir)),PHInk(4,100,r(ir),r(ir))
- enddo
-   close(11)
-   close(12)
-   close(13)
-   close(14)
+!do i=0,10
+!call msbesselkc(i,ac, besrezc(1))
+!write(*,*)i,",",realpart(besrezc(1)),",",imagpart(besrezc(1))
+!enddo
+!write(*,*)ac
 
 
 endif

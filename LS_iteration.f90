@@ -1,5 +1,5 @@
-subroutine LS_iteration(Ngrid, r,tools,tools_info,version, Z,l, shell_l, nmax,&
-                shell0, Nshell, vxc,vx,vc, vh,vx_psi, psi_in,norm_arr,psi,eig)
+subroutine LS_iteration(Ngrid, r,tools,tools_info,rs,rsfunC,Nrsfun,version, Z,l, shell_l, nmax,&
+                shell0, Nshell,lmax, vxc,vx,vc, vh,vx_psi,vx_psi_sr,vx_psi_lr, psi_in,norm_arr,psi,eig,Bess_ik)
         ! Ngrid
         ! r
         ! vfull - potential (v_n+v_h+v_xc)
@@ -12,19 +12,21 @@ subroutine LS_iteration(Ngrid, r,tools,tools_info,version, Z,l, shell_l, nmax,&
 
 !--input and output variables--
 implicit none
+integer, intent(in) :: rs,Nrsfun,lmax
+complex(8), intent(in) :: rsfunC(Nrsfun+1,2)
 integer, intent(in) :: tools_info(3),version
 real(8), intent(in) :: tools(Ngrid,tools_info(1))
 integer, intent(in) :: Ngrid, nmax, shell0, Nshell
 integer, intent(in) :: l, shell_l(Nshell) 
 real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid),vh(Ngrid),vx(Ngrid),vc(Ngrid)
 real(8), intent(in) :: norm_arr(Nshell)
-real(8), intent(in) :: psi_in(Ngrid,Nshell),vx_psi(Ngrid,Nshell)
-
+real(8), intent(in) :: psi_in(Ngrid,Nshell),vx_psi(Ngrid,Nshell),vx_psi_sr(Ngrid,Nshell),vx_psi_lr(Ngrid,Nshell)
+complex(8), intent(in) ::Bess_ik(Ngrid,Nrsfun,2*lmax+1,2)
 real(8), intent(inout) :: eig(Nshell)
 real(8), intent(out) :: psi(Ngrid,Nshell)
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 integer :: inn,inp,ish,i,j 
-real(8) :: vx_chi(Ngrid,Nshell)
+real(8) :: vx_chi(Ngrid,Nshell),vx_chi_sr(Ngrid,Nshell),vx_chi_lr(Ngrid,Nshell)
 real(8) :: S(nmax,nmax),H(nmax,nmax),Snn,Hnn !Overlap and Hamiltonian matrix
 real(8) :: Sevec(nmax,nmax),Seval(nmax),s12(nmax,nmax),W(nmax,nmax),test(nmax,nmax)
 real(8) :: Winv(nmax,nmax),x(nmax,nmax),xp(nmax,nmax),Hevec(nmax,nmax),Heval(nmax),Hp(nmax,nmax)
@@ -44,7 +46,8 @@ if((maxval(abs((eig-eigp)/(eig+1d0)))).lt.1d-13)then !1d-13 bija
 endif
 do inn=1,nmax
   ish=shell0+inn
-  call scrPoisson(Ngrid, r,tools,tools_info,version, Z, l, vh, vxc,vx,vc,vx_psi(:,ish),psi_in(:,ish), eig(ish), psi(:,ish))
+  call scrPoisson(Ngrid, r,tools,tools_info,version, Z, l, vh, vxc,vx,vc,&
+          vx_psi(:,ish),vx_psi_sr(:,ish),vx_psi_lr(:,ish),psi_in(:,ish), eig(ish), psi(:,ish))
    call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,ish)**2,norm)
    psi(:,ish)=psi(:,ish)/dsqrt(norm)
 
@@ -54,7 +57,8 @@ enddo
 if ((version.eq.4).or.(version.eq.7)) then
    do inn=1,nmax
    ish=inn+shell0
-   call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,psi(:,ish),psi_in,vx_chi(:,ish))
+   call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,lmax,&
+           psi(:,ish),psi_in,vx_chi(:,ish),vx_chi_sr(:,ish),vx_chi_lr(:,ish),rs,rsfunC,Nrsfun,Bess_ik)
    enddo
 
 
@@ -192,13 +196,14 @@ do inn=1,nmax
 enddo
 end subroutine
 
-subroutine scrPoisson(Ngrid, r,tools,tools_info,version, Z, l, vh, vxc,vx,vc,vx_phi,phi, e, psi)
+subroutine scrPoisson(Ngrid, r,tools,tools_info,version, Z, l, vh, vxc,vx,vc,vx_phi,vx_phi_sr,vx_phi_lr,phi, e, psi)
 
 integer, intent(in) :: tools_info(3),version
 real(8), intent(in) :: tools(Ngrid,tools_info(1))
 integer, intent(in) :: Ngrid
 integer, intent(in) :: l
-real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid),vx(Ngrid),vc(Ngrid),vh(Ngrid),phi(Ngrid),vx_phi(Ngrid)
+real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid),vx(Ngrid),vc(Ngrid),vh(Ngrid),phi(Ngrid),vx_phi(Ngrid),&
+        vx_phi_sr(Ngrid),vx_phi_lr(Ngrid)
 real(8), intent(inout) :: e
 
 real(8), intent(out) :: psi(Ngrid)

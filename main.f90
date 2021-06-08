@@ -9,8 +9,8 @@ program atomHF
   integer :: vmajor, vminor, vmicro
   character(len=120) :: kind,family,version_text
   logical :: polarised
-  real(8) :: hybx_w(4)  
-!  integer,external :: xc_family_from_id !!tā ir funkcija
+  real(8) :: hybx_w(4) !hyb exchange weigths  1-HF , 2-SR HF , 3-local 
+  !  integer,external :: xc_family_from_id !!tā ir funkcija
 
   !!!!!!!!!! libxc !!!!!!!!
   !
@@ -35,7 +35,7 @@ complex(8), allocatable :: Bess_ik(:,:,:,:)
 !real(8), parameter :: Rmax = 10d0
 integer, parameter :: maxscl =50 !Maximal itteration number
 integer :: il,icl,il_icl,iscl,lmax,l_n,inn
-real(8) :: Z,rez
+real(8) :: Z,rez,a1,a2
 real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0,e_kin,e_ext,e_h,e_x,e_pot
 real(8) :: e11,e22,e33
 integer :: grid, Nshell, ish, d_order,i_order
@@ -76,7 +76,7 @@ enddo
 
 
 !!!!!!!!!! libxc !!!!!!!!!
-if (version.eq.5) then 
+if ((version.eq.5).or.(version.eq.8)) then 
 ! Print out the version
           call xc_f03_version(vmajor, vminor, vmicro)
   write(*,'("Libxc version: ",I1,".",I1,".",I1)') vmajor, vminor, vmicro
@@ -608,21 +608,11 @@ elseif((version.eq.4).or.(version.eq.5).or.(version.eq.6).or.(version.eq.7).or.(
 !6 - GGA-PBE
 !7 - PBE0 
 
-rs=1 
 Nrsfun=8
-rsmu=0.5d0
 allocate(rsfunC(Nrsfun+1,2))
 allocate(Bess_ik(Ngrid,Nrsfun,2*lmax+1,2)) !last atgument 1- 1-st kind (msbesi), 2- 2-nd kind (msbesk) 
 
-if (rs.ne.0) then
-!set array rsfunC - array of complex coeficients for erfc expantion
-call errfun(Ngrid,r,Nrsfun,rsmu,rsfunC)
-!obrain Bessel function Real part for each erfc expantion element 
-call get_Bess_fun(Ngrid,r,lmax,Nrsfun,rsfunC,Bess_ik)
 
-
-
-endif
 
 d_order=8
 i_order=7
@@ -648,6 +638,8 @@ elseif (version.eq.6) then
         endif
 elseif (version.eq.7) then
 write(*,*)"Version 7 - PBE0"
+elseif (version.eq.8) then
+write(*,*)"Hybrid libxc test"
 
 
 
@@ -684,6 +676,35 @@ Allocate(psip(Ngrid,Nshell),vx_psi(Ngrid,Nshell),vx_psi_sr(Ngrid,Nshell),vx_psi_
 
 vh=0d0*r
 vxc=0d0*r
+
+!Some initialisation for libxc Hybrid exchange
+if ((version.eq.5).or.(version.eq.8)) then
+  if  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_HYB_GGA) then
+    write(*,*)"Hybrid Exchange!"
+    e1= xc_f03_hyb_exx_coef(x_func) !hyb_exx - exact-exchange - Foka apmaiņas svars
+    write(*,*) "Foka apmaiņas svars: ",e1
+    call xc_f03_hyb_cam_coef(x_func , rsmu, a1, a2);
+    write(*,*) "rs parameter mu:",rsmu
+    write(*,*) "rs alpha",a1
+    write(*,*) "rs beta",a2
+    hybx_w(1)=a1
+    hybx_w(2)=a2
+    hybx_w(3)=rsmu
+    if (rsmu.gt.1d-20) then
+         rs=1
+         !set array rsfunC - array of complex coeficients for erfc expantion
+         call errfun(Ngrid,r,Nrsfun,rsmu,rsfunC)
+         !obrain Bessel function Real part for each erfc expantion element 
+         call get_Bess_fun(Ngrid,r,lmax,Nrsfun,rsfunC,Bess_ik)
+    else
+         rs=0
+    endif
+  endif
+
+endif
+
+
+
 do iscl=1,100
 
 
@@ -693,7 +714,7 @@ do iscl=1,100
      rho=rho+shell_occ(ish)*psi(:,ish)**2
   enddo
 
-if (version.eq.5) then
+if ((version.eq.5).or.(version.eq.8)) then
   vxcp=vxc
 !  call getvxc(Ngrid,rho/(4d0*Pi),vxc,exc)
 
@@ -704,12 +725,15 @@ ex=0d0*r
 ec=0d0*r
 
 !! EXCHANGE  !!!
+
 if (x_num.ne.0)then
+
 if (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_LDA) then
         
   call xc_f03_lda_exc_vxc(x_func, Ngrid, rho(1), ex(1),vx(1))
 
 elseif  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_GGA) then
+write(*,*)"GGA"
 
   call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
   call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
@@ -730,10 +754,7 @@ elseif  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_GGA) then
 !   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
 
 elseif  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_HYB_GGA) then
-  write(*,*)"Hybrid Exchange!"
-  e1= xc_f03_hyb_exx_coef(x_func) !hyb_exx - exact-exchange - Foka apmaiņas svars
-  write(*,*) "Foka apmaiņas svars: ",e1
-  write(*,*) xc_f03_family_from_id(406)
+
   call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
   call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
   g2rho=g2rho*r**(-2)
@@ -742,7 +763,6 @@ elseif  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_HYB_GGA) then
   call rderivative_lagrN(Ngrid,r,tools,tools_info,vxsigma,ftemp1)
   vx=vx-2d0*(grho*ftemp1+vxsigma*g2rho)
 
-stop
 else
 
    write(*,*)"Exchange not supported!"
@@ -757,7 +777,6 @@ if (xc_f03_func_info_get_family(c_info).eq.XC_FAMILY_LDA) then
   call xc_f03_lda_exc_vxc(c_func, Ngrid, rho(1), ec(1),vc(1))
 
 elseif  (xc_f03_func_info_get_family(c_info).eq.XC_FAMILY_GGA) then
-
   call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
   call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
   g2rho=g2rho*r**(-2)
@@ -802,23 +821,18 @@ else if (version.eq.6) then
         call getxc_pbe(Ngrid,r,tools,tools_info,rho/(4d0*Pi),vxc,exc,vx,vc,ex,ec)
 
         endif
-
 else if (version.eq.7) then
-  c_num=0
-  x_num=0
   vxcp=vxc
   call getxc_pbe(Ngrid,r,tools,tools_info,rho/(4d0*Pi),vxc,exc,vx,vc,ex,ec)
+
 endif
 
 ! Get exchange potential
 
-if ((version.eq.4).or.(version.eq.7)) then
-  c_num=0
-  x_num=0
+if ((version.eq.4).or.(version.eq.7).or.(version.eq.8)) then
  do ish=1,Nshell
- write(*,*)"GET FOCK"
    call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,lmax,psi(:,ish),psi,&
-           vx_psi(:,ish),vx_psi_sr(:,ish),vx_psi_lr(:,ish),rs,rsfunC,Nrsfun,Bess_ik)
+           vx_psi(:,ish),vx_psi_sr(:,ish),vx_psi_lr(:,ish),rs,rsfunC,Nrsfun,hybx_w,Bess_ik)
   enddo 
 endif
   
@@ -920,6 +934,38 @@ else if(version.eq.7)then
   energy=e_kin+e_ext+e_h+e_x
 
   write(*,*)"Energy_tot:",energy, " (",iscl,")"
+
+else if(version.eq.8)then
+  e_kin=0d0
+  do ish=1,Nshell
+
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish),ftemp1)
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,ftemp1*r**2,ftemp2)
+  ftemp2=ftemp2/r**2
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,-0.5d0*psi(:,ish)*ftemp2*r**2,e1)
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,0.5d0*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish)**2,e2)
+  e_kin=e_kin+shell_occ(ish)*(e1+e2)
+  enddo
+  !write(*,*)"e_kin_new:",e_kin
+  call integ_BodesN_value(Ngrid,r,tools,tools_info,-r*rho*Z,e_ext)
+  !write(*,*)"e_ext=",e_ext
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*rho*vh,e_h)
+  !write(*,*)"e_h=",e_h
+  e2=0d0
+  do ish=1,Nshell
+    call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish)*psi(:,ish)*&
+            (hybx_w(1)*vx_psi(:,ish)+hybx_w(2)*vx_psi_sr(:,ish)),e1)
+    e2=e2+e1
+  enddo
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,(ex+ec)*rho*r**2,e3)
+
+ e_x=e2+e3
+  energy0=energy
+  energy=e_kin+e_ext+e_h+e_x
+
+  write(*,*)"Energy_tot:",energy, " (",iscl,")"
+
+
 endif
   
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -937,13 +983,17 @@ endif
   close(11)
 
 !END Caulculate energy
+
+
+
+
+
 l_n=0
  psip=psi
  eigp=psi_eig
 
   do il=1,lmax+1
- write(*,*)"LS"
-  call LS_iteration(Ngrid,r,tools,tools_info,rs,rsfunC,Nrsfun,version,Z,il-1,shell_l,count_l(il),l_n,&
+ call LS_iteration(Ngrid,r,tools,tools_info,rs,rsfunC,Nrsfun,hybx_w,version,Z,il-1,shell_l,count_l(il),l_n,&
             Nshell,lmax,vxc,vx,vc,vh,vx_psi,vx_psi_sr,vx_psi_lr,psip,norm_arr,psi,psi_eig,Bess_ik)
 
 !   open(11,file='Fock_vxpsi.dat',status='replace')
@@ -997,17 +1047,17 @@ enddo
 
 !enddo
 
-else if (version.eq.9)then
-
-call errfun(Ngrid,r,8,0.5d0,rsfunC)
+else if (version.eq.10)then
 
 
-!do i=0,10
-!call msbesselkc(i,ac, besrezc(1))
-!write(*,*)i,",",realpart(besrezc(1)),",",imagpart(besrezc(1))
-!enddo
-!write(*,*)ac
+open(11,file='bestest_2.dat',status='replace')
 
+do i=1,Ngrid
+ac=cmplx(r(i),1d0,8)
+call msbesselic(2,ac, bc)
+write(11,*)realpart(ac),imagpart(ac),realpart(bc),imagpart(bc)
+enddo
+close(11)
 
 endif
 

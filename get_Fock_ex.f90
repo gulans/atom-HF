@@ -1,9 +1,9 @@
 subroutine get_Fock_ex(Ngrid,r,tools,tools_info,shell,Nshell,shell_l,lmax,psi,psi_all,&
-                vx_psi,vx_psi_sr,vx_psi_lr,rs,rsfunC,Nrsfun,Bess_ik)
+                vx_psi,vx_psi_sr,vx_psi_lr,rs,rsfunC,Nrsfun,hybx_w,Bess_ik)
 implicit none
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 integer, intent(in) :: tools_info(3),lmax
-real(8), intent(in) :: tools(Ngrid,tools_info(1))
+real(8), intent(in) :: tools(Ngrid,tools_info(1)),hybx_w(4)
 complex(8), intent(in) ::rsfunC(Nrsfun+1,2) !Nrsfun+1-th element real part is rmax and imaginary is parameter mu
 integer, intent(in)  :: Nshell,Ngrid,shell,shell_l(Nshell),rs,Nrsfun
 real(8), intent(in)  :: psi_all(Ngrid,Nshell),r(Ngrid),psi(Ngrid)
@@ -17,7 +17,6 @@ real(8) :: gc,u_all(Ngrid,Nshell),u(Ngrid)
 real(8) :: integ1(Ngrid),integ2(Ngrid),integ(Ngrid),integ_sr(Ngrid)
 real(8) :: rsmu,rsrmax
 
-!write(*,*)"Foka funkcija ",Nrsfun
 
 
 
@@ -77,8 +76,8 @@ rez=rez+rsfunC(k,1)*(integc1+integc2)
 
 enddo
 
-
-   rsmu=realpart(rsfunc(Nrsfun+1,1))
+   rsmu=hybx_w(3)
+   !rsmu=realpart(rsfunc(Nrsfun+1,1))
    rsrmax=imagpart(rsfunc(Nrsfun+1,1))
 
    open(11,file='Fock_integral_test.dat',status='replace')

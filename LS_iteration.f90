@@ -1,4 +1,4 @@
-subroutine LS_iteration(Ngrid, r,tools,tools_info,rs,rsfunC,Nrsfun,version, Z,l, shell_l, nmax,&
+subroutine LS_iteration(Ngrid, r,tools,tools_info,rs,rsfunC,Nrsfun,hybx_w,version, Z,l, shell_l, nmax,&
                 shell0, Nshell,lmax, vxc,vx,vc, vh,vx_psi,vx_psi_sr,vx_psi_lr, psi_in,norm_arr,psi,eig,Bess_ik)
         ! Ngrid
         ! r
@@ -15,7 +15,7 @@ implicit none
 integer, intent(in) :: rs,Nrsfun,lmax
 complex(8), intent(in) :: rsfunC(Nrsfun+1,2)
 integer, intent(in) :: tools_info(3),version
-real(8), intent(in) :: tools(Ngrid,tools_info(1))
+real(8), intent(in) :: tools(Ngrid,tools_info(1)),hybx_w(4)
 integer, intent(in) :: Ngrid, nmax, shell0, Nshell
 integer, intent(in) :: l, shell_l(Nshell) 
 real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid),vh(Ngrid),vx(Ngrid),vc(Ngrid)
@@ -46,7 +46,7 @@ if((maxval(abs((eig-eigp)/(eig+1d0)))).lt.1d-13)then !1d-13 bija
 endif
 do inn=1,nmax
   ish=shell0+inn
-  call scrPoisson(Ngrid, r,tools,tools_info,version, Z, l, vh, vxc,vx,vc,&
+  call scrPoisson(Ngrid, r,tools,tools_info,version,hybx_w, Z, l, vh, vxc,vx,vc,&
           vx_psi(:,ish),vx_psi_sr(:,ish),vx_psi_lr(:,ish),psi_in(:,ish), eig(ish), psi(:,ish))
    call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,ish)**2,norm)
    psi(:,ish)=psi(:,ish)/dsqrt(norm)
@@ -54,11 +54,11 @@ do inn=1,nmax
 enddo
 
 !Overlap and Hamiltonian matrix
-if ((version.eq.4).or.(version.eq.7)) then
+if ((version.eq.4).or.(version.eq.7).or.(version.eq.8)) then
    do inn=1,nmax
    ish=inn+shell0
    call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,lmax,&
-           psi(:,ish),psi_in,vx_chi(:,ish),vx_chi_sr(:,ish),vx_chi_lr(:,ish),rs,rsfunC,Nrsfun,Bess_ik)
+           psi(:,ish),psi_in,vx_chi(:,ish),vx_chi_sr(:,ish),vx_chi_lr(:,ish),rs,rsfunC,Nrsfun,hybx_w,Bess_ik)
    enddo
 
 
@@ -85,6 +85,11 @@ else if (version.eq.4) then
 else if (version.eq.7) then
 !Hybrid exchange
     f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+0.75d0*vx+vc)*psi(:,inp+shell0)+0.25d0*vx_chi(:,inp+shell0)
+else if (version.eq.8) then
+!Hybrid exchange
+    f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+vx+vc)*psi(:,inp+shell0)+&
+            hybx_w(1)*vx_chi(:,inp+shell0)+hybx_w(2)*vx_chi_sr(:,inp+shell0)
+
 
 endif
 !Hydrogen
@@ -196,10 +201,11 @@ do inn=1,nmax
 enddo
 end subroutine
 
-subroutine scrPoisson(Ngrid, r,tools,tools_info,version, Z, l, vh, vxc,vx,vc,vx_phi,vx_phi_sr,vx_phi_lr,phi, e, psi)
+subroutine scrPoisson(Ngrid, r,tools,tools_info,version,hybx_w,&
+                Z, l, vh, vxc,vx,vc,vx_phi,vx_phi_sr,vx_phi_lr,phi, e, psi)
 
 integer, intent(in) :: tools_info(3),version
-real(8), intent(in) :: tools(Ngrid,tools_info(1))
+real(8), intent(in) :: tools(Ngrid,tools_info(1)),hybx_w(4)
 integer, intent(in) :: Ngrid
 integer, intent(in) :: l
 real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid),vx(Ngrid),vc(Ngrid),vh(Ngrid),phi(Ngrid),vx_phi(Ngrid),&
@@ -233,6 +239,10 @@ f=-2d0*(-Z/r+vh)*phi-2d0*vx_phi
 else if (version.eq.7)then
 !Hybrid
 f=-2d0*(-Z/r+vh+0.75d0*vx+vc)*phi-2d0*0.25d0*vx_phi
+else if (version.eq.8)then
+!Hybrid
+
+f=-2d0*( (-Z/r+vh+vx+vc)*phi + hybx_w(1)*vx_phi + hybx_w(2)*vx_phi_sr )
 
 endif
 !!! Ūdeņradis 1s

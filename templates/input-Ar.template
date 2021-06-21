@@ -1,5 +1,5 @@
 Z Rmin Rmax Nrad version 
-18d0 1d-5 18d0 300 5 
+18d0 1d-5 18d0 300 4 
 Exchange-id Correlation-id (version 5 (libxc id), version  6 0-None,1-LDA,2-PBE)
 101 130
 Grid 0-equidistant 1-cubic 2-exponential

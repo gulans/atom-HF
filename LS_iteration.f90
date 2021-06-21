@@ -59,6 +59,7 @@ if ((version.eq.4).or.(version.eq.7).or.(version.eq.8)) then
    ish=inn+shell0
    call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,lmax,&
            psi(:,ish),psi_in,vx_chi(:,ish),vx_chi_sr(:,ish),vx_chi_lr(:,ish),rs,rsfunC,Nrsfun,hybx_w,Bess_ik)
+ 
    enddo
 
 
@@ -89,7 +90,7 @@ else if (version.eq.8) then
 !Hybrid exchange
     f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+vx+vc)*psi(:,inp+shell0)+&
             hybx_w(1)*vx_chi(:,inp+shell0)+hybx_w(2)*vx_chi_sr(:,inp+shell0)
-
+!    write(*,*)"Parastā Foka ", hybx_w(1), " rs ", hybx_w(2), " mu ", hybx_w(3)
 
 endif
 !Hydrogen
@@ -243,6 +244,7 @@ else if (version.eq.8)then
 !Hybrid
 
 f=-2d0*( (-Z/r+vh+vx+vc)*phi + hybx_w(1)*vx_phi + hybx_w(2)*vx_phi_sr )
+
 
 endif
 !!! Ūdeņradis 1s

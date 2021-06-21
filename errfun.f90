@@ -3,7 +3,7 @@ implicit none
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 integer, intent(in) :: Ngrid,n
 real(8), intent(in) :: r(Ngrid),mu
-complex(8),intent(out) :: rsfunC(n+1,2) 
+complex(8),intent(out) :: rsfunC(n,2) 
 
 real(8) ::AA1(n),AA2(n),BB1(n),BB2(n)
 complex(8) :: rez(Ngrid)
@@ -31,14 +31,27 @@ rmax=5.3d0
 
 endif
 
-BB1=BB1*mu
-BB2=BB2*mu
+
+
 rmax=rmax/mu
    do i = 1,n
       rsfunC(i,1)=cmplx(AA1(i),AA2(i),8)
       rsfunC(i,2)=cmplx(BB1(i),BB2(i),8)
    end do
-   rsfunC(n+1,1)=cmplx(mu,rmax,8)
+
+!write(*,*)" A"
+!do i=1, n
+!write(*,*)rsfunC(i,1)
+!enddo
+!write(*,*)" B"
+!do i=1, n
+!write(*,*)rsfunC(i,2)
+!enddo
+
+
+ rsfunC(:,2)=rsfunC(:,2)*mu
+
+
 
 
    rez=cmplx(0d0,0d0,8)*r

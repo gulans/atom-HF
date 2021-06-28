@@ -1,7 +1,7 @@
 Z Rmax Nrad Version
-10d0 1d-5 18d0 200 4 
+10d0 1d-5 18d0 500 8 
 Exchange-id Correlation-id (version 5 (libxc id), version  6 0-None,1-LDA,2-PBE)
-0 0
+0 0 0
 Grid 0-equidistant 1-cubic 2-exponential
 1
 Number of shells - 1s 2s 2p

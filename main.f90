@@ -734,7 +734,7 @@ if(.true.)then
  endif
  call errfun(Ngrid,r,Nrsfun,rsmu,rsfunC)
  call get_Bess_fun(Ngrid,r,lmax,Nrsfun,rsfunC,Bess_ik)
- hybx_w(1)=0d0 !Coulumb interaction weigth in Fock exchange
+ hybx_w(1)=1d0 !Coulumb interaction weigth in Fock exchange
  hybx_w(2)=0d0 !Short range interaction weigth in Fock exchange
  hybx_w(3)=rsmu !short range parameter
 endif
@@ -1096,12 +1096,13 @@ else if(version.eq.8)then
 !  ftemp2=ftemp2/r**2
 !  call integ_BodesN_value(Ngrid,r,tools, tools_info,-0.5d0*psi(:,ish)*ftemp2*r**2,e1)
 !!ši precīzāka
-  call rderivative_lagrN(Ngrid,r,tools,tools_info,ftemp1,ftemp2)
-  call integ_BodesN_value(Ngrid,r,tools, tools_info,-0.5d0*psi(:,ish)*(2d0*ftemp1*r+ftemp2*r**2),e1)
-
-
-
-call integ_BodesN_value(Ngrid,r,tools, tools_info,0.5d0*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish)**2,e2)
+!  call rderivative_lagrN(Ngrid,r,tools,tools_info,ftemp1,ftemp2)
+!  call integ_BodesN_value(Ngrid,r,tools, tools_info,-0.5d0*psi(:,ish)*(2d0*ftemp1*r+ftemp2*r**2),e1)
+!!šī vēl precīzāka 
+   call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp1**2*r**2,e1)
+ 
+ 
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,0.5d0*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish)**2,e2)
   e_kin=e_kin+shell_occ(ish)*(e1+e2)
   enddo
   write(*,*)"e_kin_new:",e_kin

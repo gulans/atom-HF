@@ -701,27 +701,30 @@ write(*,*)"lmax=",lmax
 ! Lippmann–Schwinger iterations and solving screened Poisson equation.
 ! $\left( \nabla^2+ 2\epsilon \right \psi(\mathbf{r}) = v(\mathbf{r}) \psi(\mathbf{r})$
 
- 
- l_n=0
-  do il=1,lmax+1
-    call diashoot(Ngrid,r,Z,vfull,il-1,count_l(il),l_n,Nshell,eig,psi)
-    do inn=1,count_l(il)
-      l_n=l_n+1
-      psi_eig(l_n)=eig(inn)
-      call integ_sph_s38_value(Ngrid,r,psi(:,l_n)**2d0,norm)
-      psi(:,l_n)=psi(:,l_n)/dsqrt(norm)
-      norm_arr(l_n)=dsqrt(norm)
-      write(*,*)"l_n",l_n,"eig=",psi_eig(l_n),"norm=",norm
-#ifdef debug
-!      write(*,*)"PSI l=",il-1," n=",inn," l_n=",l_n,&
-!            "eig:",psi_eig(l_n)," occ:",shell_occ(l_n)
-#endif
-    enddo
-  enddo
 
+
+!iteration0 before:
+! l_n=0
+!  do il=1,lmax+1
+!    call diashoot(Ngrid,r,Z,vfull,il-1,count_l(il),l_n,Nshell,eig,psi)
+!    do inn=1,count_l(il)
+!      l_n=l_n+1
+!      psi_eig(l_n)=eig(inn)
+!      call integ_sph_s38_value(Ngrid,r,psi(:,l_n)**2d0,norm)
+!      psi(:,l_n)=psi(:,l_n)/dsqrt(norm)
+!      norm_arr(l_n)=dsqrt(norm)
+!      write(*,*)"l_n",l_n,"eig=",psi_eig(l_n),"norm=",norm
+!    enddo
+!  enddo
+!end iteration0 before:
 Allocate(psip(Ngrid,Nshell),vx_psi(Ngrid,Nshell),vx_psi_sr(Ngrid,Nshell),vx_psi_lr(Ngrid,Nshell),&
         eigp(Nshell),vhp(Ngrid),vxcp(Ngrid))
 
+call iteration0(Ngrid,r,Z,Nshell,shell_l,lmax,count_l,psi_eig,psi)
+do ish=1,Nshell
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,psi(:,ish)**2*r**2,norm)
+  write(*,*)ish,". "," eig=",psi_eig(ish)," norm=",norm
+enddo
 
 vh=0d0*r
 vxc=0d0*r
@@ -770,7 +773,8 @@ endif
 
 
 do iscl=1,100
-      !open(12,file='r.dat',status='replace')
+!write(*,*)"STARTING LOOP"
+!open(12,file='r.dat',status='replace')
       !   do i=1, Ngrid
       !write(12,*) i,r(i)
       !enddo
@@ -966,7 +970,7 @@ endif
 
 if ((version.eq.4).or.(version.eq.7).or.(version.eq.8)) then
  do ish=1,Nshell
-   call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,lmax,psi(:,ish),psi,&
+ call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,lmax,psi(:,ish),psi,&
            vx_psi(:,ish),vx_psi_sr(:,ish),vx_psi_lr(:,ish),rs,rsfunC,Nrsfun,hybx_w,Bess_ik)
   enddo 
 
@@ -1096,10 +1100,10 @@ else if(version.eq.8)then
 !  ftemp2=ftemp2/r**2
 !  call integ_BodesN_value(Ngrid,r,tools, tools_info,-0.5d0*psi(:,ish)*ftemp2*r**2,e1)
 !!ši precīzāka
-!  call rderivative_lagrN(Ngrid,r,tools,tools_info,ftemp1,ftemp2)
-!  call integ_BodesN_value(Ngrid,r,tools, tools_info,-0.5d0*psi(:,ish)*(2d0*ftemp1*r+ftemp2*r**2),e1)
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,ftemp1,ftemp2)
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,-0.5d0*psi(:,ish)*(2d0*ftemp1*r+ftemp2*r**2),e1)
 !!šī vēl precīzāka 
-   call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp1**2*r**2,e1)
+!   call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp1**2*r**2,e1)
  
  
   call integ_BodesN_value(Ngrid,r,tools, tools_info,0.5d0*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish)**2,e2)
@@ -1166,7 +1170,6 @@ endif
 l_n=0
  psip=psi
  eigp=psi_eig
-
   do il=1,lmax+1
  call LS_iteration(Ngrid,r,tools,tools_info,rs,rsfunC,Nrsfun,hybx_w,version,Z,il-1,shell_l,count_l(il),l_n,&
             Nshell,lmax,vxc,vx,vc,vh,vx_psi,vx_psi_sr,vx_psi_lr,psip,norm_arr,psi,psi_eig,Bess_ik)

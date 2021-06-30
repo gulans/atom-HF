@@ -35,7 +35,8 @@ rez_rmin=h*(14d0*0d0+64d0*frmin1+24d0*frmin2+64d0*frmin3+14d0*fin(1))/45d0
 
 
 
-rez(1)=r(1)*fin(1)/2d0!rez_rmin
+!rez(1)=r(1)*fin(1)/2d0
+rez(1)=rez_rmin
 
 Npoints=tools_info(3)+1
 do i=1, Npoints

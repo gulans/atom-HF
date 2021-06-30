@@ -730,15 +730,15 @@ vh=0d0*r
 vxc=0d0*r
 
 if(.true.)then
- rs=1
+ rs=0
  rsmu=0.11d0
  if (rs.eq.0)then
          rsmu=0d0
  endif
  call errfun(Ngrid,r,Nrsfun,rsmu,rsfunC)
  call get_Bess_fun(Ngrid,r,lmax,Nrsfun,rsfunC,Bess_ik)
- hybx_w(1)=0d0 !Coulumb interaction weigth in Fock exchange
- hybx_w(2)=1d0 !Short range interaction weigth in Fock exchange
+ hybx_w(1)=1d0 !Coulumb interaction weigth in Fock exchange
+ hybx_w(2)=0d0 !Short range interaction weigth in Fock exchange
  hybx_w(3)=rsmu !short range parameter
 endif
 

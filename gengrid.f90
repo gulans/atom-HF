@@ -22,10 +22,23 @@ elseif (grid.eq.2) then !Exponential
   do ir=1,Ngrid
     r(ir)=Rmin*exp(dble(ir-1)*LOG(Rmax/Rmin)/dble(Ngrid-1))
   enddo
+
+elseif (grid.eq.3) then !Advanced Cubic grid
+  do ir=1,Ngrid
+    r(ir)=ir*Rmin+(Rmax-Ngrid*Rmin)*(dble(ir-1)/dble(Ngrid-1))**3
+
+!r_i=((i-1)/(N-1))^3*(r_max-N*r_min)+i*r_min
+  enddo
+
+
 endif
+
+
+
+
 !write(*,*) "Grid:"
-!  do ir=1,Ngrid
-!    write(*,*) "ri=",ir," r=",r(ir)
-!  enddo
+  do ir=1,Ngrid
+    write(*,*) "ri=",ir," r=",r(ir)
+  enddo
  
 end subroutine

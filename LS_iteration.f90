@@ -72,13 +72,14 @@ do inn=1,nmax
 
     S(inn,inp)=Snn
 !!!!!
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,r*psi(:,inp+shell0),f4)
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,f4,f1)
-    f1=f1/r
-    call integ_BodesN_value(Ngrid,r,tools,tools_info,-0.5d0*psi(:,inn+shell0)*f1*r**2,Hnn)
-!!!!! This wirks only for He
-!    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inp+shell0),f4)
-!    call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*f4**2*r**2,Hnn)
+!    call rderivative_lagrN(Ngrid,r,tools,tools_info,r*psi(:,inp+shell0),f4)
+!    call rderivative_lagrN(Ngrid,r,tools,tools_info,f4,f1)
+!    f1=f1/r
+!    call integ_BodesN_value(Ngrid,r,tools,tools_info,-0.5d0*psi(:,inn+shell0)*f1*r**2,Hnn)
+!!!!! 
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inp+shell0),f4)
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inn+shell0),f1)
+    call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*f4*f1*r**2,Hnn)
 !!!!!
 
 

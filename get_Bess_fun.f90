@@ -9,8 +9,8 @@ complex(8) ::z,zmin,zmax, besi,besk
 integer :: ir,l,fun
 integer :: ii
 real(8) :: remin,immin,remax,immax,zminabs,zmaxabs,zabs
-open(11,file='bes/besi_all_sm.dat',status='replace')
-open(12,file='bes/besk_all_sm.dat',status='replace')
+open(11,file='besi_all_sm.dat',status='replace')
+open(12,file='besk_all_sm.dat',status='replace')
 ii=0
 zminabs=1d100
 zmaxabs=0d0

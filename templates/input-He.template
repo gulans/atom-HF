@@ -1,5 +1,5 @@
 Z Rmax Nrad version_4-HF_5-libxc_6-built-in_7-PBE0_8-Range_Sep_test
-2d0 1d-5 18d0 400 8
+2d0 1d-6 18d0 4000 8
 Exchange-id Correlation-id (version 5 (libxc id), version  6 0-None,1-LDA,2-PBE) 
 0 0 0 
 Grid 0-equidistant 1-cubic 2-exponential

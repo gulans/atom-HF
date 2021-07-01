@@ -9,7 +9,8 @@ program atomHF
   integer :: vmajor, vminor, vmicro
   character(len=120) :: kind,family,version_text
   logical :: polarised
-  real(8) :: hybx_w(4) !hyb exchange weigths  1-HF , 2-SR HF , 3-local 
+  real(8) :: hybx_w(5,2) !hyb exchange weigths: (1,1)-vx, (2,1)-vc, (3,1)-vc1, (4,1)-HF, (5,1)-HF_sr
+                         !parameter (*,2)   
   !  integer,external :: xc_family_from_id !!tā ir funkcija
   !!!!!!!!!! libxc !!!!!!!!
   !
@@ -54,7 +55,7 @@ real(8) :: rsmu
 integer :: rs,Nrsfun
 complex(8), allocatable :: rsfunC(:,:)
 
-
+logical :: override_libxc_hyb
 
 dE_min=1d-8
 call timesec(time0)
@@ -63,8 +64,13 @@ call timesec(time0)
 read(*,*) 
 read(*,*) Z, Rmin, Rmax, Ngrid, version
 read(*,*)
-read(*,*) x_num, c_num,c1_num
-!c1_num=0
+read(*,*) x_num, hybx_w(1,1)
+read(*,*) c_num, hybx_w(2,1)
+read(*,*) c1_num,hybx_w(3,1)
+read(*,*)
+read(*,*) override_libxc_hyb
+read(*,*) hybx_w(4,1)
+read(*,*) hybx_w(5,1),hybx_w(5,2)
 read(*,*)
 read(*,*) grid
 read(*,*) 
@@ -87,7 +93,7 @@ if ((version.eq.5).or.(version.eq.8)) then
 !  x_num=101
 !  c_num=130
 
-if (x_num.ne.0) then
+if (x_num.gt.0) then
 !!!info Exchange!!!!!!!
 write(*,*)"x_num",x_num
 
@@ -134,7 +140,7 @@ write(*,*)XC_FAMILY_LDA
   !  write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(x_info, i)))
   !end do
   endif
-if (c_num.ne.0) then
+if (c_num.gt.0) then
 
 !!!!info correlation
 write(*,*)"c_num",c_num
@@ -180,7 +186,7 @@ write(*,*)"c_num",c_num
   endif
 
 !!!!info correlation1
-if (c1_num.ne.0) then
+if (c1_num.gt.0) then
 write(*,*)"c1_num",c1_num
 
   call xc_f03_func_init(c1_func, c1_num, XC_UNPOLARIZED)
@@ -302,7 +308,7 @@ vfull=0d0*r !vfull is vh+vxc, core potential -Z/r is used seperatly - version 1 
      open(11,file='res.dat',status='old', access='append')
   else
      open(11,file='res.dat',status='new')
-     write(11,*)"v-text,version,x_num,c_num,d_order,i_order,Ngrid,Rmin,Rmax,Z,energy,time,Nrsfun,rs_mu"
+     write(11,*)"v-text,version,grid,iter,x_num,c_num,d_order,i_order,Ngrid,Rmin,Rmax,Z,energy,time,Nrsfun,rs_mu"
   endif
   close(11)
 
@@ -655,7 +661,7 @@ elseif((version.eq.4).or.(version.eq.5).or.(version.eq.6).or.(version.eq.7).or.(
 !6 - GGA-PBE
 !7 - PBE0 
 
-Nrsfun=8
+Nrsfun=4
 allocate(rsfunC(Nrsfun,2))
 allocate(Bess_ik(Ngrid,Nrsfun,2*lmax+1,2)) !last atgument 1- 1-st kind (msbesi), 2- 2-nd kind (msbesk) 
 
@@ -663,8 +669,8 @@ allocate(Bess_ik(Ngrid,Nrsfun,2*lmax+1,2)) !last atgument 1- 1-st kind (msbesi),
 !i_order=3
 
 
-d_order=8
-i_order=7
+d_order=9
+i_order=9
         tools_info=(/40,d_order,i_order/)!optimal 8,7
  !info about tools_info array:
  !tools_info(1) - (2-nd dimenstion size of tools array 1-10 - coefficinets for Lagrange interp,
@@ -725,26 +731,23 @@ do ish=1,Nshell
   call integ_BodesN_value(Ngrid,r,tools, tools_info,psi(:,ish)**2*r**2,norm)
   write(*,*)ish,". "," eig=",psi_eig(ish)," norm=",norm
 enddo
-
+eigp=psi_eig*0d0
 vh=0d0*r
 vxc=0d0*r
 
-if(.true.)then
- rs=0
- rsmu=0.11d0
- if (rs.eq.0)then
-         rsmu=0d0
- endif
- call errfun(Ngrid,r,Nrsfun,rsmu,rsfunC)
+if (abs(hybx_w(5,1)).gt.1d-20) then
+ rs=1
+ call errfun(Ngrid,r,Nrsfun,hybx_w(5,2),rsfunC)
  call get_Bess_fun(Ngrid,r,lmax,Nrsfun,rsfunC,Bess_ik)
- hybx_w(1)=1d0 !Coulumb interaction weigth in Fock exchange
- hybx_w(2)=0d0 !Short range interaction weigth in Fock exchange
- hybx_w(3)=rsmu !short range parameter
+else
+ rs=0
 endif
+
 
 !Some initialisation for libxc Hybrid exchange
 if ((version.eq.5).or.(version.eq.8)) then
-  if(x_num.ne.0)then
+  if(x_num.gt.0)then
+if (.not.(override_libxc_hyb)) then
     if  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_HYB_GGA) then
     write(*,*)"Hybrid Exchange!"
     e1= xc_f03_hyb_exx_coef(x_func) !hyb_exx - exact-exchange - Foka apmaiņas svars
@@ -753,19 +756,18 @@ if ((version.eq.5).or.(version.eq.8)) then
     write(*,*) "rs parameter mu:",rsmu
     write(*,*) "rs alpha",a1
     write(*,*) "rs beta",a2
-    hybx_w(1)=a1
-    hybx_w(2)=a2
-    hybx_w(3)=rsmu
+    hybx_w(4,1)=a1
+    hybx_w(5,1)=a2
+    hybx_w(5,2)=rsmu
 
-    if (rsmu.gt.1d-20) then
+    if (a2.gt.1d-20) then
          rs=1
-         !set array rsfunC - array of complex coeficients for erfc expantion
          call errfun(Ngrid,r,Nrsfun,rsmu,rsfunC)
-         !obrain Bessel function Real part for each erfc expantion element 
          call get_Bess_fun(Ngrid,r,lmax,Nrsfun,rsfunC,Bess_ik)
     else
          rs=0
     endif
+endif
   endif
   endif
 endif
@@ -801,26 +803,21 @@ vc1=0d0*r
 ec1=0d0*r
 !! EXCHANGE  !!!
 
-if (x_num.ne.0)then
-
-if (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_LDA) then
-        
-  call xc_f03_lda_exc_vxc(x_func, Ngrid, rho(1), ex(1),vx(1))
-
-elseif  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_GGA) then
-write(*,*)"GGA"
-if(x_num.eq.524)then
- hybx_w(3)=0.11d0
- write(*,*)"RS sparameter for local exchange:", hybx_w(3)
- call xc_f03_func_set_ext_params(x_func,hybx_w(3))
-
-! call xc_f03_func_set_ext_params(x_func,hybx_w(3))
-  endif
-  call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
-  call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
-  g2rho=g2rho*r**(-2)
-  grho2=grho**2
-  call xc_f03_gga_exc_vxc(x_func, Ngrid, rho(1), grho2(1), ex(1),vx(1),vxsigma(1))
+if (x_num.gt.0)then
+  if (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_LDA) then
+     call xc_f03_lda_exc_vxc(x_func, Ngrid, rho(1), ex(1),vx(1))
+  elseif  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_GGA) then
+     write(*,*)"GGA"
+     !if(x_num.eq.524)then
+     !  hybx_w(3)=0.11d0
+     !  write(*,*)"RS sparameter for local exchange:", hybx_w(3)
+     !  call xc_f03_func_set_ext_params(x_func,hybx_w(3))
+     !endif
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
+     g2rho=g2rho*r**(-2)
+     grho2=grho**2
+     call xc_f03_gga_exc_vxc(x_func, Ngrid, rho(1), grho2(1), ex(1),vx(1),vxsigma(1))
 
   !!!!! formula 6.0.8 !!!!!!
 !  call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho*vxsigma,ftemp1)
@@ -830,35 +827,28 @@ if(x_num.eq.524)then
 
 
 !   !!!!! formula 6.0.5 (exciting variants) !!!!!!
-   call rderivative_lagrN(Ngrid,r,tools,tools_info,vxsigma,ftemp1)
-   vx=vx-2d0*(grho*ftemp1+vxsigma*g2rho)
+      call rderivative_lagrN(Ngrid,r,tools,tools_info,vxsigma,ftemp1)
+     vx=vx-2d0*(grho*ftemp1+vxsigma*g2rho)
 !   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
 
-elseif  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_HYB_GGA) then
-
-  call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
-  call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
-  g2rho=g2rho*r**(-2)
-  grho2=grho**2
-
-  call xc_f03_gga_exc_vxc(x_func, Ngrid, rho(1), grho2(1), ex(1),vx(1),vxsigma(1))
-
-!  !!!!! formula 6.0.8 !!!!!!
-  call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho*vxsigma,ftemp1)
-  ftemp1=ftemp1*r**(-2)
-  vx=vx-2d0*ftemp1
-  !!!!! end formula 6.0.8 !!!!!!
-
-
+  elseif  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_HYB_GGA) then
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
+    g2rho=g2rho*r**(-2)
+    grho2=grho**2
+    call xc_f03_gga_exc_vxc(x_func, Ngrid, rho(1), grho2(1), ex(1),vx(1),vxsigma(1))
 !   !!!!! formula 6.0.5 (exciting variants) !!!!!!
-!  call rderivative_lagrN(Ngrid,r,tools,tools_info,vxsigma,ftemp1)
-!  vx=vx-2d0*(grho*ftemp1+vxsigma*g2rho)
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,vxsigma,ftemp1)
+    vx=vx-2d0*(grho*ftemp1+vxsigma*g2rho)
 !   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
-
+  endif
+elseif (x_num.eq.-1) then !Built-in LDA
+   write(*,*)"Built-in LDA"
+   call getvxc(Ngrid,rho,vx,ex)
+elseif (x_num.eq.-2) then !Built-in GGA
+  call getxc_pbe(Ngrid,r,tools,tools_info,rho,vx,ex)
 else
-
    write(*,*)"Exchange not supported!"
-endif
 endif
 !! END EXCHANGE  !!!
 
@@ -875,14 +865,6 @@ elseif  (xc_f03_func_info_get_family(c_info).eq.XC_FAMILY_GGA) then
   g2rho=g2rho*r**(-2)
   grho2=grho**2
   call xc_f03_gga_exc_vxc(c_func, Ngrid, rho(1), grho2(1), ec(1),vc(1),vcsigma(1))
-
- !!!!! formula 6.0.8 !!!!!!
-!  call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho*vcsigma,ftemp1)
-!  ftemp1=ftemp1*r**(-2)
-!  vc=vc-2d0*ftemp1
-  !!!!! end formula 6.0.8 !!!!!!
-  
-  
 !   !!!!! formula 6.0.5 (exciting variants) !!!!!!
    call rderivative_lagrN(Ngrid,r,tools,tools_info,vcsigma,ftemp1)
    vc=vc-2d0*(grho*ftemp1+vcsigma*g2rho)
@@ -930,17 +912,11 @@ endif
      ! enddo
      ! close(12)
 !stop
-!vx=-0.25d0*vx
-!ex=-0.25d0*ex
-
-vc=vc!+vc1
-ec=ec!+ec1
 !!!!!! End Papildus COREL
 
-vxc=vx+vc
+vxc=hybx_w(1,1)*vx+hybx_w(2,1)*vc+hybx_w(3,1)*vc1
+exc=hybx_w(1,1)*ex+hybx_w(2,1)*ec+hybx_w(3,1)*ec1
 
-
-exc=ex+ec
 rho=rho*(4d0*Pi)
 
 else if (version.eq.6) then
@@ -957,12 +933,12 @@ else if (version.eq.6) then
 
         elseif (x_num.eq.2) then
         vxcp=vxc
-        call getxc_pbe(Ngrid,r,tools,tools_info,rho/(4d0*Pi),vxc,exc,vx,vc,ex,ec)
+        call getxc_pbe(Ngrid,r,tools,tools_info,rho/(4d0*Pi),vxc,exc)
 
         endif
 else if (version.eq.7) then
   vxcp=vxc
-  call getxc_pbe(Ngrid,r,tools,tools_info,rho/(4d0*Pi),vxc,exc,vx,vc,ex,ec)
+  call getxc_pbe(Ngrid,r,tools,tools_info,rho/(4d0*Pi),vxc,exc)
 
 endif
 
@@ -1009,15 +985,7 @@ do il=1,lmax+1
 enddo
 
 
-!Check convergence
 
-!write(*,*)"External psi_eig-eigp: ",psi_eig-eigp
-if((maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))).lt.1d-13)then !1d-13 bija
-!        write(*,*)"Arējais cikls konverģē:"
-!        write(*,*)"konverģence absolūtā: ",maxval(abs(psi_eig-eigp))," relatīvā: ",maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))
-
-        exit
-endif
 
 
 
@@ -1110,40 +1078,33 @@ else if(version.eq.8)then
   call integ_BodesN_value(Ngrid,r,tools, tools_info,0.5d0*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish)**2,e2)
   e_kin=e_kin+shell_occ(ish)*(e1+e2)
   enddo
-  write(*,*)"e_kin_new:",e_kin
   call integ_BodesN_value(Ngrid,r,tools,tools_info,-r*rho*Z,e_ext)
-  write(*,*)"e_ext=",e_ext
   call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*rho*vh,e_h)
-  write(*,*)"e_h=",e_h
   e2=0d0
   do ish=1,Nshell
     call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish)*psi(:,ish)*&
-            (hybx_w(1)*vx_psi(:,ish)+hybx_w(2)*vx_psi_sr(:,ish)),e1)
-
-
+            (hybx_w(4,1)*vx_psi(:,ish)+hybx_w(5,1)*vx_psi_sr(:,ish)),e1)
 
     e2=e2+e1
   enddo
-  call integ_BodesN_value(Ngrid,r,tools, tools_info,(ex+ec)*rho*r**2,e3)
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,(exc)*rho*r**2,e3)
 
  e_x=e2+e3
-  write(*,*)"e_xc=",e_x
+!  write(*,*)"e_kin=",e_kin,"e_ext=",e_ext,"e_h=",e_h,"e_xc=",e_x
 !!!!Alternative kinetic energy:
-  e1=0d0
-  do ish=1,Nshell
-    e1=e1+shell_occ(ish)*psi_eig(ish)
-  enddo
-e2=e1-e_ext-2d0*e_h-2d0*e_x 
-
-
-
-write(*,*)"e kin _alternative=",e2
-write(*,*)"e tot _alternative=",e2+e_ext+e_h+e_x
+!  e1=0d0
+!  do ish=1,Nshell
+!    e1=e1+shell_occ(ish)*psi_eig(ish)
+!  enddo
+!e2=e1-e_ext-2d0*e_h-2d0*e_x 
+!
+!write(*,*)"e kin _alternative=",e2
+!write(*,*)"e tot _alternative=",e2+e_ext+e_h+e_x
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  energy0=energy
   energy=e_kin+e_ext+e_h+e_x
 
-  write(*,*)"Energy_tot:",energy, " (",iscl,")"
+  write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0, " e_pot/e_kin+2=",(e_ext+e_h+e_x)/e_kin+2d0
 
 
 endif
@@ -1166,14 +1127,23 @@ endif
 
 
 
+!Chech convergence
 
+!write(*,*)iscl,". " ,psi_eig,eigp, "psi_eig eigp"
+if(((maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))).lt.1d-13).and.(abs(energy-energy0).lt.1d-6))then !1d-13 bija
+        !(abs(energy-energy0).lt.1d-6) ir lai He nekonverģē pēc 1. iterācijas
+        write(*,*)"Arējais cikls konverģē:"
+        write(*,*)"konverģence absolūtā: ",maxval(abs(psi_eig-eigp))," relatīvā: ",maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))
+
+        exit
+endif
 
 l_n=0
  psip=psi
  eigp=psi_eig
   do il=1,lmax+1
  call LS_iteration(Ngrid,r,tools,tools_info,rs,rsfunC,Nrsfun,hybx_w,version,Z,il-1,shell_l,count_l(il),l_n,&
-            Nshell,lmax,vxc,vx,vc,vh,vx_psi,vx_psi_sr,vx_psi_lr,psip,norm_arr,psi,psi_eig,Bess_ik)
+            Nshell,lmax,vxc,vh,vx_psi,vx_psi_sr,vx_psi_lr,psip,norm_arr,psi,psi_eig,Bess_ik)
 
 !   open(11,file='Fock_vxpsi.dat',status='replace')
 !   write(11,*)"r(i), vx_psi(i), vx_psi_sr(i),vx_psi_lr(i)",rsmu
@@ -1413,14 +1383,13 @@ endif
 !  write(11,*)Z, energy, energy-energy0, iscl-1, Ngrid, Rmax, Rmin, e_x, e_pot/e_kin, maxval(psi_eig) 
   !write(11,*)version,",",Z,",",d_order,",",i_order,",",Ngrid,",", Rmin,",", Rmax,",", energy,",", time1-time0
   write(11, '(a8,a1)',advance="no")trim(version_text),","
-  write(11, '(i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i5,a1)',advance="no") version,",",x_num,",",c_num,","&
+  write(11, '(i3,a1,i1,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i5,a1)',advance="no") version,",",grid,",",iscl,",",x_num,",",c_num,","&
           ,d_order,",",i_order,",",Ngrid,","
   write(11, '(ES9.2E2,a1)',advance="no")Rmin,","
  write(11, '(f5.2)' ,advance="no") Rmax
  write(11, '(a1)',advance="no")","
   write(11, '(f5.2)',advance="no")Z
-  write(11, *)",", energy,",", time1-time0,",",Nrsfun,",",hybx_w(3)
-  
+  write(11, *)",", energy,",", time1-time0,",",Nrsfun,",",hybx_w(4,1),",",hybx_w(5,1),",",hybx_w(5,2)
   close(11)
 
 

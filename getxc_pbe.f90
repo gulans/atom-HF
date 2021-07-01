@@ -1,10 +1,11 @@
-subroutine getxc_pbe(Ngrid,r,tools,tools_info,rho,vxc,exc,vx,vc,ex,ec)
+subroutine getxc_pbe(Ngrid,r,tools,tools_info,rho,vxc,exc) !,vx,vc,ex,ec)
 implicit none
 
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 integer, intent(in) :: Ngrid
 real(8), intent(inout) :: r(Ngrid),rho(Ngrid) 
-real(8), intent(out) :: vxc(Ngrid),exc(Ngrid),vx(Ngrid),vc(Ngrid),ex(Ngrid),ec(Ngrid)
+real(8), intent(out) :: vxc(Ngrid),exc(Ngrid)
+real(8) :: vx(Ngrid),vc(Ngrid),ex(Ngrid),ec(Ngrid)
 
 integer, intent(in) :: tools_info(3)
 real(8), intent(in) :: tools(Ngrid,tools_info(1))

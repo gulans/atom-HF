@@ -37,8 +37,8 @@ endif
 
 
 !write(*,*) "Grid:"
-  do ir=1,Ngrid
-    write(*,*) "ri=",ir," r=",r(ir)
-  enddo
+!  do ir=1,Ngrid
+!    write(*,*) "ri=",ir," r=",r(ir)
+!  enddo
  
 end subroutine

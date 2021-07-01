@@ -3,7 +3,7 @@ subroutine get_Fock_ex(Ngrid,r,tools,tools_info,shell,Nshell,shell_l,lmax,psi,ps
 implicit none
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 integer, intent(in) :: tools_info(3),lmax
-real(8), intent(in) :: tools(Ngrid,tools_info(1)),hybx_w(4)
+real(8), intent(in) :: tools(Ngrid,tools_info(1)),hybx_w(5,2)
 complex(8), intent(in) ::rsfunC(Nrsfun,2)
 integer, intent(in)  :: Nshell,Ngrid,shell,shell_l(Nshell),rs,Nrsfun
 real(8), intent(in)  :: psi_all(Ngrid,Nshell),r(Ngrid),psi(Ngrid)

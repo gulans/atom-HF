@@ -5,7 +5,12 @@ real(8), intent(in) :: r(Ngrid),fin(Ngrid),tools(Ngrid,tools_info(1))
 real(8), intent(out) :: rez(Ngrid)
 integer :: ord,ir,i,Npoints
 real(8) :: y(tools_info(3)+1),interp1(3),h
-real(8) :: f_rmin(4),r_rmin(4),frmin1,frmin2,frmin3,rez_rmin
+real(8) :: frmin1,frmin2,frmin3,rez_rmin
+
+real(8) :: f_rmin(4),r_rmin(4)
+
+!real(8) :: f_rmin(8),r_rmin(8)
+
 
 ord=tools_info(3)
 rez=0d0*r
@@ -27,6 +32,14 @@ r_rmin=(/0d0,r(1),r(2),r(3)/)
 call interp(4,r_rmin,f_rmin,h,frmin1)
 call interp(4,r_rmin,f_rmin,2d0*h,frmin2)
 call interp(4,r_rmin,f_rmin,3d0*h,frmin3)
+
+!f_rmin=(/0d0,fin(1),fin(2),fin(3),fin(4),fin(5),fin(6),fin(7)/)
+!r_rmin=(/0d0,r(1),r(2),r(3),r(4),r(5),r(6),r(7)/)
+!call interp(8,r_rmin,f_rmin,h,frmin1)
+!call interp(8,r_rmin,f_rmin,2d0*h,frmin2)
+!call interp(8,r_rmin,f_rmin,3d0*h,frmin3)
+
+
 
 rez_rmin=h*(14d0*0d0+64d0*frmin1+24d0*frmin2+64d0*frmin3+14d0*fin(1))/45d0
 

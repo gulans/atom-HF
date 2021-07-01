@@ -10,7 +10,6 @@ program atomHF
   character(len=120) :: kind,family,version_text
   logical :: polarised
   real(8) :: hybx_w(5,2) !hyb exchange weigths: (1,1)-vx, (2,1)-vc, (3,1)-vc1, (4,1)-HF, (5,1)-HF_sr
-                         !parameter (*,2)   
   !  integer,external :: xc_family_from_id !!tā ir funkcija
   !!!!!!!!!! libxc !!!!!!!!
   !
@@ -31,6 +30,7 @@ real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:)
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 real(8), allocatable :: shell_occ(:),psi_eig(:),psi_eig_temp(:)
 real(8), allocatable :: psip(:,:),eigp(:)
+
 complex(8), allocatable :: Bess_ik(:,:,:,:)
 
 !real(8), parameter :: Rmax = 10d0
@@ -56,6 +56,9 @@ integer :: rs,Nrsfun
 complex(8), allocatable :: rsfunC(:,:)
 
 logical :: override_libxc_hyb
+integer :: param_nr1,param_nr2,param_nr3
+real(8), allocatable :: param1(:), param2(:), param3(:)
+
 
 dE_min=1d-8
 call timesec(time0)
@@ -64,10 +67,26 @@ call timesec(time0)
 read(*,*) 
 read(*,*) Z, Rmin, Rmax, Ngrid, version
 read(*,*)
-read(*,*) x_num, hybx_w(1,1)
-read(*,*) c_num, hybx_w(2,1)
-read(*,*) c1_num,hybx_w(3,1)
-read(*,*)
+read(*,*) x_num, hybx_w(1,1), param_nr1
+allocate(param1(param_nr1))
+do i=1, param_nr1
+read(*,*) param1(i)
+enddo
+
+read(*,*) c_num, hybx_w(2,1), param_nr2
+allocate(param2(param_nr2))
+do i=1, param_nr2
+read(*,*) param2(i)
+enddo
+
+read(*,*) c1_num,hybx_w(3,1), param_nr3
+allocate(param3(param_nr3))
+do i=1, param_nr3
+read(*,*) param3(i)
+enddo
+
+
+read(*,*) 
 read(*,*) override_libxc_hyb
 read(*,*) hybx_w(4,1)
 read(*,*) hybx_w(5,1),hybx_w(5,2)
@@ -83,7 +102,7 @@ enddo
 
 
 !!!!!!!!!! libxc !!!!!!!!!
-if ((version.eq.5).or.(version.eq.8)) then 
+if ((version.eq.0).or.(version.eq.5).or.(version.eq.8)) then 
 ! Print out the version
           call xc_f03_version(vmajor, vminor, vmicro)
   write(*,'("Libxc version: ",I1,".",I1,".",I1)') vmajor, vminor, vmicro
@@ -95,6 +114,7 @@ if ((version.eq.5).or.(version.eq.8)) then
 
 if (x_num.gt.0) then
 !!!info Exchange!!!!!!!
+write(*,*)
 write(*,*)"x_num",x_num
 
   call xc_f03_func_init(x_func, x_num, XC_UNPOLARIZED)
@@ -114,9 +134,6 @@ write(*,*)"x_num",x_num
     write(kind, '(a)') 'of unknown kind'
   end select
   ! Get the family
-write(*,*)"FAMILY:"
-  write(*,*)xc_f03_func_info_get_family(x_info)
-write(*,*)XC_FAMILY_LDA
   select case (xc_f03_func_info_get_family(x_info))
   case (XC_FAMILY_LDA);
     write(family,'(a)') "LDA"
@@ -134,12 +151,26 @@ write(*,*)XC_FAMILY_LDA
   ! Print out information
   write(*,'("The functional ''", a, "'' is ", a, ", it belongs to the ''", a, "'' family and is defined in the reference(s):")') &
     trim(xc_f03_func_info_get_name(x_info)), trim(kind), trim(family)
-  ! Print out references
+
   i = 0
-  !do while(i >= 0)
-  !  write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(x_info, i)))
-  !end do
+  if(x_num.ne.524)then
+  do while(i >= 0)
+    write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(x_info, i)))
+  end do
   endif
+  write(*,*)"FUCTIONAL: ",trim(xc_f03_func_info_get_name(x_info))," Supports: ",&
+          xc_f03_func_info_get_n_ext_params(x_info),  "external parameters."
+   
+  do i=0, xc_f03_func_info_get_n_ext_params(x_info)-1
+  write(*,*)i,". ", trim(xc_f03_func_info_get_ext_params_name(x_info,i))," default value: ",&
+         xc_f03_func_info_get_ext_params_default_value(x_info,i)," ",&
+         trim(xc_f03_func_info_get_ext_params_description(x_info,i))
+ enddo
+  endif
+
+ write(*,*)
+
+  
 if (c_num.gt.0) then
 
 !!!!info correlation
@@ -180,10 +211,22 @@ write(*,*)"c_num",c_num
     trim(xc_f03_func_info_get_name(c_info)), trim(kind), trim(family)
   ! Print out references
   i = 0
- ! do while(i >= 0)
- !   write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(c_info, i)))
- ! end do
+  if(c_num.ne.524)then
+  do while(i >= 0)
+    write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(c_info, i)))
+  end do
   endif
+  write(*,*)"FUCTIONAL: ",trim(xc_f03_func_info_get_name(c_info))," Supports: ",&
+          xc_f03_func_info_get_n_ext_params(c_info),  "external parameters."
+
+  do i=0, xc_f03_func_info_get_n_ext_params(c_info)-1
+  write(*,*)i,". ", trim(xc_f03_func_info_get_ext_params_name(c_info,i))," default value: ",&
+         xc_f03_func_info_get_ext_params_default_value(c_info,i)," ",&
+         trim(xc_f03_func_info_get_ext_params_description(c_info,i))
+  enddo
+
+  endif
+ write(*,*)
 
 !!!!info correlation1
 if (c1_num.gt.0) then
@@ -225,12 +268,36 @@ write(*,*)"c1_num",c1_num
     trim(xc_f03_func_info_get_name(c1_info)), trim(kind), trim(family)
   ! Print out references
   i = 0
- ! do while(i >= 0)
- !   write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(c1_info, i)))
- ! end do
+  if(c1_num.ne.524)then
+  do while(i >= 0)
+    write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(c1_info, i)))
+  end do
+  endif
+  write(*,*)"FUCTIONAL: ",trim(xc_f03_func_info_get_name(c1_info))," Supports: ",&
+          xc_f03_func_info_get_n_ext_params(c1_info),  "external parameters."
+
+  do i=0, xc_f03_func_info_get_n_ext_params(c1_info)-1
+  
+  write(*,*)i,". ", trim(xc_f03_func_info_get_ext_params_name(c1_info,i))," default value: ",&
+         xc_f03_func_info_get_ext_params_default_value(c1_info,i)," ",&
+         trim(xc_f03_func_info_get_ext_params_description(c1_info,i))
+ enddo
+
 
 endif
-  
+ write(*,*)
+
+
+ if (param_nr1.ne.0)then
+   if (xc_f03_func_info_get_n_ext_params(x_info).ne.param_nr1) then
+         write(*,*)" Parameter nr for Functional ",x_num, "should be", xc_f03_func_info_get_n_ext_params(x_info),&
+                 ", not ",param_nr1
+         stop
+   else
+    call xc_f03_func_set_ext_params(x_func,param1(1))
+   endif     
+ endif
+
   !!!!!!!!!! libxc !!!!!!!!!
 endif
 
@@ -308,7 +375,9 @@ vfull=0d0*r !vfull is vh+vxc, core potential -Z/r is used seperatly - version 1 
      open(11,file='res.dat',status='old', access='append')
   else
      open(11,file='res.dat',status='new')
-     write(11,*)"v-text,version,grid,iter,x_num,c_num,d_order,i_order,Ngrid,Rmin,Rmax,Z,energy,time,Nrsfun,rs_mu"
+     write(11,*)"v-text,version,grid,iter,x_num,c_num,c2_num,d_order,i_order,Ngrid,Rmin,Rmax,Z,time,Nrsfuni&
+             ,Fock_w,Fock_rs_w,rs_mu,",&
+             "dE,energy"
   endif
   close(11)
 
@@ -661,7 +730,7 @@ elseif((version.eq.4).or.(version.eq.5).or.(version.eq.6).or.(version.eq.7).or.(
 !6 - GGA-PBE
 !7 - PBE0 
 
-Nrsfun=4
+Nrsfun=8
 allocate(rsfunC(Nrsfun,2))
 allocate(Bess_ik(Ngrid,Nrsfun,2*lmax+1,2)) !last atgument 1- 1-st kind (msbesi), 2- 2-nd kind (msbesk) 
 
@@ -804,6 +873,8 @@ ec1=0d0*r
 !! EXCHANGE  !!!
 
 if (x_num.gt.0)then
+
+
   if (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_LDA) then
      call xc_f03_lda_exc_vxc(x_func, Ngrid, rho(1), ex(1),vx(1))
   elseif  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_GGA) then
@@ -1383,15 +1454,16 @@ endif
 !  write(11,*)Z, energy, energy-energy0, iscl-1, Ngrid, Rmax, Rmin, e_x, e_pot/e_kin, maxval(psi_eig) 
   !write(11,*)version,",",Z,",",d_order,",",i_order,",",Ngrid,",", Rmin,",", Rmax,",", energy,",", time1-time0
   write(11, '(a8,a1)',advance="no")trim(version_text),","
-  write(11, '(i3,a1,i1,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i5,a1)',advance="no") version,",",grid,",",iscl,",",x_num,",",c_num,","&
-          ,d_order,",",i_order,",",Ngrid,","
+  write(11, '(i3,a1,i1,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i5,a1)',advance="no") version,",",grid,",",iscl,&
+          ",",x_num,",",c_num,",",c1_num,",",d_order,",",i_order,",",Ngrid,","
   write(11, '(ES9.2E2,a1)',advance="no")Rmin,","
  write(11, '(f5.2)' ,advance="no") Rmax
  write(11, '(a1)',advance="no")","
-  write(11, '(f5.2)',advance="no")Z
-  write(11, *)",", energy,",", time1-time0,",",Nrsfun,",",hybx_w(4,1),",",hybx_w(5,1),",",hybx_w(5,2)
+  write(11, '(f5.2,a1)',advance="no")Z,","
+  write(11, '(f7.2,a1,i1,a1,f4.2,a1,f4.2,a1,f4.2,a1,ES9.2E2)',advance="no") time1-time0,",",Nrsfun,",",hybx_w(4,1),",",&
+          hybx_w(5,1),",",hybx_w(5,2),",",energy-energy0
+  write(11, *)",",energy
   close(11)
-
 
   inquire(file='output.dat',EXIST=file_exists)
   if (file_exists) then

@@ -1,4 +1,4 @@
-subroutine LS_iteration(Ngrid, r,tools,tools_info,rs,rsfunC,Nrsfun,hybx_w,version, Z,l, shell_l, nmax,&
+subroutine LS_iteration(Ngrid, r,tools,tools_info,rsfunC,Nrsfun,hybx_w, Z,l, shell_l, nmax,&
                 shell0, Nshell,lmax, vxc, vh,vx_psi,vx_psi_sr,vx_psi_lr, psi_in,norm_arr,psi,eig,Bess_ik)
         ! Ngrid
         ! r
@@ -12,9 +12,9 @@ subroutine LS_iteration(Ngrid, r,tools,tools_info,rs,rsfunC,Nrsfun,hybx_w,versio
 
 !--input and output variables--
 implicit none
-integer, intent(in) :: rs,Nrsfun,lmax
+integer, intent(in) :: Nrsfun,lmax
 complex(8), intent(in) :: rsfunC(Nrsfun+1,2)
-integer, intent(in) :: tools_info(3),version
+integer, intent(in) :: tools_info(3)
 real(8), intent(in) :: tools(Ngrid,tools_info(1)),hybx_w(5,2)
 integer, intent(in) :: Ngrid, nmax, shell0, Nshell
 integer, intent(in) :: l, shell_l(Nshell) 
@@ -27,7 +27,7 @@ real(8), intent(inout) :: eig(Nshell)
 real(8), intent(out) :: psi(Ngrid,Nshell)
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 integer :: inn,inp,ish,i,j 
-real(8) :: vx_chi(Ngrid,Nshell),vx_chi_sr(Ngrid,Nshell),vx_chi_lr(Ngrid,Nshell)
+real(8) :: vx_chi(Ngrid,Nshell),vx_chi_sr(Ngrid,Nshell)
 real(8) :: S(nmax,nmax),H(nmax,nmax),Snn,Hnn !Overlap and Hamiltonian matrix
 real(8) :: Sevec(nmax,nmax),Seval(nmax),s12(nmax,nmax),W(nmax,nmax),test(nmax,nmax)
 real(8) :: Winv(nmax,nmax),x(nmax,nmax),xp(nmax,nmax),Hevec(nmax,nmax),Heval(nmax),Hp(nmax,nmax)
@@ -47,7 +47,7 @@ if((maxval(abs((eig-eigp)/(eig+1d0)))).lt.1d-13)then !1d-13 bija
 endif
 do inn=1,nmax
   ish=shell0+inn
-  call scrPoisson(Ngrid, r,tools,tools_info,version,hybx_w, Z, l, vh, vxc,&
+  call scrPoisson(Ngrid, r,tools,tools_info,hybx_w, Z, l, vh, vxc,&
           vx_psi(:,ish),vx_psi_sr(:,ish),vx_psi_lr(:,ish),psi_in(:,ish), eig(ish), psi(:,ish))
    call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,ish)**2,norm)
    psi(:,ish)=psi(:,ish)/dsqrt(norm)
@@ -55,15 +55,13 @@ do inn=1,nmax
 enddo
 
 !Overlap and Hamiltonian matrix
-if ((version.eq.4).or.(version.eq.7).or.(version.eq.8)) then
+if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
    do inn=1,nmax
    ish=inn+shell0
    call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,lmax,&
-           psi(:,ish),psi_in,vx_chi(:,ish),vx_chi_sr(:,ish),vx_chi_lr(:,ish),rs,rsfunC,Nrsfun,hybx_w,Bess_ik)
+           psi(:,ish),psi_in,vx_chi(:,ish),vx_chi_sr(:,ish),rsfunC,Nrsfun,hybx_w,Bess_ik)
  
    enddo
-
-
 endif
 
 do inn=1,nmax
@@ -84,27 +82,9 @@ do inn=1,nmax
 !!!!!
 
 
-if ((version.eq.5).or.(version.eq.6)) then    
-!LDA
-    f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+vxc)*psi(:,inp+shell0)
-else if (version.eq.4) then
-!Fock exchange
-    f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh)*psi(:,inp+shell0)+vx_chi(:,inp+shell0)
-else if (version.eq.7) then
-!Hybrid exchange 
-!BROKEN (no vx and vc input)
-    f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+0.75d0*vx+vc)*psi(:,inp+shell0)+0.25d0*vx_chi(:,inp+shell0)
-else if (version.eq.8) then
 !Hybrid exchange
     f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+vxc)*psi(:,inp+shell0)+&
             hybx_w(4,1)*vx_chi(:,inp+shell0)+hybx_w(5,1)*vx_chi_sr(:,inp+shell0)
-!    write(*,*)"Parastā Foka ", hybx_w(4,1), " rs ", hybx_w(5,1), " mu ", hybx_w(5,2)
-
-endif
-!Hydrogen
-!    f2=(0.5d0*dble(l)*dble(l+1)/r**2-1d0/r)*psi(:,inp+shell0)
-
-    !f3=-0.5d0*f1+f2
     H(inn,inp)=Hnn
     call integ_BodesN_value(Ngrid,r,tools,tools_info,psi(:,inn+shell0)*f2*r**2,Hnn)
     H(inn,inp)=H(inn,inp)+Hnn
@@ -192,29 +172,13 @@ do inn=1,nmax
 !  write(*,*)"l=",l," eig(",inn,")=",eig(inn+shell0),"norm=",norm," eigp(",inn,")=",eigp(inn+shell0)
   enddo
 
-!  open(11,file='psi_wf.dat',status='replace')
-!  write(11,*)"r psi1 psi2 psi3"
-!   do ir = 1,Ngrid
-!      if ((Z.lt.2.5).and.(Z.gt.0.5)) then
-!      write(11,*)r(ir),psi(ir,1)
-!      elseif ((Z.lt.4.5).and.(Z.gt.3.5)) then
-!      write(11,*)r(ir),psi(ir,1),psi(ir,2)
-!      elseif ((Z.lt.10.5).and.(Z.gt.9.5)) then
-!      write(11,*)r(ir),psi(ir,1),psi(ir,2),psi(ir,3)  
-!      endif
-!   end do
-!   close(11)
-
-
-
-
 enddo
 end subroutine
 
-subroutine scrPoisson(Ngrid, r,tools,tools_info,version,hybx_w,&
+subroutine scrPoisson(Ngrid, r,tools,tools_info,hybx_w,&
                 Z, l, vh, vxc,vx_phi,vx_phi_sr,vx_phi_lr,phi, e, psi)
 
-integer, intent(in) :: tools_info(3),version
+integer, intent(in) :: tools_info(3)
 real(8), intent(in) :: tools(Ngrid,tools_info(1)),hybx_w(5,2)
 integer, intent(in) :: Ngrid
 integer, intent(in) :: l
@@ -240,36 +204,9 @@ endif
 
 lam=dsqrt(-2d0*e)
 
-if ((version.eq.5).or.(version.eq.6)) then
-!LDA
-f=-2d0*(-Z/r+vh+vxc)*phi
-else if (version.eq.4)then
-!Fock
-f=-2d0*(-Z/r+vh)*phi-2d0*vx_phi
-else if (version.eq.7)then
-!Hybrid
-f=-2d0*(-Z/r+vh+0.75d0*vx+vc)*phi-2d0*0.25d0*vx_phi
-else if (version.eq.8)then
-!Hybrid
 
 f=-2d0*( (-Z/r+vh+vxc)*phi + hybx_w(4,1)*vx_phi + hybx_w(5,1)*vx_phi_sr )
 
-
-endif
-!!! Ūdeņradis 1s
-!lam=1d0
-!f=2d0/r*(2d0*dexp(-1d0*r))
-!!!!!!!!!!!!!!
-!!! Ūdeņradis 2p
-!lam=0.5d0 !E=-0.125d0
-!f=1d0/(dsqrt(6d0))*(dexp(-0.5d0*r))
-!l=1
-!!!!!!!!!!!!!!
-!!! Ūdeņradis 3d
-!lam=0.333333333333333d0 !E=-0.055555555555556d0
-!f=(2d0/81d0)*(dsqrt(2d0/15d0))*(dexp(-0.5d0*r))*r
-!l=2
-!!!!!!!!!!!!!!
 
 f11=0d0*r
 f12=0d0*r

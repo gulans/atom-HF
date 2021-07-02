@@ -1,14 +1,14 @@
 subroutine get_Fock_ex(Ngrid,r,tools,tools_info,shell,Nshell,shell_l,lmax,psi,psi_all,&
-                vx_psi,vx_psi_sr,vx_psi_lr,rs,rsfunC,Nrsfun,hybx_w,Bess_ik)
+                vx_psi,vx_psi_sr,rsfunC,Nrsfun,hybx_w,Bess_ik)
 implicit none
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 integer, intent(in) :: tools_info(3),lmax
 real(8), intent(in) :: tools(Ngrid,tools_info(1)),hybx_w(5,2)
 complex(8), intent(in) ::rsfunC(Nrsfun,2)
-integer, intent(in)  :: Nshell,Ngrid,shell,shell_l(Nshell),rs,Nrsfun
+integer, intent(in)  :: Nshell,Ngrid,shell,shell_l(Nshell),Nrsfun
 real(8), intent(in)  :: psi_all(Ngrid,Nshell),r(Ngrid),psi(Ngrid)
 complex(8), intent(in)  :: Bess_ik(Ngrid,Nrsfun,2*lmax+1,2)
-real(8), intent(out) :: vx_psi(Ngrid),vx_psi_sr(Ngrid),vx_psi_lr(Ngrid)
+real(8), intent(out) :: vx_psi(Ngrid),vx_psi_sr(Ngrid)
 
 complex(8) ::rez(Ngrid)
 complex(8) :: integc1(Ngrid),integc2(Ngrid)
@@ -40,7 +40,9 @@ do ish=1, Nshell
     gc=dble(2*lpri+1)*gc**2  !(2*lpri+1) should be replaced with shell_occ 
 !    write(*,*)"(l,l',l'') (",l,",",lpri,",",lpripri,")", " Gaunt_coef=",gc
     if (gc.ne.0d0) then
-!!without range seperation (Coulumb)
+
+if (abs(hybx_w(4,1)).gt.1d-20) then          
+ !!without range seperation (Coulumb)
     call integ_BodesN_fun(Ngrid,r, tools, tools_info,1,  u_all(:,ish)*u*r**lpripri    ,integ1)
 
       integ1=integ1/r**(lpripri+1)
@@ -59,8 +61,10 @@ do ish=1, Nshell
 !      !stop 
 !     endif
       integ=integ+gc*u_all(:,ish)*integ3
+endif
 
-if (rs.eq.1) then !! range seperation short-range component (erfc)/r
+if (abs(hybx_w(5,1)).gt.1d-20) then
+!! range seperation short-range component (erfc)/r
 !write(*,*)"Foka funkcija ",Nrsfun
 
 rez=cmplx(0d0,0d0,8)*r

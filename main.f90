@@ -163,6 +163,7 @@ do ish=1,Nshell
   write(*,*) ish,". n: ", shell_n(ish), " l: ",  shell_l(ish), " occ: ",shell_occ(ish)
 enddo
 
+write(*,*) "sum(occ)=", sum(shell_occ)," Z=", Z
 
 !!!!!!!!!! libxc !!!!!!!!!
 if ((version.eq.0).or.(version.eq.1)) then 
@@ -478,6 +479,10 @@ else
       hybx_w(5,1)=0d0
       hybx_w(4,1)=0d0
     endif 
+  else
+    write(*,*)"XC funcitional ",xc1_num , " without non local part."
+    hybx_w(5,1)=0d0
+    hybx_w(4,1)=0d0
   endif
 endif 
 
@@ -705,7 +710,7 @@ l_n=0
 do il=1,lmax+1
   do inn=1,count_l(il)
     l_n=l_n+1
-    write(*,*)"l=",il-1," n=",inn," eig=",eig(l_n)
+    write(*,*)"l=",il-1," n=",inn," eig=",eig(l_n)," occ=",shell_occ(l_n)
   enddo
 enddo
 

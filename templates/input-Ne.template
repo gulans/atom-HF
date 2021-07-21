@@ -1,8 +1,14 @@
-Z Rmax Nrad Version
-10d0 1d-5 18d0 600 8 
-Exchange-id Correlation-id (version 5 (libxc id), version  6 0-None,1-LDA,2-PBE)
-0 0 0
-Grid 0-equidistant 1-cubic 2-exponential 3-AdvancedCubic
+Z Rmin Rmax Ngrid version
+10d0 1d-5 18d0 500 1 
+xc_id(libxc_id or -1(LDA) -2(PBE))  weigth number_of_parameters
+0 0d0 0
+0 0d0 0
+0 0d0 0
+Non-local exchange:
+.true.         (true to override hybrid libxc functional parameters)
+1d0            (HF weigth)
+0d0 0.11d0     (SR HF weigth and parameter)
+Grid 0-equidistant 1-cubic 2-exponential 3-advanced_cubic
 3
 Number of shells - 1s 2s 2p
 3

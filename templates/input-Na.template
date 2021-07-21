@@ -1,5 +1,5 @@
 Z Rmin Rmax Ngrid version
-4d0 1d-5 15d0 400 1
+11d0 1d-5 24d0 500 1 
 xc_id(libxc_id or -1(LDA) -2(PBE))  weigth number_of_parameters
 0 0d0 0
 0 0d0 0
@@ -10,8 +10,10 @@ Non-local exchange:
 0d0 0.11d0     (SR HF weigth and parameter)
 Grid 0-equidistant 1-cubic 2-exponential 3-advanced_cubic
 3
-Number of shells - 1s 2s
-2
+Number of shells - 1s 2s 2p
+4
 List of shells: n l occupation
 1 0 2.0d0
-2 0 2d0
+2 0 2.0d0
+2 1 6.0d0
+3 0 1d0

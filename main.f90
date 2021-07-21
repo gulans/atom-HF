@@ -4,53 +4,44 @@ program atomHF
 !!!!!!!!!! libxc !!!!!!!!!
   use xc_f03_lib_m
   implicit none
-  TYPE(xc_f03_func_t) :: x_func,c_func,c1_func
-  TYPE(xc_f03_func_info_t) :: x_info,c_info,c1_info
+  TYPE(xc_f03_func_t) :: xc1_func,xc2_func,xc3_func
+  TYPE(xc_f03_func_info_t) :: xc1_info,xc2_info,xc3_info
   integer :: vmajor, vminor, vmicro
   character(len=120) :: kind,family,version_text
   logical :: polarised
   real(8) :: hybx_w(5,2) !hyb exchange weigths: (1,1)-vx, (2,1)-vc, (3,1)-vc1, (4,1)-HF, (5,1)-HF_sr
-  !  integer,external :: xc_family_from_id !!tā ir funkcija
-  !!!!!!!!!! libxc !!!!!!!!
-  !
-real(16) :: r16
+!!!!!!!!!! libxc !!!!!!!!
 
 
 
 
 
-real(8), PARAMETER :: Pi = 3.1415926535897932384d0, alpha=0.5d0
-real(8) :: Dnk,PHInk
-!integer,parameter :: Ngrid = 500
-real(8), allocatable :: r(:),vfull(:),vh(:),vxc(:),exc(:),H(:,:),eig(:),psi(:,:),rho(:),vfull1(:),ftemp1(:),&
-        ftemp2(:),vx_psi(:,:),vx_phi(:,:),vx_phi1(:,:),vx_psidot(:,:),psidot(:,:),psi_non_norm(:,:),norm_arr(:),&
-        vhp(:),vxcp(:),grho(:),grho2(:),g2rho(:),g3rho(:),vx_gga(:),vc_gga(:),ex_gga(:),ec_gga(:),vx(:),vc(:),&
-        ex(:),ec(:),vxsigma(:),vcsigma(:),rho_pol(:,:),vx_pol(:,:),vc_pol(:,:),grho_pol(:,:),vsigma_pol(:,:),&
-        vx_psi_sr(:,:),vx_psi_lr(:,:),vc1(:),ec1(:)
+real(8), PARAMETER :: Pi = 3.1415926535897932384d0
+
+real(8), allocatable :: r(:),vh(:),vxc(:),exc(:),psi(:,:),rho(:),ftemp1(:),&
+        ftemp2(:),vx_psi(:,:),&
+        grho(:),grho2(:),g2rho(:),g3rho(:),vxc1(:),vxc2(:),vxc3(:),&
+        exc1(:),exc2(:),exc3(:),vxcsigma(:),&
+        vx_psi_sr(:,:)
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
-real(8), allocatable :: shell_occ(:),psi_eig(:),psi_eig_temp(:)
+real(8), allocatable :: shell_occ(:),eig(:)
 real(8), allocatable :: psip(:,:),eigp(:)
 
 complex(8), allocatable :: Bess_ik(:,:,:,:)
 
-!real(8), parameter :: Rmax = 10d0
-integer, parameter :: maxscl =50 !Maximal itteration number
 integer :: il,icl,il_icl,iscl,lmax,l_n,inn
 real(8) :: Z,rez,a1,a2
 real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0,e_kin,e_ext,e_h,e_x,e_pot
-real(8) :: e11,e22,e33
 integer :: grid, Nshell, ish, d_order,i_order
 integer :: ir,i,j,countl0, version,tools_info(3)
 integer(8) :: Ngrid 
-logical :: E_dE_file_exists, file_exists
+logical :: file_exists, sorted
 character(len=1024) :: filename
 
-Real (8)  :: besrez (0:50),time0,time1, t11
-complex(8) :: besrezc (0:50)
+Real (8)  :: time0,time1, t11
 real(8), allocatable :: tools(:,:)
-integer :: x_num,c_num,c1_num
+integer :: xc1_num,xc2_num,xc3_num
 
-complex(8) :: ac,bc,cc
 real(8) :: rsmu
 integer :: Nrsfun
 complex(8), allocatable :: rsfunC(:,:)
@@ -60,26 +51,25 @@ integer :: param_nr1,param_nr2,param_nr3
 real(8), allocatable :: param1(:), param2(:), param3(:)
 
 
-dE_min=1d-8
 call timesec(time0)
 
 !read input
 read(*,*) 
 read(*,*) Z, Rmin, Rmax, Ngrid, version
 read(*,*)
-read(*,*) x_num, hybx_w(1,1), param_nr1
+read(*,*) xc1_num, hybx_w(1,1), param_nr1
 allocate(param1(param_nr1))
 do i=1, param_nr1
 read(*,*) param1(i)
 enddo
 
-read(*,*) c_num, hybx_w(2,1), param_nr2
+read(*,*) xc2_num, hybx_w(2,1), param_nr2
 allocate(param2(param_nr2))
 do i=1, param_nr2
 read(*,*) param2(i)
 enddo
 
-read(*,*) c1_num,hybx_w(3,1), param_nr3
+read(*,*) xc3_num,hybx_w(3,1), param_nr3
 allocate(param3(param_nr3))
 do i=1, param_nr3
 read(*,*) param3(i)
@@ -94,34 +84,102 @@ read(*,*)
 read(*,*) grid
 read(*,*) 
 read(*,*) Nshell
-allocate(shell_n(Nshell),shell_l(Nshell),shell_occ(Nshell),norm_arr(Nshell))
+allocate(shell_n(Nshell),shell_l(Nshell),shell_occ(Nshell))
 read(*,*)
 do ish=1,Nshell
   read(*,*) shell_n(ish), shell_l(ish), shell_occ(ish)
 enddo
 
+!check if list of shells is in correct order by l and sort
+sorted=.false.
+do while (.not.sorted)
+sorted=.true.
+  do ish=1,Nshell-1
+    if(shell_l(ish).gt.shell_l(ish+1))then
+      sorted=.false.
+      il=shell_l(ish)
+      shell_l(ish)=shell_l(ish+1)
+      shell_l(ish+1)=il
+      inn=shell_n(ish)
+      shell_n(ish)=shell_n(ish+1)
+      shell_n(ish+1)=inn
+      e1=shell_occ(ish)
+      shell_occ(ish)=shell_occ(ish+1)
+      shell_occ(ish+1)=e1
+    endif
+  enddo
+enddo
+
+
+lmax=maxval(shell_l)
+allocate(count_l(lmax+1))
+
+!counts how many particular l shells
+do il=0,lmax
+ countl0=0
+ do ish=1,Nshell
+ if (il.eq.shell_l(ish)) then
+         countl0=countl0+1
+ endif
+ enddo
+ count_l(il+1)=countl0
+enddo
+
+write(*,*)"Shell count for each l:"
+do il=0, lmax
+ write(*,*) "l=",il," shell count=",count_l(il+1)
+enddo
+
+!check if list of shells is in correct order by n for each l and sort
+l_n=1
+do il=0, lmax
+ if (count_l(il+1).gt.1) then
+         sorted=.false.
+ else
+         sorted=.true.
+ endif
+ do while (.not.sorted)
+   sorted=.true.
+   do ish=l_n,l_n+count_l(il+1)-2
+     if(shell_n(ish).gt.shell_n(ish+1)) then
+      sorted=.false.
+      inn=shell_l(ish)
+      shell_l(ish)=shell_l(ish+1)
+      shell_l(ish+1)=inn
+      inn=shell_n(ish)
+      shell_n(ish)=shell_n(ish+1)
+      shell_n(ish+1)=inn
+      e1=shell_occ(ish)
+      shell_occ(ish)=shell_occ(ish+1)
+      shell_occ(ish+1)=e1
+     endif
+   enddo  
+ enddo
+l_n=l_n+count_l(il+1)
+enddo
+
+write(*,*)"Shell configuration from input sorted:"
+do ish=1,Nshell
+  write(*,*) ish,". n: ", shell_n(ish), " l: ",  shell_l(ish), " occ: ",shell_occ(ish)
+enddo
+
 
 !!!!!!!!!! libxc !!!!!!!!!
 if ((version.eq.0).or.(version.eq.1)) then 
-! Print out the version
+! Print out libxc version
           call xc_f03_version(vmajor, vminor, vmicro)
   write(*,'("Libxc version: ",I1,".",I1,".",I1)') vmajor, vminor, vmicro
-!  x_num=1
-!  c_num=12
-!  c_num=7
-!  x_num=101
-!  c_num=130
 
-if (x_num.gt.0) then
+if (xc1_num.gt.0) then
 !!!info Exchange!!!!!!!
 write(*,*)
-write(*,*)"x_num",x_num
+write(*,*)"xc1_num",xc1_num
 
-  call xc_f03_func_init(x_func, x_num, XC_UNPOLARIZED)
+  call xc_f03_func_init(xc1_func, xc1_num, XC_UNPOLARIZED)
 
-  x_info = xc_f03_func_get_info(x_func)
+  xc1_info = xc_f03_func_get_info(xc1_func)
   ! Get the type of the functional
-  select case(xc_f03_func_info_get_kind(x_info))
+  select case(xc_f03_func_info_get_kind(xc1_info))
   case (XC_EXCHANGE)
     write(kind, '(a)') 'an exchange functional'
   case (XC_CORRELATION)
@@ -134,7 +192,7 @@ write(*,*)"x_num",x_num
     write(kind, '(a)') 'of unknown kind'
   end select
   ! Get the family
-  select case (xc_f03_func_info_get_family(x_info))
+  select case (xc_f03_func_info_get_family(xc1_info))
   case (XC_FAMILY_LDA);
     write(family,'(a)') "LDA"
   case (XC_FAMILY_GGA);
@@ -150,36 +208,36 @@ write(*,*)"x_num",x_num
   end select
   ! Print out information
   write(*,'("The functional ''", a, "'' is ", a, ", it belongs to the ''", a, "'' family and is defined in the reference(s):")') &
-    trim(xc_f03_func_info_get_name(x_info)), trim(kind), trim(family)
+    trim(xc_f03_func_info_get_name(xc1_info)), trim(kind), trim(family)
 
   i = 0
-  if(x_num.ne.524)then
+  if(xc1_num.ne.524)then
   do while(i >= 0)
-    write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(x_info, i)))
+    write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(xc1_info, i)))
   end do
   endif
-  write(*,*)"FUCTIONAL: ",trim(xc_f03_func_info_get_name(x_info))," Supports: ",&
-          xc_f03_func_info_get_n_ext_params(x_info),  "external parameters."
+  write(*,*)"FUCTIONAL: ",trim(xc_f03_func_info_get_name(xc1_info))," Supports: ",&
+          xc_f03_func_info_get_n_ext_params(xc1_info),  "external parameters."
    
-  do i=0, xc_f03_func_info_get_n_ext_params(x_info)-1
-  write(*,*)i,". ", trim(xc_f03_func_info_get_ext_params_name(x_info,i))," default value: ",&
-         xc_f03_func_info_get_ext_params_default_value(x_info,i)," ",&
-         trim(xc_f03_func_info_get_ext_params_description(x_info,i))
+  do i=0, xc_f03_func_info_get_n_ext_params(xc1_info)-1
+  write(*,*)i,". ", trim(xc_f03_func_info_get_ext_params_name(xc1_info,i))," default value: ",&
+         xc_f03_func_info_get_ext_params_default_value(xc1_info,i)," ",&
+         trim(xc_f03_func_info_get_ext_params_description(xc1_info,i))
  enddo
   endif
 
  write(*,*)
 
   
-if (c_num.gt.0) then
+if (xc2_num.gt.0) then
 
 !!!!info correlation
-write(*,*)"c_num",c_num
-  call xc_f03_func_init(c_func, c_num, XC_UNPOLARIZED)
+write(*,*)"xc2_num",xc2_num
+  call xc_f03_func_init(xc2_func, xc2_num, XC_UNPOLARIZED)
 
-  c_info = xc_f03_func_get_info(c_func)
+  xc2_info = xc_f03_func_get_info(xc2_func)
   ! Get the type of the functional
-  select case(xc_f03_func_info_get_kind(c_info))
+  select case(xc_f03_func_info_get_kind(xc2_info))
   case (XC_EXCHANGE)
     write(kind, '(a)') 'an exchange functional'
   case (XC_CORRELATION)
@@ -192,7 +250,7 @@ write(*,*)"c_num",c_num
     write(kind, '(a)') 'of unknown kind'
   end select
   ! Get the family
-  select case (xc_f03_func_info_get_family(c_info))
+  select case (xc_f03_func_info_get_family(xc2_info))
   case (XC_FAMILY_LDA);
     write(family,'(a)') "LDA"
   case (XC_FAMILY_GGA);
@@ -208,35 +266,35 @@ write(*,*)"c_num",c_num
   end select
   ! Print out information
   write(*,'("The functional ''", a, "'' is ", a, ", it belongs to the ''", a, "'' family and is defined in the reference(s):")') &
-    trim(xc_f03_func_info_get_name(c_info)), trim(kind), trim(family)
+    trim(xc_f03_func_info_get_name(xc2_info)), trim(kind), trim(family)
   ! Print out references
   i = 0
-  if(c_num.ne.524)then
+  if(xc2_num.ne.524)then
   do while(i >= 0)
-    write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(c_info, i)))
+    write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(xc2_info, i)))
   end do
   endif
-  write(*,*)"FUCTIONAL: ",trim(xc_f03_func_info_get_name(c_info))," Supports: ",&
-          xc_f03_func_info_get_n_ext_params(c_info),  "external parameters."
+  write(*,*)"FUCTIONAL: ",trim(xc_f03_func_info_get_name(xc2_info))," Supports: ",&
+          xc_f03_func_info_get_n_ext_params(xc2_info),  "external parameters."
 
-  do i=0, xc_f03_func_info_get_n_ext_params(c_info)-1
-  write(*,*)i,". ", trim(xc_f03_func_info_get_ext_params_name(c_info,i))," default value: ",&
-         xc_f03_func_info_get_ext_params_default_value(c_info,i)," ",&
-         trim(xc_f03_func_info_get_ext_params_description(c_info,i))
+  do i=0, xc_f03_func_info_get_n_ext_params(xc2_info)-1
+  write(*,*)i,". ", trim(xc_f03_func_info_get_ext_params_name(xc2_info,i))," default value: ",&
+         xc_f03_func_info_get_ext_params_default_value(xc2_info,i)," ",&
+         trim(xc_f03_func_info_get_ext_params_description(xc2_info,i))
   enddo
 
   endif
  write(*,*)
 
 !!!!info correlation1
-if (c1_num.gt.0) then
-write(*,*)"c1_num",c1_num
+if (xc3_num.gt.0) then
+write(*,*)"xc3_num",xc3_num
 
-  call xc_f03_func_init(c1_func, c1_num, XC_UNPOLARIZED)
+  call xc_f03_func_init(xc3_func, xc3_num, XC_UNPOLARIZED)
 
-  c1_info = xc_f03_func_get_info(c1_func)
+  xc3_info = xc_f03_func_get_info(xc3_func)
   ! Get the type of the functional
-  select case(xc_f03_func_info_get_kind(c1_info))
+  select case(xc_f03_func_info_get_kind(xc3_info))
   case (XC_EXCHANGE)
     write(kind, '(a)') 'an exchange functional'
   case (XC_CORRELATION)
@@ -249,7 +307,7 @@ write(*,*)"c1_num",c1_num
     write(kind, '(a)') 'of unknown kind'
   end select
   ! Get the family
-  select case (xc_f03_func_info_get_family(c1_info))
+  select case (xc_f03_func_info_get_family(xc3_info))
   case (XC_FAMILY_LDA);
     write(family,'(a)') "LDA"
   case (XC_FAMILY_GGA);
@@ -265,22 +323,22 @@ write(*,*)"c1_num",c1_num
   end select
   ! Print out information
   write(*,'("The functional ''", a, "'' is ", a, ", it belongs to the ''", a, "'' family and is defined in the reference(s):")') &
-    trim(xc_f03_func_info_get_name(c1_info)), trim(kind), trim(family)
+    trim(xc_f03_func_info_get_name(xc3_info)), trim(kind), trim(family)
   ! Print out references
   i = 0
-  if(c1_num.ne.524)then
+  if(xc3_num.ne.524)then
   do while(i >= 0)
-    write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(c1_info, i)))
+    write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(xc3_info, i)))
   end do
   endif
-  write(*,*)"FUCTIONAL: ",trim(xc_f03_func_info_get_name(c1_info))," Supports: ",&
-          xc_f03_func_info_get_n_ext_params(c1_info),  "external parameters."
+  write(*,*)"FUCTIONAL: ",trim(xc_f03_func_info_get_name(xc3_info))," Supports: ",&
+          xc_f03_func_info_get_n_ext_params(xc3_info),  "external parameters."
 
-  do i=0, xc_f03_func_info_get_n_ext_params(c1_info)-1
+  do i=0, xc_f03_func_info_get_n_ext_params(xc3_info)-1
   
-  write(*,*)i,". ", trim(xc_f03_func_info_get_ext_params_name(c1_info,i))," default value: ",&
-         xc_f03_func_info_get_ext_params_default_value(c1_info,i)," ",&
-         trim(xc_f03_func_info_get_ext_params_description(c1_info,i))
+  write(*,*)i,". ", trim(xc_f03_func_info_get_ext_params_name(xc3_info,i))," default value: ",&
+         xc_f03_func_info_get_ext_params_default_value(xc3_info,i)," ",&
+         trim(xc_f03_func_info_get_ext_params_description(xc3_info,i))
  enddo
 
 
@@ -289,58 +347,55 @@ endif
 
 
  if (param_nr1.ne.0)then
-   if (xc_f03_func_info_get_n_ext_params(x_info).ne.param_nr1) then
-         write(*,*)" Parameter nr for Functional ",x_num, "should be", xc_f03_func_info_get_n_ext_params(x_info),&
+   if (xc_f03_func_info_get_n_ext_params(xc1_info).ne.param_nr1) then
+         write(*,*)" Parameter nr for Functional ",xc1_num, "should be", xc_f03_func_info_get_n_ext_params(xc1_info),&
                  ", not ",param_nr1
          stop
    else
-    call xc_f03_func_set_ext_params(x_func,param1(1))
+    call xc_f03_func_set_ext_params(xc1_func,param1(1))
    endif     
  endif
+
+ if (param_nr2.ne.0)then
+   if (xc_f03_func_info_get_n_ext_params(xc2_info).ne.param_nr2) then
+         write(*,*)" Parameter nr for Functional ",xc2_num, "should be", xc_f03_func_info_get_n_ext_params(xc2_info),&
+                 ", not ",param_nr2
+         stop
+   else
+    call xc_f03_func_set_ext_params(xc1_func,param2(1))
+   endif
+ endif
+
+ if (param_nr3.ne.0)then
+   if (xc_f03_func_info_get_n_ext_params(xc3_info).ne.param_nr3) then
+         write(*,*)" Parameter nr for Functional ",xc3_num, "should be", xc_f03_func_info_get_n_ext_params(xc3_info),&
+                 ", not ",param_nr3
+         stop
+   else
+    call xc_f03_func_set_ext_params(xc1_func,param3(1))
+   endif
+ endif
+
 
   !!!!!!!!!! libxc !!!!!!!!!
 endif
 
 
 
-#ifdef debug
-  write(*,*) "shell_n ", shell_n(:)
-  write(*,*) "shell_l ", shell_l(:)
-  write(*,*) "shell_occ ", shell_occ(:)
-#endif
-
-lmax=maxval(shell_l)
-allocate(count_l(lmax+1))
-
-
-!counts how many particular l shells (there must be a shorter way to do it)
-do i=0,lmax
- countl0=0
- do j=1,Nshell
- if (i.eq.shell_l(j)) then 
-         countl0=countl0+1
- endif
- enddo
- write(*,*)"l=",i," countl=", countl0
- count_l(i+1)=countl0
-enddo
- write(*,*) "count_l=",count_l(:)
 
 
 
-allocate(r(Ngrid),vfull(Ngrid),vh(Ngrid),vxc(Ngrid),exc(Ngrid),eig(Ngrid),rho(Ngrid),vfull1(Ngrid))
-allocate(psi(Ngrid,Nshell),psi_eig(Nshell),psi_eig_temp(Nshell),grho2(Ngrid))
-allocate(ftemp1(Ngrid),ftemp2(Ngrid),vx(Ngrid),vc(Ngrid),ex(Ngrid),ec(Ngrid),vxsigma(Ngrid),vcsigma(Ngrid),grho(Ngrid))
-allocate(rho_pol(2,Ngrid),vx_pol(2,Ngrid),vc_pol(2,Ngrid),grho_pol(3,Ngrid),vsigma_pol(3,Ngrid))
-allocate(g2rho(Ngrid),ec1(Ngrid),vc1(Ngrid))
-
+allocate(r(Ngrid),vh(Ngrid),rho(Ngrid),vxc(Ngrid),exc(Ngrid),vxc1(Ngrid),exc1(Ngrid),&
+        vxc2(Ngrid),exc2(Ngrid),vxc3(Ngrid),exc3(Ngrid),psi(Ngrid,Nshell),eig(Nshell),&
+        grho2(Ngrid),ftemp1(Ngrid),ftemp2(Ngrid),vxcsigma(Ngrid),grho(Ngrid),g2rho(Ngrid),&
+        psip(Ngrid,Nshell),vx_psi(Ngrid,Nshell),vx_psi_sr(Ngrid,Nshell),eigp(Nshell))
 
 call gengrid(grid,Ngrid,Rmin,Rmax,r)
 
 
 
-  inquire(file='eigval_de.out',EXIST=E_dE_file_exists)
-  if (E_dE_file_exists) then
+  inquire(file='eigval_de.out',EXIST=file_exists)
+  if (file_exists) then
      open(11,file='eigval_de.out',status='old', access='append')
   else
      open(11,file='eigval_de.out',status='new')
@@ -350,8 +405,8 @@ call gengrid(grid,Ngrid,Rmin,Rmax,r)
 
 
 
-  inquire(file='E_dE.out',EXIST=E_dE_file_exists)
-  if (E_dE_file_exists) then
+  inquire(file='E_dE.out',EXIST=file_exists)
+  if (file_exists) then
      open(11,file='E_dE.out',status='old', access='append')
   else
      open(11,file='E_dE.out',status='new')
@@ -365,7 +420,7 @@ call gengrid(grid,Ngrid,Rmin,Rmax,r)
      open(11,file='res.dat',status='old', access='append')
   else
      open(11,file='res.dat',status='new')
-     write(11,*)"grid,iter,x_num,c_num,c2_num,d_order,i_order,Ngrid,Rmin,Rmax,Z,time,Nrsfuni&
+     write(11,*)"grid,iter,xc1_num,xc2_num,c2_num,d_order,i_order,Ngrid,Rmin,Rmax,Z,time,Nrsfuni&
              ,Fock_w,Fock_rs_w,rs_mu,",&
              "dE,energy"
   endif
@@ -381,7 +436,7 @@ allocate(Bess_ik(Ngrid,Nrsfun,2*lmax+1,2)) !last atgument 1- 1-st kind (msbesi),
 
 d_order=9
 i_order=9
-        tools_info=(/40,d_order,i_order/)!optimal 8,7
+        tools_info=(/40,d_order,i_order/)
  !info about tools_info array:
  !tools_info(1) - (2-nd dimenstion size of tools array 1-10 - coefficinets for Lagrange interp,
  !                11-20 coefficints for (ri+1/4) interpolation, and 21-30 for (ri+2/4), 31-40 for (ri+3/4) 
@@ -391,7 +446,6 @@ i_order=9
 Allocate(tools(Ngrid,tools_info(1)))
 call generate_tools(Ngrid,r,tools,tools_info)
 
-write(*,*)"lmax=",lmax
 
 
 
@@ -401,58 +455,41 @@ write(*,*)"lmax=",lmax
 
 
 
-Allocate(psip(Ngrid,Nshell),vx_psi(Ngrid,Nshell),vx_psi_sr(Ngrid,Nshell),vx_psi_lr(Ngrid,Nshell),&
-        eigp(Nshell),vhp(Ngrid),vxcp(Ngrid))
 
-call iteration0(Ngrid,r,Z,Nshell,shell_l,lmax,count_l,psi_eig,psi)
-do ish=1,Nshell
-  call integ_BodesN_value(Ngrid,r,tools, tools_info,psi(:,ish)**2*r**2,norm)
-  write(*,*)ish,". "," eig=",psi_eig(ish)," norm=",norm
-enddo
 
-eigp=psi_eig*0d0
-vh=0d0*r
-vxc=0d0*r
+call iteration0(Ngrid,r,Z,Nshell,shell_l,lmax,count_l,eig,psi)
+
+eigp=eig*0d0
+
+if (override_libxc_hyb) then
+   write(*,*)"Non local exchange parameters taken from input:"
+   write(*,*)"Fock exchange with weigth: ",hybx_w(4,1)
+   write(*,*)"Fock SR exchange with weigth: ",hybx_w(5,1), " parameter: ", hybx_w(5,2)
+else
+  if(xc1_num.gt.0)then
+    if (xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_HYB_GGA) then
+      write(*,*)"XC funcitional ",xc1_num , " contains non local part."
+      !e1= xc_f03_hyb_exx_coef(xc1_func) !hyb_exx - exact exchange (Fock weigth)  
+      call xc_f03_hyb_cam_coef(xc1_func ,hybx_w(5,2),  hybx_w(4,1), hybx_w(5,1))
+      write(*,*)"Fock exchange with weigth: ",hybx_w(4,1)
+      write(*,*)"Fock SR exchange with weigth: ",hybx_w(5,1), " parameter: ", hybx_w(5,2)
+    else
+      write(*,*)"XC funcitional ",xc1_num , " without non local part."
+      hybx_w(5,1)=0d0
+      hybx_w(4,1)=0d0
+    endif 
+  endif
+endif 
 
 if (abs(hybx_w(5,1)).gt.1d-20) then
  call errfun(Ngrid,r,Nrsfun,hybx_w(5,2),rsfunC)
  call get_Bess_fun(Ngrid,r,lmax,Nrsfun,rsfunC,Bess_ik)
 endif
 
-!Some initialisation for libxc Hybrid exchange
-if(x_num.gt.0)then
-if (.not.(override_libxc_hyb)) then
-  if  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_HYB_GGA) then
-    write(*,*)"Hybrid Exchange!"
-    e1= xc_f03_hyb_exx_coef(x_func) !hyb_exx - exact-exchange - Foka apmaiņas svars
-    write(*,*) "Foka apmaiņas svars: ",e1
-    call xc_f03_hyb_cam_coef(x_func , rsmu, a1, a2);
-    write(*,*) "rs parameter mu:",rsmu
-    write(*,*) "rs alpha",a1
-    write(*,*) "rs beta",a2
-    hybx_w(4,1)=a1
-    hybx_w(5,1)=a2
-    hybx_w(5,2)=rsmu
-
-    if (abs(hybx_w(5,1)).gt.1d-20) then
-         call errfun(Ngrid,r,Nrsfun,hybx_w(5,2),rsfunC)
-         call get_Bess_fun(Ngrid,r,lmax,Nrsfun,rsfunC,Bess_ik)
-    endif
-  endif
-endif
-endif
 
 
-
-do iscl=1,100
-!write(*,*)"STARTING LOOP"
-!open(12,file='r.dat',status='replace')
-      !   do i=1, Ngrid
-      !write(12,*) i,r(i)
-      !enddo
-      !close(12)
-      !stop
-
+!START self consistent loop
+do iscl=1,150
 
 ! Calculate density
   rho=0d0*rho
@@ -462,108 +499,104 @@ do iscl=1,100
 
 
 rho=rho/(4d0*Pi)
-vx=0d0*r
-vc=0d0*r
-ex=0d0*r
-ec=0d0*r
-vc1=0d0*r
-ec1=0d0*r
-!! EXCHANGE  !!!
+vxc1=0d0*r
+exc1=0d0*r
+vxc2=0d0*r
+exc2=0d0*r
+vxc3=0d0*r
+exc3=0d0*r
 
-if (x_num.gt.0)then
+!! EXCHANGE-CORRELATION 1  !!!
+
+if (xc1_num.gt.0)then
 
 
-  if (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_LDA) then
-     call xc_f03_lda_exc_vxc(x_func, Ngrid, rho(1), ex(1),vx(1))
-  elseif  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_GGA) then
-     !if(x_num.eq.524)then
-     !  hybx_w(3)=0.11d0
-     !  write(*,*)"RS sparameter for local exchange:", hybx_w(3)
-     !  call xc_f03_func_set_ext_params(x_func,hybx_w(3))
-     !endif
+  if (xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_LDA) then
+     call xc_f03_lda_exc_vxc(xc1_func, Ngrid, rho(1), exc1(1),vxc1(1))
+  elseif  (xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_GGA) then
      call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
      call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
      g2rho=g2rho*r**(-2)
      grho2=grho**2
-     call xc_f03_gga_exc_vxc(x_func, Ngrid, rho(1), grho2(1), ex(1),vx(1),vxsigma(1))
+     call xc_f03_gga_exc_vxc(xc1_func, Ngrid, rho(1), grho2(1), exc1(1),vxc1(1),vxcsigma(1))
 
   !!!!! formula 6.0.8 !!!!!!
-!  call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho*vxsigma,ftemp1)
+!  call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho*vxcsigma,ftemp1)
 !  ftemp1=ftemp1*r**(-2)
-!  vx=vx-2d0*ftemp1
+!  vxc1=vxc1-2d0*ftemp1
   !!!!! end formula 6.0.8 !!!!!!
 
 
 !   !!!!! formula 6.0.5 (exciting variants) !!!!!!
-      call rderivative_lagrN(Ngrid,r,tools,tools_info,vxsigma,ftemp1)
-     vx=vx-2d0*(grho*ftemp1+vxsigma*g2rho)
+      call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
+     vxc1=vxc1-2d0*(grho*ftemp1+vxcsigma*g2rho)
 !   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
 
-  elseif  (xc_f03_func_info_get_family(x_info).eq.XC_FAMILY_HYB_GGA) then
+  elseif  (xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_HYB_GGA) then
     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
     g2rho=g2rho*r**(-2)
     grho2=grho**2
-    call xc_f03_gga_exc_vxc(x_func, Ngrid, rho(1), grho2(1), ex(1),vx(1),vxsigma(1))
+    call xc_f03_gga_exc_vxc(xc1_func, Ngrid, rho(1), grho2(1), exc1(1),vxc1(1),vxcsigma(1))
 !   !!!!! formula 6.0.5 (exciting variants) !!!!!!
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,vxsigma,ftemp1)
-    vx=vx-2d0*(grho*ftemp1+vxsigma*g2rho)
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
+    vxc1=vxc1-2d0*(grho*ftemp1+vxcsigma*g2rho)
 !   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
   else
     write(*,*)"Exchange not supported!"
   endif
-elseif (x_num.eq.-1) then !Built-in LDA
-   call getvxc(Ngrid,rho,vx,ex)
-elseif (x_num.eq.-2) then !Built-in GGA
-  call getxc_pbe(Ngrid,r,tools,tools_info,rho,vx,ex)
+elseif (xc1_num.eq.-1) then !Built-in LDA
+   call getvxc(Ngrid,rho,vxc1,exc1)
+elseif (xc1_num.eq.-2) then !Built-in GGA
+  call getxc_pbe(Ngrid,r,tools,tools_info,rho,vxc1,exc1)
 endif
-!! END EXCHANGE  !!!
+!! END EXCHANGE-CORRELATION 1 !!!
 
 
-!! CORRELATION !!!
-if (c_num.ne.0) then
-  if (xc_f03_func_info_get_family(c_info).eq.XC_FAMILY_LDA) then
-    call xc_f03_lda_exc_vxc(c_func, Ngrid, rho(1), ec(1),vc(1))
-  elseif  (xc_f03_func_info_get_family(c_info).eq.XC_FAMILY_GGA) then
+!! EXCHANGE-CORRELATION 2 !!!
+if (xc2_num.ne.0) then
+  if (xc_f03_func_info_get_family(xc2_info).eq.XC_FAMILY_LDA) then
+    call xc_f03_lda_exc_vxc(xc2_func, Ngrid, rho(1), exc2(1),vxc2(1))
+  elseif  (xc_f03_func_info_get_family(xc2_info).eq.XC_FAMILY_GGA) then
     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
     g2rho=g2rho*r**(-2)
     grho2=grho**2
-    call xc_f03_gga_exc_vxc(c_func, Ngrid, rho(1), grho2(1), ec(1),vc(1),vcsigma(1))
+    call xc_f03_gga_exc_vxc(xc2_func, Ngrid, rho(1), grho2(1), exc2(1),vxc2(1),vxcsigma(1))
 !   !!!!! formula 6.0.5 (exciting variants) !!!!!!
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,vcsigma,ftemp1)
-    vc=vc-2d0*(grho*ftemp1+vcsigma*g2rho)
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
+    vxc2=vxc2-2d0*(grho*ftemp1+vxcsigma*g2rho)
 !   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
 
   else
     write(*,*)"Correlation not supported!"
   endif
 endif
-!! END CORRELATION !!
+!! END EXCHANGE-CORRELATION 2 !!!!!
 
-!!!!!! PAPILDUS COREL
-if (c1_num.ne.0) then
-  if (xc_f03_func_info_get_family(c1_info).eq.XC_FAMILY_LDA) then
-    call xc_f03_lda_exc_vxc(c1_func, Ngrid, rho(1), ec1(1),vc1(1))
-  elseif  (xc_f03_func_info_get_family(c1_info).eq.XC_FAMILY_GGA) then
+!! EXCHANGE-CORRELATION 3 !!!
+if (xc3_num.ne.0) then
+  if (xc_f03_func_info_get_family(xc3_info).eq.XC_FAMILY_LDA) then
+    call xc_f03_lda_exc_vxc(xc3_func, Ngrid, rho(1), exc3(1),vxc3(1))
+  elseif  (xc_f03_func_info_get_family(xc3_info).eq.XC_FAMILY_GGA) then
     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
     g2rho=g2rho*r**(-2)
     grho2=grho**2
-    call xc_f03_gga_exc_vxc(c1_func, Ngrid, rho(1), grho2(1), ec1(1),vc1(1),vcsigma(1))
+    call xc_f03_gga_exc_vxc(xc3_func, Ngrid, rho(1), grho2(1), exc3(1),vxc3(1),vxcsigma(1))
 !   !!!!! formula 6.0.5 (exciting variants) !!!!!!
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,vcsigma,ftemp1)
-    vc1=vc1-2d0*(grho*ftemp1+vcsigma*g2rho)
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
+    vxc3=vxc3-2d0*(grho*ftemp1+vxcsigma*g2rho)
 !   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
   else
     write(*,*)"Correlation not supported!"
   endif
 endif
 
-!!!!!! End Papildus COREL
+!!!! END EXCHANGE-CORRELATION 3 !!!
 
-vxc=hybx_w(1,1)*vx+hybx_w(2,1)*vc+hybx_w(3,1)*vc1
-exc=hybx_w(1,1)*ex+hybx_w(2,1)*ec+hybx_w(3,1)*ec1
+vxc=hybx_w(1,1)*vxc1+hybx_w(2,1)*vxc2+hybx_w(3,1)*vxc3
+exc=hybx_w(1,1)*exc1+hybx_w(2,1)*exc2+hybx_w(3,1)*exc3
 
 rho=rho*(4d0*Pi)
 
@@ -572,7 +605,7 @@ rho=rho*(4d0*Pi)
 
 if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
  do ish=1,Nshell
- call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,lmax,psi(:,ish),psi,&
+ call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ,lmax,psi(:,ish),psi,&
            vx_psi(:,ish),vx_psi_sr(:,ish),rsfunC,Nrsfun,hybx_w,Bess_ik)
   enddo 
 
@@ -582,9 +615,7 @@ endif
 
 call  integ_BodesN_fun(Ngrid,r,tools,tools_info,1,r**2*rho,ftemp1)
 call  integ_BodesN_fun(Ngrid,r,tools,tools_info,-1,r*rho,ftemp2)
-vhp=vh
 vh=ftemp1/r+ftemp2
-vh=vh*alpha+(1d0-alpha)*vhp
 
 
 !!!!!!!!! Caulculate energy !!!!!!!!!!!!!
@@ -627,7 +658,7 @@ write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0, " e_pot/e_k
 
   open(11,file='eigval_de.out',status='old', access='append')
   do ish=1,Nshell
-    write(11,*)iscl, psi_eig(ish), psi_eig(ish)-eigp(ish), shell_occ(ish)
+    write(11,*)iscl, eig(ish), eig(ish)-eigp(ish), shell_occ(ish)
   enddo
   close(11)
 
@@ -635,20 +666,27 @@ write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0, " e_pot/e_k
 
 !Check convergence
 
-!write(*,*)iscl,". " ,psi_eig,eigp, "psi_eig eigp"
-if(((maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))).lt.1d-13).and.(abs(energy-energy0).lt.1d-6))then !1d-13 bija
-        !(abs(energy-energy0).lt.1d-6) ir lai He nekonverģē pēc 1. iterācijas
-        write(*,*)"Arējais cikls konverģē:"
-        write(*,*)"konverģence absolūtā: ",maxval(abs(psi_eig-eigp))," relatīvā: ",maxval(abs((psi_eig-eigp)/(psi_eig+1d0)))
+!write(*,*)iscl,". " ,eig,eigp, "eig eigp"
+if(((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-13).and.(abs(energy-energy0).lt.1d-6))then !1d-13 for best result 
+        !without (abs(energy-energy0).lt.1d-6) Helium converges after 1-st iteration.
+        write(*,*)"Convergence of external cycle reached:"
+        write(*,*)"max(eig-eigp) absolute : ",maxval(abs(eig-eigp))," relative: ",maxval(abs(eig-eigp)/(abs(eig-1d0)))
         exit
+else
+        if (iscl.gt.90)then
+         ish=maxloc(abs((eig-eigp)/(eig-1d0)),Nshell)
+       !  write(*,*)"eigenvalue with largest relative ", maxval(abs((eig-eigp)/(eig-1d0)))," and absolute ",&
+       !          maxval(abs(eig-eigp)), "change:"
+       !  write(*,*)"n=",shell_n(ish)," l=",shell_l(ish), " eig=", eig(ish) 
+        endif
 endif
 
 l_n=0
 psip=psi
-eigp=psi_eig
+eigp=eig
   do il=1,lmax+1
-  call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,Z,il-1,shell_l,count_l(il),l_n,&
-            Nshell,lmax,vxc,vh,vx_psi,vx_psi_sr,vx_psi_lr,psip,norm_arr,psi,psi_eig,Bess_ik)
+  call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,Z,il-1,shell_l,shell_occ,count_l(il),l_n,&
+            Nshell,lmax,vxc,vh,vx_psi,vx_psi_sr,psip,psi,eig,Bess_ik)
     do inn=1,count_l(il)
        l_n=l_n+1
     enddo
@@ -667,17 +705,17 @@ l_n=0
 do il=1,lmax+1
   do inn=1,count_l(il)
     l_n=l_n+1
-    write(*,*)"l=",il-1," n=",inn," eig=",psi_eig(l_n)
+    write(*,*)"l=",il-1," n=",inn," eig=",eig(l_n)
   enddo
 enddo
 
-  Deallocate(vx_psi,psip,eigp,vxcp,vhp,tools)
+  Deallocate(tools,rsfunC,Bess_ik)
 
 
 
 
 
-
+ 
 endif
 
 
@@ -685,11 +723,11 @@ endif
 !  write results 
   open(11,file='res.dat',status='old', access='append')
   write(11, '(i1,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i5,a1)',advance="no") grid,",",iscl,&
-          ",",x_num,",",c_num,",",c1_num,",",d_order,",",i_order,",",Ngrid,","
+          ",",xc1_num,",",xc2_num,",",xc3_num,",",d_order,",",i_order,",",Ngrid,","
   write(11, '(ES9.2E2,a1)',advance="no")Rmin,","
  write(11, '(f5.2)' ,advance="no") Rmax
  write(11, '(a1)',advance="no")","
-  write(11, '(f5.2,a1)',advance="no")Z,","
+  write(11, '(f6.2,a1)',advance="no")Z,","
   write(11, '(f7.2,a1,i1,a1,f5.2,a1,f5.2,a1,f4.2,a1,ES9.2E2)',advance="no") time1-time0,",",Nrsfun,",",hybx_w(4,1),",",&
           hybx_w(5,1),",",hybx_w(5,2),",",energy-energy0
   write(11, *)",",energy
@@ -708,7 +746,7 @@ endif
   do il=1,lmax+1
     do icl=1, count_l(il)
       il_icl=il_icl+1
-      write(11,*) icl, il, psi_eig(il_icl) 
+      write(11,*) icl, il, eig(il_icl) 
     enddo
   enddo
   write(11,*)"Tot Energy: ", energy
@@ -728,9 +766,10 @@ endif
 
 
 
+deallocate(r,vh,rho,vxc,exc,vxc1,exc1,vxc2,exc2,vxc3,exc3,psi,eig,&
+        grho2,ftemp1,ftemp2,vxcsigma,grho,g2rho,psip,vx_psi,vx_psi_sr,eigp)  
   
-  
-deallocate(r,vfull,vh,vxc,exc,eig,psi,rho,shell_n,shell_l,count_l,shell_occ,norm_arr)
+deallocate(shell_n,shell_l,count_l,shell_occ,param1,param2,param3)
 
 
 end program

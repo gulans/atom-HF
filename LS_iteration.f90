@@ -1,5 +1,5 @@
-subroutine LS_iteration(Ngrid, r,tools,tools_info,rsfunC,Nrsfun,hybx_w, Z,l, shell_l, nmax,&
-                shell0, Nshell,lmax, vxc, vh,vx_psi,vx_psi_sr,vx_psi_lr, psi_in,norm_arr,psi,eig,Bess_ik)
+subroutine LS_iteration(Ngrid, r,tools,tools_info,rsfunC,Nrsfun,hybx_w, Z,l, shell_l,shell_occ, nmax,&
+                shell0, Nshell,lmax, vxc, vh,vx_psi,vx_psi_sr, psi_in,psi,eig,Bess_ik)
         ! Ngrid
         ! r
         ! vfull - potential (v_n+v_h+v_xc)
@@ -18,10 +18,9 @@ integer, intent(in) :: tools_info(3)
 real(8), intent(in) :: tools(Ngrid,tools_info(1)),hybx_w(5,2)
 integer, intent(in) :: Ngrid, nmax, shell0, Nshell
 integer, intent(in) :: l, shell_l(Nshell) 
-real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid),vh(Ngrid)
+real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid),vh(Ngrid),shell_occ(Nshell)
 real(8):: vx(Ngrid),vc(Ngrid)
-real(8), intent(in) :: norm_arr(Nshell)
-real(8), intent(in) :: psi_in(Ngrid,Nshell),vx_psi(Ngrid,Nshell),vx_psi_sr(Ngrid,Nshell),vx_psi_lr(Ngrid,Nshell)
+real(8), intent(in) :: psi_in(Ngrid,Nshell),vx_psi(Ngrid,Nshell),vx_psi_sr(Ngrid,Nshell)
 complex(8), intent(in) ::Bess_ik(Ngrid,Nrsfun,2*lmax+1,2)
 real(8), intent(inout) :: eig(Nshell)
 real(8), intent(out) :: psi(Ngrid,Nshell)
@@ -40,15 +39,16 @@ maxscl=20
 do iscl=1,maxscl
 
 !write(*,*)iscl,". eig-eigp: ",eig-eigp
-if((maxval(abs((eig-eigp)/(eig+1d0)))).lt.1d-13)then !1d-13 bija
-       ! write(*,*)"konverģence absolūtā: ",maxval(abs(eig-eigp))," relatīvā: ",maxval(abs((eig-eigp)/(eig+1d0)))
+if((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-13)then !1d-13 bija
+       !write(*,*)"Convergence of internal cycle reached, iteration ",iscl
+       !write(*,*)"max(eig-eigp) absolute : ",maxval(abs(eig-eigp))," relative: ",maxval(abs(eig-eigp)/(abs(eig-1d0)))
 
         exit
 endif
 do inn=1,nmax
   ish=shell0+inn
   call scrPoisson(Ngrid, r,tools,tools_info,hybx_w, Z, l, vh, vxc,&
-          vx_psi(:,ish),vx_psi_sr(:,ish),vx_psi_lr(:,ish),psi_in(:,ish), eig(ish), psi(:,ish))
+          vx_psi(:,ish),vx_psi_sr(:,ish),psi_in(:,ish), eig(ish), psi(:,ish))
    call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,ish)**2,norm)
    psi(:,ish)=psi(:,ish)/dsqrt(norm)
 
@@ -58,7 +58,7 @@ enddo
 if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
    do inn=1,nmax
    ish=inn+shell0
-   call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,lmax,&
+   call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ,lmax,&
            psi(:,ish),psi_in,vx_chi(:,ish),vx_chi_sr(:,ish),rsfunC,Nrsfun,hybx_w,Bess_ik)
  
    enddo
@@ -176,14 +176,14 @@ enddo
 end subroutine
 
 subroutine scrPoisson(Ngrid, r,tools,tools_info,hybx_w,&
-                Z, l, vh, vxc,vx_phi,vx_phi_sr,vx_phi_lr,phi, e, psi)
+                Z, l, vh, vxc,vx_phi,vx_phi_sr,phi, e, psi)
 
 integer, intent(in) :: tools_info(3)
 real(8), intent(in) :: tools(Ngrid,tools_info(1)),hybx_w(5,2)
 integer, intent(in) :: Ngrid
 integer, intent(in) :: l
 real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid),vh(Ngrid),phi(Ngrid),vx_phi(Ngrid),&
-        vx_phi_sr(Ngrid),vx_phi_lr(Ngrid)
+        vx_phi_sr(Ngrid)
 real(8), intent(inout) :: e
 real(8) :: vx(Ngrid),vc(Ngrid)
 real(8), intent(out) :: psi(Ngrid)
@@ -198,7 +198,7 @@ real(8) :: besi,besk
 
 !write(*,*)"e=",e
 if (e.gt.0) then
-!        write(*,*)"scrPoisson Error: positive eigenvalue!"
+        !write(*,*)"scrPoisson Error: positive eigenvalue!"
         e=-1d-3
 endif
 

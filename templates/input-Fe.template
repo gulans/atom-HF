@@ -11,12 +11,11 @@ Non-local exchange:
 Grid 0-equidistant 1-cubic 2-exponential 3-advanced_cubic
 3
 Number of shells - 1s 2s
-7
+6
 List of shells: n l occupation
 1 0 2.0d0
 2 0 2.0d0
 3 0 2.0d0
 2 1 6.0d0
 3 1 6.0d0
-3 2 6d0
-4 0 2d0
+3 2 8d0

@@ -24,12 +24,13 @@ real(8), allocatable :: r(:),vh(:),vxc(:),exc(:),psi(:,:),rho(:),ftemp1(:),&
         exc1(:),exc2(:),exc3(:),vxcsigma(:),&
         vx_psi_sr(:,:)
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
+
 real(8), allocatable :: shell_occ(:),eig(:)
 real(8), allocatable :: psip(:,:),eigp(:)
 
 complex(8), allocatable :: Bess_ik(:,:,:,:)
 
-integer :: il,icl,il_icl,iscl,lmax,l_n,inn
+integer :: il,icl,il_icl,iscl,lmax,l_n,inn, positive_eig_iter
 real(8) :: Z,rez,a1,a2
 real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0,e_kin,e_ext,e_h,e_x,e_pot
 integer :: grid, Nshell, ish, d_order,i_order
@@ -50,6 +51,7 @@ logical :: override_libxc_hyb
 integer :: param_nr1,param_nr2,param_nr3
 real(8), allocatable :: param1(:), param2(:), param3(:)
 
+positive_eig_iter=0
 
 call timesec(time0)
 
@@ -421,7 +423,8 @@ call gengrid(grid,Ngrid,Rmin,Rmax,r)
      open(11,file='res.dat',status='old', access='append')
   else
      open(11,file='res.dat',status='new')
-     write(11,*)"grid,iter,xc1_num,xc2_num,c2_num,d_order,i_order,Ngrid,Rmin,Rmax,Z,time,Nrsfuni&
+     write(11,*)"grid,iter,posit_eig_iter,xc1_num,xc2_num,c2_num,d_order,i_order,Ngrid,Rmin,Rmax,&
+             Z,time,Nrsfuni&
              ,Fock_w,Fock_rs_w,rs_mu,",&
              "dE,energy"
   endif
@@ -650,9 +653,12 @@ e2=0d0
 
 !!!!!!!!! End Caulculate energy !!!!!!!!!!!!!
 
-
-write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0, " e_pot/e_kin+2=",(e_ext+e_h+e_x)/e_kin+2d0
-
+if (maxval(eig).gt.0) then 
+  positive_eig_iter=iscl
+  write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0, " POSITIVE EIGENVALUE! "
+else
+  write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0
+endif
 
   
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -727,7 +733,7 @@ endif
 
 !  write results 
   open(11,file='res.dat',status='old', access='append')
-  write(11, '(i1,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i5,a1)',advance="no") grid,",",iscl,&
+  write(11, '(i1,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i5,a1)',advance="no") grid,",",iscl,",",positive_eig_iter,&
           ",",xc1_num,",",xc2_num,",",xc3_num,",",d_order,",",i_order,",",Ngrid,","
   write(11, '(ES9.2E2,a1)',advance="no")Rmin,","
  write(11, '(f5.2)' ,advance="no") Rmax

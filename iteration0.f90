@@ -33,15 +33,14 @@ do l=0,lmax
 
     call Laguerre(Ngrid,k,alpha,rho,lag)
  
-
-    if ((k.eq.4).and.(alpha.eq.3)) then
+! Write some Laguerre function to a file
+!    if ((k.eq.4).and.(alpha.eq.3)) then
 !      open(11,file='Lag43.dat',status='replace')
 !      do ir=1,Ngrid
 !         write(11,*)r(ir),lag(ir)
 !     enddo
 !      close(11)
- 
-    endif
+!    endif
 
     psi(:,ish)=dsqrt((2d0*Z/dble(nq))**3*fact(nq-l-1)/(2d0*dble(nq)*fact(nq+l)))*&
             exp(-Z*r/dble(nq))*(2d0*Z*r/dble(nq))**l*lag

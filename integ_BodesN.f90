@@ -116,11 +116,8 @@ enddo
 
 elseif (dir.eq.-1)then
 
-!       do ir=1,Ngrid
-!          rez(ir)=rez(Ngrid)-rez(ir)
-!       enddo
 
-!!BEIGAS
+!! END part of function 
 rez(Ngrid)=0d0
 
 do i=1, Npoints
@@ -142,7 +139,7 @@ do ir=Ngrid-1,Ngrid-int(Npoints/2),-1
 
 enddo
 
-!!!VIDUS
+!!! MIDDLE part of function
 do ir=Ngrid-int(Npoints/2)-1,int(Npoints/2)+1,-1 
   do i=1, Npoints
     if (MOD(Npoints,2) .eq. 0) then
@@ -168,7 +165,7 @@ do ir=Ngrid-int(Npoints/2)-1,int(Npoints/2)+1,-1
     
 enddo
 
-!!!Sākums
+!!!BEGINING of function
 
 
 Npoints=tools_info(3)+1

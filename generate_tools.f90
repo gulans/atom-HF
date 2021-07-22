@@ -24,7 +24,7 @@ do ir=1,int(Npoints/2)
 !    write(*,*)r(ir),x(:)
 
  enddo
-write(*,*)
+
 
 do ir=int(Npoints/2)+1, Ngrid-int(Npoints/2)-1
   do i=1, Npoints
@@ -43,7 +43,7 @@ do ir=int(Npoints/2)+1, Ngrid-int(Npoints/2)-1
    enddo
 enddo
 
-write(*,*)
+
 do i=1, Npoints
   x(i)=r(Ngrid-Npoints+i)
 enddo
@@ -103,7 +103,7 @@ do ir=int(Npoints/2)+1, Ngrid-int(Npoints/2)-1
    enddo
 enddo
 
-write(*,*)
+
 do i=1, Npoints
   xx(i)=r(Ngrid-Npoints+i)
 enddo

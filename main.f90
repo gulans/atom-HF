@@ -116,6 +116,8 @@ enddo
 lmax=maxval(shell_l)
 allocate(count_l(lmax+1))
 
+
+
 !counts how many particular l shells
 do il=0,lmax
  countl0=0
@@ -126,7 +128,7 @@ do il=0,lmax
  enddo
  count_l(il+1)=countl0
 enddo
-
+write(*,*)"**********Shell configuration info:************"
 write(*,*)"Shell count for each l:"
 do il=0, lmax
  write(*,*) "l=",il," shell count=",count_l(il+1)
@@ -166,7 +168,8 @@ do ish=1,Nshell
 enddo
 
 write(*,*) "sum(occ)=", sum(shell_occ)," Z=", Z
-
+write(*,*)
+write(*,*)"**********XC functional info:************"
 !!!!!!!!!! libxc !!!!!!!!!
 if ((version.eq.0).or.(version.eq.1)) then 
 ! Print out libxc version
@@ -174,9 +177,8 @@ if ((version.eq.0).or.(version.eq.1)) then
   write(*,'("Libxc version: ",I1,".",I1,".",I1)') vmajor, vminor, vmicro
 
 if (xc1_num.gt.0) then
-!!!info Exchange!!!!!!!
-write(*,*)
-write(*,*)"xc1_num",xc1_num
+!!!!info 1-st XC functional 
+  write(*,*)"1-st XC functional number: ",xc1_num
 
   call xc_f03_func_init(xc1_func, xc1_num, XC_UNPOLARIZED)
 
@@ -227,15 +229,12 @@ write(*,*)"xc1_num",xc1_num
          xc_f03_func_info_get_ext_params_default_value(xc1_info,i)," ",&
          trim(xc_f03_func_info_get_ext_params_description(xc1_info,i))
  enddo
-  endif
-
- write(*,*)
+ endif
 
   
 if (xc2_num.gt.0) then
-
-!!!!info correlation
-write(*,*)"xc2_num",xc2_num
+!!!!info 2-nd XC functional 
+write(*,*)"2-nd XC functional number: ",xc2_num
   call xc_f03_func_init(xc2_func, xc2_num, XC_UNPOLARIZED)
 
   xc2_info = xc_f03_func_get_info(xc2_func)
@@ -285,13 +284,10 @@ write(*,*)"xc2_num",xc2_num
          xc_f03_func_info_get_ext_params_default_value(xc2_info,i)," ",&
          trim(xc_f03_func_info_get_ext_params_description(xc2_info,i))
   enddo
-
   endif
- write(*,*)
-
-!!!!info correlation1
+!!!!info 3-rd XC functional  
 if (xc3_num.gt.0) then
-write(*,*)"xc3_num",xc3_num
+write(*,*)"3rd XC functional number: ",xc3_num
 
   call xc_f03_func_init(xc3_func, xc3_num, XC_UNPOLARIZED)
 
@@ -344,9 +340,7 @@ write(*,*)"xc3_num",xc3_num
          trim(xc_f03_func_info_get_ext_params_description(xc3_info,i))
  enddo
 
-
 endif
- write(*,*)
 
 
  if (param_nr1.ne.0)then
@@ -365,7 +359,7 @@ endif
                  ", not ",param_nr2
          stop
    else
-    call xc_f03_func_set_ext_params(xc1_func,param2(1))
+    call xc_f03_func_set_ext_params(xc2_func,param2(1))
    endif
  endif
 
@@ -375,27 +369,61 @@ endif
                  ", not ",param_nr3
          stop
    else
-    call xc_f03_func_set_ext_params(xc1_func,param3(1))
+    call xc_f03_func_set_ext_params(xc3_func,param3(1))
    endif
  endif
 
 
   !!!!!!!!!! libxc !!!!!!!!!
+
+
+write(*,*)
+write(*,*)"**********Non-local exchange info************"
+!Store non-local parameters in hybx_w(4,1), hybx_w(5,1) and hybx_w(5,2) 
+if (override_libxc_hyb) then
+   write(*,*)"Non-local exchange parameters taken from input:"
+   write(*,*)"Fock exchange with weigth: ",hybx_w(4,1)
+   write(*,*)"Fock SR exchange with weigth: ",hybx_w(5,1), " parameter: ", hybx_w(5,2)
+else
+  if(xc1_num.gt.0)then
+    if (xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_HYB_GGA) then
+      write(*,*)"XC funcitional ",xc1_num , " contains non-local part."
+      !e1= xc_f03_hyb_exx_coef(xc1_func) !hyb_exx - exact exchange (Fock weigth)  
+      call xc_f03_hyb_cam_coef(xc1_func ,hybx_w(5,2),  hybx_w(4,1), hybx_w(5,1))
+      write(*,*)"Fock exchange with weigth: ",hybx_w(4,1)
+      write(*,*)"Fock SR exchange with weigth: ",hybx_w(5,1), " parameter: ", hybx_w(5,2)
+    else
+      write(*,*)"XC funcitional ",xc1_num , " without non-local part."
+      hybx_w(5,1)=0d0
+      hybx_w(4,1)=0d0
+    endif 
+  else
+    write(*,*)"Calculation will be done without non-local part."
+    hybx_w(5,1)=0d0
+    hybx_w(4,1)=0d0
+  endif 
+
+  if(xc2_num.gt.0)then
+    if (xc_f03_func_info_get_family(xc2_info).eq.XC_FAMILY_HYB_GGA) then
+      write(*,*)"XC funcitional ",xc2_num ," in 2-nd position of input is hybrid, but non-local part will not be used."
+      write(*,*)"1-st position of xc functional is for hybrid."
+    endif
+  endif
+
+  if(xc3_num.gt.0)then
+    if (xc_f03_func_info_get_family(xc3_info).eq.XC_FAMILY_HYB_GGA) then
+      write(*,*)"XC funcitional ",xc3_num ," in 3-rd position of input is hybrid, but non-local part will not be used."
+      write(*,*)"1-st position of xc functional is for hybrid."
+    endif
+  endif
+endif !override
+
+!End store non-local parameters
+
 endif
 
 
-
-
-
-
-allocate(r(Ngrid),vh(Ngrid),rho(Ngrid),vxc(Ngrid),exc(Ngrid),vxc1(Ngrid),exc1(Ngrid),&
-        vxc2(Ngrid),exc2(Ngrid),vxc3(Ngrid),exc3(Ngrid),psi(Ngrid,Nshell),eig(Nshell),&
-        grho2(Ngrid),ftemp1(Ngrid),ftemp2(Ngrid),vxcsigma(Ngrid),grho(Ngrid),g2rho(Ngrid),&
-        psip(Ngrid,Nshell),vx_psi(Ngrid,Nshell),vx_psi_sr(Ngrid,Nshell),eigp(Nshell))
-
-call gengrid(grid,Ngrid,Rmin,Rmax,r)
-
-
+if (version.eq.1) then
 
   inquire(file='eigval_de.out',EXIST=file_exists)
   if (file_exists) then
@@ -406,8 +434,6 @@ call gengrid(grid,Ngrid,Rmin,Rmax,r)
   write(11,*)"eigval de"
   close(11)
 
-
-
   inquire(file='E_dE.out',EXIST=file_exists)
   if (file_exists) then
      open(11,file='E_dE.out',status='old', access='append')
@@ -415,7 +441,6 @@ call gengrid(grid,Ngrid,Rmin,Rmax,r)
      open(11,file='E_dE.out',status='new')
   endif
   write(11,*)"iter E dE E_ext E_h E_x eig_sum Z=",Z
-
   close(11)
 
   inquire(file='res.dat',EXIST=file_exists)
@@ -430,12 +455,12 @@ call gengrid(grid,Ngrid,Rmin,Rmax,r)
   endif
   close(11)
 
+allocate(r(Ngrid),vh(Ngrid),rho(Ngrid),vxc(Ngrid),exc(Ngrid),vxc1(Ngrid),exc1(Ngrid),&
+        vxc2(Ngrid),exc2(Ngrid),vxc3(Ngrid),exc3(Ngrid),psi(Ngrid,Nshell),eig(Nshell),&
+        grho2(Ngrid),ftemp1(Ngrid),ftemp2(Ngrid),vxcsigma(Ngrid),grho(Ngrid),g2rho(Ngrid),&
+        psip(Ngrid,Nshell),vx_psi(Ngrid,Nshell),vx_psi_sr(Ngrid,Nshell),eigp(Nshell))
 
-if (version.eq.1) then
-
-Nrsfun=8
-allocate(rsfunC(Nrsfun,2))
-allocate(Bess_ik(Ngrid,Nrsfun,2*lmax+1,2)) !last atgument 1- 1-st kind (msbesi), 2- 2-nd kind (msbesk) 
+call gengrid(grid,Ngrid,Rmin,Rmax,r)
 
 
 d_order=9
@@ -450,51 +475,23 @@ i_order=9
 Allocate(tools(Ngrid,tools_info(1)))
 call generate_tools(Ngrid,r,tools,tools_info)
 
-
-
-
-! ----- version x4 -------
-! Lippmann–Schwinger iterations and solving screened Poisson equation.
-! $\left( \nabla^2+ 2\epsilon \right \psi(\mathbf{r}) = v(\mathbf{r}) \psi(\mathbf{r})$
-
-
-
-
-
-call iteration0(Ngrid,r,Z,Nshell,shell_l,lmax,count_l,eig,psi)
-
-eigp=eig*0d0
-
-if (override_libxc_hyb) then
-   write(*,*)"Non local exchange parameters taken from input:"
-   write(*,*)"Fock exchange with weigth: ",hybx_w(4,1)
-   write(*,*)"Fock SR exchange with weigth: ",hybx_w(5,1), " parameter: ", hybx_w(5,2)
-else
-  if(xc1_num.gt.0)then
-    if (xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_HYB_GGA) then
-      write(*,*)"XC funcitional ",xc1_num , " contains non local part."
-      !e1= xc_f03_hyb_exx_coef(xc1_func) !hyb_exx - exact exchange (Fock weigth)  
-      call xc_f03_hyb_cam_coef(xc1_func ,hybx_w(5,2),  hybx_w(4,1), hybx_w(5,1))
-      write(*,*)"Fock exchange with weigth: ",hybx_w(4,1)
-      write(*,*)"Fock SR exchange with weigth: ",hybx_w(5,1), " parameter: ", hybx_w(5,2)
-    else
-      write(*,*)"XC funcitional ",xc1_num , " without non local part."
-      hybx_w(5,1)=0d0
-      hybx_w(4,1)=0d0
-    endif 
-  else
-    write(*,*)"XC funcitional ",xc1_num , " without non local part."
-    hybx_w(5,1)=0d0
-    hybx_w(4,1)=0d0
-  endif
-endif 
+Nrsfun=8 
+allocate(rsfunC(Nrsfun,2))
+allocate(Bess_ik(Ngrid,Nrsfun,2*lmax+1,2)) !last atgument 1- 1-st kind (msbesi), 2- 2-nd kind (msbesk) 
 
 if (abs(hybx_w(5,1)).gt.1d-20) then
  call errfun(Ngrid,r,Nrsfun,hybx_w(5,2),rsfunC)
  call get_Bess_fun(Ngrid,r,lmax,Nrsfun,rsfunC,Bess_ik)
 endif
 
+write(*,*)
+write(*,*)"**********Starting self consistent loop************"
+! Lippmann–Schwinger iterations and solving screened Poisson equation.
 
+call iteration0(Ngrid,r,Z,Nshell,shell_l,lmax,count_l,eig,psi)
+eigp=eig*0d0
+
+! $\left( \nabla^2+ 2\epsilon \right \psi(\mathbf{r}) = v(\mathbf{r}) \psi(\mathbf{r})$
 
 !START self consistent loop
 do iscl=1,150
@@ -521,7 +518,8 @@ if (xc1_num.gt.0)then
 
   if (xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_LDA) then
      call xc_f03_lda_exc_vxc(xc1_func, Ngrid, rho(1), exc1(1),vxc1(1))
-  elseif  (xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_GGA) then
+  elseif  ((xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_GGA).or.&
+                 (xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_HYB_GGA)) then
      call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
      call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
      g2rho=g2rho*r**(-2)
@@ -534,24 +532,13 @@ if (xc1_num.gt.0)then
 !  vxc1=vxc1-2d0*ftemp1
   !!!!! end formula 6.0.8 !!!!!!
 
-
 !   !!!!! formula 6.0.5 (exciting variants) !!!!!!
       call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
      vxc1=vxc1-2d0*(grho*ftemp1+vxcsigma*g2rho)
 !   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
 
-  elseif  (xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_HYB_GGA) then
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
-    g2rho=g2rho*r**(-2)
-    grho2=grho**2
-    call xc_f03_gga_exc_vxc(xc1_func, Ngrid, rho(1), grho2(1), exc1(1),vxc1(1),vxcsigma(1))
-!   !!!!! formula 6.0.5 (exciting variants) !!!!!!
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
-    vxc1=vxc1-2d0*(grho*ftemp1+vxcsigma*g2rho)
-!   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
   else
-    write(*,*)"Exchange not supported!"
+    write(*,*)"1-st XC functional not supported!"
   endif
 elseif (xc1_num.eq.-1) then !Built-in LDA
    call getvxc(Ngrid,rho,vxc1,exc1)
@@ -565,19 +552,17 @@ endif
 if (xc2_num.ne.0) then
   if (xc_f03_func_info_get_family(xc2_info).eq.XC_FAMILY_LDA) then
     call xc_f03_lda_exc_vxc(xc2_func, Ngrid, rho(1), exc2(1),vxc2(1))
-  elseif  (xc_f03_func_info_get_family(xc2_info).eq.XC_FAMILY_GGA) then
+  elseif  ((xc_f03_func_info_get_family(xc2_info).eq.XC_FAMILY_GGA).or.&
+                 (xc_f03_func_info_get_family(xc2_info).eq.XC_FAMILY_HYB_GGA)) then
     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
     g2rho=g2rho*r**(-2)
     grho2=grho**2
     call xc_f03_gga_exc_vxc(xc2_func, Ngrid, rho(1), grho2(1), exc2(1),vxc2(1),vxcsigma(1))
-!   !!!!! formula 6.0.5 (exciting variants) !!!!!!
     call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
     vxc2=vxc2-2d0*(grho*ftemp1+vxcsigma*g2rho)
-!   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
-
   else
-    write(*,*)"Correlation not supported!"
+    write(*,*)"2-nd XC functional not supported!"
   endif
 endif
 !! END EXCHANGE-CORRELATION 2 !!!!!
@@ -586,18 +571,17 @@ endif
 if (xc3_num.ne.0) then
   if (xc_f03_func_info_get_family(xc3_info).eq.XC_FAMILY_LDA) then
     call xc_f03_lda_exc_vxc(xc3_func, Ngrid, rho(1), exc3(1),vxc3(1))
-  elseif  (xc_f03_func_info_get_family(xc3_info).eq.XC_FAMILY_GGA) then
+  elseif ((xc_f03_func_info_get_family(xc3_info).eq.XC_FAMILY_GGA).or.&
+                 (xc_f03_func_info_get_family(xc3_info).eq.XC_FAMILY_HYB_GGA)) then
     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
     g2rho=g2rho*r**(-2)
     grho2=grho**2
     call xc_f03_gga_exc_vxc(xc3_func, Ngrid, rho(1), grho2(1), exc3(1),vxc3(1),vxcsigma(1))
-!   !!!!! formula 6.0.5 (exciting variants) !!!!!!
     call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
     vxc3=vxc3-2d0*(grho*ftemp1+vxcsigma*g2rho)
-!   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
   else
-    write(*,*)"Correlation not supported!"
+    write(*,*)"3-rd XC functional not supported!"
   endif
 endif
 

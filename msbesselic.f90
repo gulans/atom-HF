@@ -1,26 +1,21 @@
-
 subroutine msbesselic (n, z, rez)
-       Implicit None
-! arguments
+      Implicit None
+
       Integer, Intent (In) :: n
       Complex (8), Intent (In) :: z
       Complex (8), Intent (Out) :: rez
       Integer :: i
       Complex (8) :: g(-n-1:n)
-
-
       Complex (16) :: g16(-n-1:n),y,rez16
-
-
       Complex (8) :: rezi,rezk
-      logical :: cits
-      cits=.FALSE.
-      !cits=.True.
-if (cits) then
-      !call bes_ik_c( n, z, rezi,rezk )
-      rez=rezi
-else
-  if ((n.eq.0).and. (abs(realpart(z)).lt.1d-3)) then
+
+      if (n.gt.6)then
+        write(*,*)"msbesselic.f90 Bessel functions with order higher than 6 are not supported"
+        stop
+      endif
+
+      
+if ((n.eq.0).and. (abs(realpart(z)).lt.1d-3)) then
           rez=1d0+(1d0/6d0)*z**2 + (1d0/120d0)*z**4 + (1d0/5040d0)*z**6  
 
   elseif ((n.eq.1) .and. (abs(realpart(z)).lt.1d-1).and.(abs(imagpart(z)).lt.1d-1) ) then
@@ -92,5 +87,4 @@ else
   endif !end quad
 
   endif
-endif
 end subroutine 

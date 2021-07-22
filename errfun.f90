@@ -1,4 +1,8 @@
 subroutine errfun(Ngrid,r,n,mu,rsfunC)
+!stores the coeficients of erfc expantion in array "rsfunC"
+
+
+        
 implicit none
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 integer, intent(in) :: Ngrid,n
@@ -114,33 +118,27 @@ rmax=rmax/mu
       rsfunC(i,2)=cmplx(BB1(i),BB2(i),8)
    end do
 
-!write(*,*)" A"
-!do i=1, n
-!write(*,*)rsfunC(i,1)
-!enddo
-!write(*,*)" B"
-!do i=1, n
-!write(*,*)rsfunC(i,2)
-!enddo
-
-
  rsfunC(:,2)=rsfunC(:,2)*mu
 
 
 
-
+!Test - condtruct erfc from stored coeffiecents
+ if (.false.) then
    rez=cmplx(0d0,0d0,8)*r
- !  rez=rez+rsfunC(1,1)*exp(-rsfunC(1,2)*r)
    do i=1, n
      rez=rez+rsfunC(i,1)*exp(-rsfunC(i,2)*r)
      rez=rez+conjg(rsfunC(i,1))*exp(-conjg(rsfunC(i,2))*r)
    enddo
+
+
    open(11,file='erfc_test.dat',status='replace')
    write(11,*)"erfc RE(rez) Im(rez) erfc-RE(rez) mu=",mu," rmax=",rmax
    do i=1, Ngrid
      write(11,*)r(i), erfc(mu*r(i)), realpart(rez(i)), imagpart(rez(i)),erfc(mu*r(i))-realpart(rez(i))
    enddo
    close(11)
+ endif
+!Test end
 
 end subroutine
 

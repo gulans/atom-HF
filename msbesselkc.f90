@@ -1,7 +1,5 @@
-
 subroutine msbesselkc (n, z, rez)
        Implicit None
-! arguments
       Integer, Intent (In) :: n
       Complex (8), Intent (In) :: z
       Complex (8), Intent (Out) :: rez
@@ -9,21 +7,11 @@ subroutine msbesselkc (n, z, rez)
       Complex (8) :: f(0:n)
 
       Complex (8) :: rezi,rezk
-      logical :: cits
 
 Complex(16) :: f16(0:n)
 complex(16)  :: rez16
 complex(16)  :: y
 
-
-
-
-
-    cits=.false.
-if (cits) then
-      !call bes_ik_c( n, z, rezi,rezk )
-      rez=rezk
-else
 
 
    if ((n.eq.1) .and. (abs(realpart(z)).lt.1d-3).and.(abs(imagpart(z)).lt.1d-3))  then
@@ -72,5 +60,4 @@ y=cmplx(realpart(z),imagpart(z),16)
 endif !!end quad
 endif
 
-endif
 end subroutine 

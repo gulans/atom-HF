@@ -39,19 +39,19 @@ maxscl=20
 do iscl=1,maxscl
 
 !write(*,*)iscl,". eig-eigp: ",eig-eigp
-if((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-13)then !1d-13 bija
+!convergence check
+if((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-13)then 
        !write(*,*)"Convergence of internal cycle reached, iteration ",iscl
        !write(*,*)"max(eig-eigp) absolute : ",maxval(abs(eig-eigp))," relative: ",maxval(abs(eig-eigp)/(abs(eig-1d0)))
-
         exit
 endif
+
 do inn=1,nmax
   ish=shell0+inn
   call scrPoisson(Ngrid, r,tools,tools_info,hybx_w, Z, l, vh, vxc,&
           vx_psi(:,ish),vx_psi_sr(:,ish),psi_in(:,ish), eig(ish), psi(:,ish))
    call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,ish)**2,norm)
    psi(:,ish)=psi(:,ish)/dsqrt(norm)
-
 enddo
 
 !Overlap and Hamiltonian matrix
@@ -60,15 +60,12 @@ if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
    ish=inn+shell0
    call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ,lmax,&
            psi(:,ish),psi_in,vx_chi(:,ish),vx_chi_sr(:,ish),rsfunC,Nrsfun,hybx_w,Bess_ik)
- 
    enddo
 endif
 
 do inn=1,nmax
   do inp=1,nmax
     call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn+shell0)*psi(:,inp+shell0),Snn)
-
-
     S(inn,inp)=Snn
 !!!!!
 !    call rderivative_lagrN(Ngrid,r,tools,tools_info,r*psi(:,inp+shell0),f4)
@@ -114,7 +111,6 @@ enddo
    enddo
  enddo
  W=matmul(matmul(Sevec,s12),transpose(Sevec))
-! print *,"Ja W matrica ir S^(-1/2), tad WSW=I ?:"
 
 !!!!!!!!! Make a substitution x=Wx' un H'=WHW
 call inver(W,Winv,nmax)
@@ -167,8 +163,7 @@ do inn=1,nmax
   psi(:,inn+shell0)=phi(:,inn)
   eig(inn+shell0)=lambda(inn)
  
-  call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn+shell0)**2,norm)
-
+!  call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn+shell0)**2,norm)
 !  write(*,*)"l=",l," eig(",inn,")=",eig(inn+shell0),"norm=",norm," eigp(",inn,")=",eigp(inn+shell0)
   enddo
 
@@ -222,78 +217,26 @@ call msbesseli(l,lam*r(ri), besrezi)
 call msbesselk(l,lam*r(ri), besrezk)
 besi=besrezi(l)
 besk=besrezk(l)
-!call besi_simp(l,lam*r(ri),besi)
-!call besk_simp(l,lam*r(ri),besk)
 
 f11(ri)=lam*besk
 f12(ri)=besi*f(ri)
 f21(ri)=lam*besi
 f22(ri)=besk*f(ri)
-!write(*,*)lam*r(ri),besi, besk
 enddo
-
-!call integ_s38_fun(Ngrid,r,f12*r**2,1,int1)
-!call integ_s38_fun(Ngrid,r,f22*r**2,-1,int2)
-!call integ_Bodes6_fun(Ngrid,r,f12*r**2,1,int1)
-!call integ_Bodes6_fun(Ngrid,r,f22*r**2,-1,int2)
 
 call integ_BodesN_fun(Ngrid,r,tools,tools_info,1,f12*r**2,int1)
 call integ_BodesN_fun(Ngrid,r,tools,tools_info,-1,f22*r**2,int2)
 psi=f11*int1+f21*int2
 
-
-!write(*,*)"r*lam","f11","int1","f21","int2","psi"
-
-!if (e.lt.-300d0) then
-!if (l.eq.2) then
-!write(*,*)"arguments    ","besk*lam    ","integr1    ","besi*lam    ","integr2    ","psi"
-do ri=1, Ngrid
-!write(*,*)lam*r(ri),f11(ri),int1(ri),f21(ri),int2(ri),psi(ri)
-enddo
-!endif
-
 end subroutine
 
-
-subroutine laplacian(Ngrid,r,f1,upp) 
-  IMPLICIT NONE
-  integer, intent(in)    :: Ngrid 
-  real(8), intent(in)    :: r(Ngrid),f1(Ngrid)
-  real(8), intent(out)   :: upp(Ngrid)
-
-
-  real(8)                :: u(Ngrid),up(Ngrid),up1,up2 
-  integer :: ir
-  u=f1*r
-  up2=0d0
-  do ir=1, Ngrid-1
-    up1=up2
-    up2=(u(ir+1)-u(ir))/(r(ir+1)-r(ir))
-    up(ir)=(up1+up2)/2d0
-  enddo
-  up(Ngrid)=up2/2d0 
-
-  up2=0d0
-  do ir=1, Ngrid-1
-    up1=up2
-    up2=(up(ir+1)-up(ir))/(r(ir+1)-r(ir))
-    upp(ir)=(up1+up2)/2d0
-  enddo
-  upp(Ngrid)=up2/2d0
-
-  upp=upp/r
-  return
-end subroutine
 
 subroutine diasym_small(a,eig,n)
  implicit none
-
  integer n,l,inf
  real*8  a(n,n),eig(n),work(n*(3+n/2))
-
  l=n*(3+n/2)
  call dsyev('V','U',n,a,n,eig,work,l,inf)
-
 end subroutine
 
 subroutine inver(A,Ainv,si)
@@ -321,23 +264,4 @@ subroutine inver(A,Ainv,si)
       print *,  'Matrix inversion failed!'
       stop
     endif
-
 end subroutine
-        
-
-!subroutine sph_i(l,lmax,x,rez)
-!    implicit none
-!    integer            :: l,lmax
-!    real(8)            :: x,rez, A1(0:250),A2(0:250)
-!    call SPHI(l,x,lmax,A1,A2)
-!    rez=A1(l)
-!end subroutine
-!
-!subroutine sph_k(l,lmax,x,rez)
-!    implicit none
-!    integer            :: l,lmax
-!    real(8)            :: x,rez, A1(0:250),A2(0:250)
-!    call SPHK(l,x,lmax,A1,A2)
-!    rez=A1(l)
-!end subroutine
-

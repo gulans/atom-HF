@@ -8,7 +8,7 @@ program atomHF
   TYPE(xc_f03_func_info_t) :: xc1_info,xc2_info,xc3_info
   integer :: vmajor, vminor, vmicro
   character(len=120) :: kind,family,version_text
-  logical :: polarised
+  logical :: polarized
   real(8) :: hybx_w(5,2) !hyb exchange weigths: (1,1)-vx, (2,1)-vc, (3,1)-vc1, (4,1)-HF, (5,1)-HF_sr
 !!!!!!!!!! libxc !!!!!!!!
 
@@ -23,6 +23,10 @@ real(8), allocatable :: r(:),vh(:),vxc(:),exc(:),psi(:,:),rho(:),ftemp1(:),&
         grho(:),grho2(:),g2rho(:),g3rho(:),vxc1(:),vxc2(:),vxc3(:),&
         exc1(:),exc2(:),exc3(:),vxcsigma(:),&
         vx_psi_sr(:,:)
+!spin polarised variables
+real(8), allocatable :: shell_occ_sp(:,:),rho_sp(:,:),exc1_sp(:,:),vxc1_sp(:,:)
+real(8), allocatable :: grho_sp(:,:),grho2_sp(:,:),vxcsigma_sp(:,:),gvxcsigma_sp(:,:),g2rho_sp(:,:)
+
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 
 real(8), allocatable :: shell_occ(:),eig(:)
@@ -87,10 +91,19 @@ read(*,*) grid
 read(*,*) 
 read(*,*) Nshell
 allocate(shell_n(Nshell),shell_l(Nshell),shell_occ(Nshell))
+allocate(shell_occ_sp(2,Nshell))
 read(*,*)
-do ish=1,Nshell
-  read(*,*) shell_n(ish), shell_l(ish), shell_occ(ish)
-enddo
+read(*,*) polarized
+read(*,*)
+if (.not.polarized) then
+  do ish=1,Nshell
+    read(*,*) shell_n(ish), shell_l(ish), shell_occ(ish)
+  enddo 
+else
+  do ish=1,Nshell
+    read(*,*) shell_n(ish), shell_l(ish), shell_occ_sp(1,ish), shell_occ_sp(2,ish)
+  enddo
+endif
 
 !check if list of shells is in correct order by l and sort
 sorted=.false.
@@ -179,9 +192,11 @@ if ((version.eq.0).or.(version.eq.1)) then
 if (xc1_num.gt.0) then
 !!!!info 1-st XC functional 
   write(*,*)"1-st XC functional number: ",xc1_num
-
+  if (.not.polarized)then
   call xc_f03_func_init(xc1_func, xc1_num, XC_UNPOLARIZED)
-
+  else
+  call xc_f03_func_init(xc1_func, xc1_num, XC_POLARIZED)
+  endif
   xc1_info = xc_f03_func_get_info(xc1_func)
   ! Get the type of the functional
   select case(xc_f03_func_info_get_kind(xc1_info))
@@ -459,6 +474,9 @@ allocate(r(Ngrid),vh(Ngrid),rho(Ngrid),vxc(Ngrid),exc(Ngrid),vxc1(Ngrid),exc1(Ng
         vxc2(Ngrid),exc2(Ngrid),vxc3(Ngrid),exc3(Ngrid),psi(Ngrid,Nshell),eig(Nshell),&
         grho2(Ngrid),ftemp1(Ngrid),ftemp2(Ngrid),vxcsigma(Ngrid),grho(Ngrid),g2rho(Ngrid),&
         psip(Ngrid,Nshell),vx_psi(Ngrid,Nshell),vx_psi_sr(Ngrid,Nshell),eigp(Nshell))
+allocate(rho_sp(2,Ngrid),exc1_sp(2,Ngrid),vxc1_sp(2,Ngrid),grho_sp(2,Ngrid),grho2_sp(3,Ngrid)&
+        ,vxcsigma_sp(3,Ngrid),gvxcsigma_sp(3,Ngrid),g2rho_sp(2,Ngrid))
+
 
 call gengrid(grid,Ngrid,Rmin,Rmax,r)
 
@@ -497,12 +515,22 @@ eigp=eig*0d0
 do iscl=1,150
 
 ! Calculate density
-  rho=0d0*rho
+  rho=0d0*r
+  rho_sp(1,:)=0d0*r !rho spin up
+  rho_sp(2,:)=0d0*r !rho spin down
+
   do ish=1,Nshell
-     rho=rho+shell_occ(ish)*psi(:,ish)**2
-  enddo
+  if (.not.polarized)then
+    rho=rho+shell_occ(ish)*psi(:,ish)**2
+  else
+    rho_sp(1,:)=rho_sp(1,:)+shell_occ_sp(1,ish)*psi(:,ish)**2
+    rho_sp(2,:)=rho_sp(2,:)+shell_occ_sp(2,ish)*psi(:,ish)**2
+
+  endif
+    enddo
 
 
+rho_sp=rho_sp/(4d0*Pi)
 rho=rho/(4d0*Pi)
 vxc1=0d0*r
 exc1=0d0*r
@@ -517,9 +545,19 @@ if (xc1_num.gt.0)then
 
 
   if (xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_LDA) then
-     call xc_f03_lda_exc_vxc(xc1_func, Ngrid, rho(1), exc1(1),vxc1(1))
+    if (.not.polarized)then 
+          call xc_f03_lda_exc_vxc(xc1_func, Ngrid, rho(1), exc1(1),vxc1(1))
+      write(*,*)vxc1(:)
+stop
+  else !spin polarised LDA
+          call xc_f03_lda_exc_vxc(xc1_func, Ngrid, rho_sp(1,1), exc1_sp(1,1),vxc1_sp(1,1))
+          write(*,*)"Get spin polarised potential"
+           write(*,*)vxc1_sp(1,:)
+          stop
+    endif
   elseif  ((xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_GGA).or.&
                  (xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_HYB_GGA)) then
+   if (.not.polarized)then
      call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
      call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
      g2rho=g2rho*r**(-2)
@@ -536,7 +574,51 @@ if (xc1_num.gt.0)then
       call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
      vxc1=vxc1-2d0*(grho*ftemp1+vxcsigma*g2rho)
 !   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
+     write(*,*)" potential"
+     do i=1, Ngrid
+     write(*,*)vxc1(i)
+     enddo
 
+     stop
+
+
+     else! spin polarised GGA
+
+! xc_f03_gga_exc_vxc(func, Ngrid, rho(1), sigma(1), ex(1),vrho(1),vsigma(1)) --libxc documentation
+!                     (in)  (in)   (in)     (in)    (out)  (out)   (out)
+!                                          grho2       
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho_sp(1,:),grho_sp(1,:))
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho_sp(2,:),grho_sp(2,:))
+     grho2_sp(1,:)=grho_sp(1,:)**2
+     grho2_sp(2,:)=grho_sp(1,:)*grho_sp(2,:)
+     grho2_sp(3,:)=grho_sp(2,:)**2
+     call xc_f03_gga_exc_vxc(xc1_func, Ngrid, rho_sp(1,1), grho2_sp(1,1), exc1_sp(1,1),vxc1_sp(1,1),vxcsigma_sp(1,1))
+    
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho_sp(1,:),g2rho_sp(1,:))
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho_sp(2,:),g2rho_sp(2,:))
+     g2rho_sp(1,:)=g2rho_sp(1,:)*r**(-2)
+     g2rho_sp(2,:)=g2rho_sp(2,:)*r**(-2)
+
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(1,:),gvxcsigma_sp(1,:))
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(2,:),gvxcsigma_sp(2,:))
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(3,:),gvxcsigma_sp(3,:))
+
+     vxc1_sp(1,:)=vxc1_sp(1,:)-2d0*gvxcsigma_sp(1,:)*grho_sp(1,:)-2d0*vxcsigma_sp(1,:)*g2rho_sp(1,:)-&
+             gvxcsigma_sp(2,:)*grho_sp(2,:)-vxcsigma_sp(2,:)*g2rho_sp(2,:)
+
+     vxc1_sp(2,:)=vxc1_sp(2,:)-2d0*gvxcsigma_sp(3,:)*grho_sp(2,:)-2d0*vxcsigma_sp(3,:)*g2rho_sp(2,:)-&
+             gvxcsigma_sp(2,:)*grho_sp(1,:)-vxcsigma_sp(2,:)*g2rho_sp(1,:)
+
+
+
+     write(*,*)"Get spin polarised potential"
+     do i=1, Ngrid
+     write(*,*)vxc1_sp(1,i),vxc1_sp(2,i)
+     enddo
+
+     stop
+     endif
+ 
   else
     write(*,*)"1-st XC functional not supported!"
   endif

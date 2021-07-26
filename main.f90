@@ -8,7 +8,7 @@ program atomHF
   TYPE(xc_f03_func_info_t) :: xc1_info,xc2_info,xc3_info
   integer :: vmajor, vminor, vmicro
   character(len=120) :: kind,family,version_text
-  logical :: polarized
+  logical :: spin
   real(8) :: hybx_w(5,2) !hyb exchange weigths: (1,1)-vx, (2,1)-vc, (3,1)-vc1, (4,1)-HF, (5,1)-HF_sr
 !!!!!!!!!! libxc !!!!!!!!
 
@@ -18,19 +18,19 @@ program atomHF
 
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 
-real(8), allocatable :: r(:),vh(:),vxc(:),exc(:),psi(:,:),rho(:),ftemp1(:),&
+real(8), allocatable :: r(:),vh(:),vxc(:,:),exc(:,:),psi(:,:,:),rho(:),ftemp1(:),&
         ftemp2(:),vx_psi(:,:),&
         grho(:),grho2(:),g2rho(:),g3rho(:),vxc1(:),vxc2(:),vxc3(:),&
         exc1(:),exc2(:),exc3(:),vxcsigma(:),&
         vx_psi_sr(:,:)
 !spin polarised variables
-real(8), allocatable :: shell_occ_sp(:,:),rho_sp(:,:),exc1_sp(:,:),vxc1_sp(:,:)
+real(8), allocatable :: rho_sp(:,:),vxc1_sp(:,:),vxc2_sp(:,:)
 real(8), allocatable :: grho_sp(:,:),grho2_sp(:,:),vxcsigma_sp(:,:),gvxcsigma_sp(:,:),g2rho_sp(:,:)
 
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 
-real(8), allocatable :: shell_occ(:),eig(:)
-real(8), allocatable :: psip(:,:),eigp(:)
+real(8), allocatable :: shell_occ(:,:),eig(:,:)
+real(8), allocatable :: psip(:,:,:),eigp(:,:)
 
 complex(8), allocatable :: Bess_ik(:,:,:,:)
 
@@ -48,7 +48,7 @@ real(8), allocatable :: tools(:,:)
 integer :: xc1_num,xc2_num,xc3_num
 
 real(8) :: rsmu
-integer :: Nrsfun
+integer :: Nrsfun, Nspin, isp
 complex(8), allocatable :: rsfunC(:,:)
 
 logical :: override_libxc_hyb
@@ -90,18 +90,23 @@ read(*,*)
 read(*,*) grid
 read(*,*) 
 read(*,*) Nshell
-allocate(shell_n(Nshell),shell_l(Nshell),shell_occ(Nshell))
-allocate(shell_occ_sp(2,Nshell))
 read(*,*)
-read(*,*) polarized
+read(*,*) spin
 read(*,*)
-if (.not.polarized) then
+if (spin)then
+        Nspin=2
+else
+        Nspin=1
+endif
+
+allocate(shell_n(Nshell),shell_l(Nshell),shell_occ(Nshell,Nspin))
+if (.not.spin) then
   do ish=1,Nshell
-    read(*,*) shell_n(ish), shell_l(ish), shell_occ(ish)
+    read(*,*) shell_n(ish), shell_l(ish), shell_occ(ish,1)
   enddo 
 else
   do ish=1,Nshell
-    read(*,*) shell_n(ish), shell_l(ish), shell_occ_sp(1,ish), shell_occ_sp(2,ish)
+    read(*,*) shell_n(ish), shell_l(ish), shell_occ(ish,1), shell_occ(ish,2)
   enddo
 endif
 
@@ -118,9 +123,14 @@ sorted=.true.
       inn=shell_n(ish)
       shell_n(ish)=shell_n(ish+1)
       shell_n(ish+1)=inn
-      e1=shell_occ(ish)
-      shell_occ(ish)=shell_occ(ish+1)
-      shell_occ(ish+1)=e1
+      e1=shell_occ(ish,1)
+      shell_occ(ish,1)=shell_occ(ish+1,1)
+      shell_occ(ish+1,1)=e1
+      if (spin) then
+        e1=shell_occ(ish,2)
+        shell_occ(ish,2)=shell_occ(ish+1,2)
+        shell_occ(ish+1,2)=e1
+      endif
     endif
   enddo
 enddo
@@ -166,9 +176,14 @@ do il=0, lmax
       inn=shell_n(ish)
       shell_n(ish)=shell_n(ish+1)
       shell_n(ish+1)=inn
-      e1=shell_occ(ish)
-      shell_occ(ish)=shell_occ(ish+1)
-      shell_occ(ish+1)=e1
+      e1=shell_occ(ish,1)
+      shell_occ(ish,1)=shell_occ(ish+1,1)
+      shell_occ(ish+1,1)=e1
+      if (spin) then
+        e1=shell_occ(ish,2)
+        shell_occ(ish,2)=shell_occ(ish+1,2)
+        shell_occ(ish+1,2)=e1
+      endif
      endif
    enddo  
  enddo
@@ -177,7 +192,11 @@ enddo
 
 write(*,*)"Shell configuration from input sorted:"
 do ish=1,Nshell
-  write(*,*) ish,". n: ", shell_n(ish), " l: ",  shell_l(ish), " occ: ",shell_occ(ish)
+if (.not.spin) then
+  write(*,*) ish,". n: ", shell_n(ish), " l: ",  shell_l(ish), " occ: ",shell_occ(ish,1)
+else
+  write(*,*) ish,". n: ", shell_n(ish), " l: ",  shell_l(ish), " occ up: ",shell_occ(ish,1), " occ down: ",shell_occ(ish,2)
+endif
 enddo
 
 write(*,*) "sum(occ)=", sum(shell_occ)," Z=", Z
@@ -192,7 +211,7 @@ if ((version.eq.0).or.(version.eq.1)) then
 if (xc1_num.gt.0) then
 !!!!info 1-st XC functional 
   write(*,*)"1-st XC functional number: ",xc1_num
-  if (.not.polarized)then
+  if (.not.spin)then
   call xc_f03_func_init(xc1_func, xc1_num, XC_UNPOLARIZED)
   else
   call xc_f03_func_init(xc1_func, xc1_num, XC_POLARIZED)
@@ -250,7 +269,11 @@ if (xc1_num.gt.0) then
 if (xc2_num.gt.0) then
 !!!!info 2-nd XC functional 
 write(*,*)"2-nd XC functional number: ",xc2_num
+  if (.not.spin)then
   call xc_f03_func_init(xc2_func, xc2_num, XC_UNPOLARIZED)
+  else
+  call xc_f03_func_init(xc2_func, xc2_num, XC_POLARIZED)
+  endif
 
   xc2_info = xc_f03_func_get_info(xc2_func)
   ! Get the type of the functional
@@ -303,8 +326,12 @@ write(*,*)"2-nd XC functional number: ",xc2_num
 !!!!info 3-rd XC functional  
 if (xc3_num.gt.0) then
 write(*,*)"3rd XC functional number: ",xc3_num
-
+  if (.not.spin)then
   call xc_f03_func_init(xc3_func, xc3_num, XC_UNPOLARIZED)
+  else
+  call xc_f03_func_init(xc3_func, xc3_num, XC_POLARIZED)
+  endif
+
 
   xc3_info = xc_f03_func_get_info(xc3_func)
   ! Get the type of the functional
@@ -470,12 +497,16 @@ if (version.eq.1) then
   endif
   close(11)
 
-allocate(r(Ngrid),vh(Ngrid),rho(Ngrid),vxc(Ngrid),exc(Ngrid),vxc1(Ngrid),exc1(Ngrid),&
-        vxc2(Ngrid),exc2(Ngrid),vxc3(Ngrid),exc3(Ngrid),psi(Ngrid,Nshell),eig(Nshell),&
+allocate(r(Ngrid),vh(Ngrid),rho(Ngrid),vxc(Ngrid,Nspin),exc(Ngrid,Nspin),&
+        vxc2(Ngrid),exc2(Ngrid),vxc3(Ngrid),exc3(Ngrid),psi(Ngrid,Nshell,Nspin),eig(Nshell,Nspin),&
         grho2(Ngrid),ftemp1(Ngrid),ftemp2(Ngrid),vxcsigma(Ngrid),grho(Ngrid),g2rho(Ngrid),&
-        psip(Ngrid,Nshell),vx_psi(Ngrid,Nshell),vx_psi_sr(Ngrid,Nshell),eigp(Nshell))
-allocate(rho_sp(2,Ngrid),exc1_sp(2,Ngrid),vxc1_sp(2,Ngrid),grho_sp(2,Ngrid),grho2_sp(3,Ngrid)&
-        ,vxcsigma_sp(3,Ngrid),gvxcsigma_sp(3,Ngrid),g2rho_sp(2,Ngrid))
+        psip(Ngrid,Nshell,Nspin),vx_psi(Ngrid,Nshell),vx_psi_sr(Ngrid,Nshell),eigp(Nshell,Nspin))
+allocate(rho_sp(Nspin,Ngrid),vxc1(Ngrid),exc1(Ngrid)) !differenet order for libxc
+
+
+
+allocate(grho_sp(2,Ngrid),grho2_sp(3,Ngrid),vxc1_sp(2,Ngrid),vxc2_sp(2,Ngrid),&
+        vxcsigma_sp(3,Ngrid),gvxcsigma_sp(3,Ngrid),g2rho_sp(2,Ngrid))
 
 
 call gengrid(grid,Ngrid,Rmin,Rmax,r)
@@ -506,7 +537,7 @@ write(*,*)
 write(*,*)"**********Starting self consistent loop************"
 ! Lippmann–Schwinger iterations and solving screened Poisson equation.
 
-call iteration0(Ngrid,r,Z,Nshell,shell_l,lmax,count_l,eig,psi)
+call iteration0(Ngrid,r,Z,Nshell,shell_l,lmax,count_l,Nspin,eig,psi)
 eigp=eig*0d0
 
 ! $\left( \nabla^2+ 2\epsilon \right \psi(\mathbf{r}) = v(\mathbf{r}) \psi(\mathbf{r})$
@@ -520,14 +551,14 @@ do iscl=1,150
   rho_sp(2,:)=0d0*r !rho spin down
 
   do ish=1,Nshell
-  if (.not.polarized)then
-    rho=rho+shell_occ(ish)*psi(:,ish)**2
+  if (.not.spin)then
+    rho=rho+shell_occ(ish,1)*psi(:,ish,1)**2
   else
-    rho_sp(1,:)=rho_sp(1,:)+shell_occ_sp(1,ish)*psi(:,ish)**2
-    rho_sp(2,:)=rho_sp(2,:)+shell_occ_sp(2,ish)*psi(:,ish)**2
-
+    rho_sp(1,:)=rho_sp(1,:)+shell_occ(ish,1)*psi(:,ish,1)**2
+    rho_sp(2,:)=rho_sp(2,:)+shell_occ(ish,2)*psi(:,ish,2)**2
+    rho=rho_sp(1,:)+rho_sp(2,:)
   endif
-    enddo
+  enddo
 
 
 rho_sp=rho_sp/(4d0*Pi)
@@ -545,19 +576,14 @@ if (xc1_num.gt.0)then
 
 
   if (xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_LDA) then
-    if (.not.polarized)then 
+    if (.not.spin)then 
           call xc_f03_lda_exc_vxc(xc1_func, Ngrid, rho(1), exc1(1),vxc1(1))
-      write(*,*)vxc1(:)
-stop
   else !spin polarised LDA
-          call xc_f03_lda_exc_vxc(xc1_func, Ngrid, rho_sp(1,1), exc1_sp(1,1),vxc1_sp(1,1))
-          write(*,*)"Get spin polarised potential"
-           write(*,*)vxc1_sp(1,:)
-          stop
-    endif
+          call xc_f03_lda_exc_vxc(xc1_func, Ngrid, rho_sp(1,1), exc1(1),vxc1_sp(1,1))
+  endif
   elseif  ((xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_GGA).or.&
                  (xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_HYB_GGA)) then
-   if (.not.polarized)then
+   if (.not.spin)then
      call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
      call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
      g2rho=g2rho*r**(-2)
@@ -592,7 +618,7 @@ stop
      grho2_sp(1,:)=grho_sp(1,:)**2
      grho2_sp(2,:)=grho_sp(1,:)*grho_sp(2,:)
      grho2_sp(3,:)=grho_sp(2,:)**2
-     call xc_f03_gga_exc_vxc(xc1_func, Ngrid, rho_sp(1,1), grho2_sp(1,1), exc1_sp(1,1),vxc1_sp(1,1),vxcsigma_sp(1,1))
+     call xc_f03_gga_exc_vxc(xc1_func, Ngrid, rho_sp(1,1), grho2_sp(1,1), exc1(1),vxc1_sp(1,1),vxcsigma_sp(1,1))
     
      call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho_sp(1,:),g2rho_sp(1,:))
      call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho_sp(2,:),g2rho_sp(2,:))
@@ -611,7 +637,7 @@ stop
 
 
 
-     write(*,*)"Get spin polarised potential"
+     write(*,*)"Get spin polarized potential"
      do i=1, Ngrid
      write(*,*)vxc1_sp(1,i),vxc1_sp(2,i)
      enddo
@@ -633,7 +659,14 @@ endif
 !! EXCHANGE-CORRELATION 2 !!!
 if (xc2_num.ne.0) then
   if (xc_f03_func_info_get_family(xc2_info).eq.XC_FAMILY_LDA) then
-    call xc_f03_lda_exc_vxc(xc2_func, Ngrid, rho(1), exc2(1),vxc2(1))
+
+  if (.not.spin)then
+          call xc_f03_lda_exc_vxc(xc2_func, Ngrid, rho(1), exc2(1),vxc2(1))
+
+  else !spin polarised LDA
+          call xc_f03_lda_exc_vxc(xc2_func, Ngrid, rho_sp(1,1), exc2(1),vxc2_sp(1,1))
+  endif
+
   elseif  ((xc_f03_func_info_get_family(xc2_info).eq.XC_FAMILY_GGA).or.&
                  (xc_f03_func_info_get_family(xc2_info).eq.XC_FAMILY_HYB_GGA)) then
     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
@@ -669,19 +702,31 @@ endif
 
 !!!! END EXCHANGE-CORRELATION 3 !!!
 
-vxc=hybx_w(1,1)*vxc1+hybx_w(2,1)*vxc2+hybx_w(3,1)*vxc3
-exc=hybx_w(1,1)*exc1+hybx_w(2,1)*exc2+hybx_w(3,1)*exc3
+exc(:,1)=hybx_w(1,1)*exc1+hybx_w(2,1)*exc2+hybx_w(3,1)*exc3
+
+if (.not.spin) then
+vxc(:,1)=hybx_w(1,1)*vxc1+hybx_w(2,1)*vxc2+hybx_w(3,1)*vxc3
+
+else
+        do isp=1, Nspin
+        vxc(:,isp)=hybx_w(1,1)*vxc1_sp(isp,:)+hybx_w(2,1)*vxc2_sp(isp,:)
+
+        enddo
+endif
+
 
 rho=rho*(4d0*Pi)
-
+rho_sp=rho_sp*(4d0*Pi)
 
 ! Get non-local exchange
 
 if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
  do ish=1,Nshell
- call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ,lmax,psi(:,ish),psi,&
-           vx_psi(:,ish),vx_psi_sr(:,ish),rsfunC,Nrsfun,hybx_w,Bess_ik)
-  enddo 
+ do isp=1,Nspin
+! call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ,lmax,psi(:,ish,isp),psi,&
+!           vx_psi(:,ish),vx_psi_sr(:,ish),rsfunC,Nrsfun,hybx_w,Bess_ik)
+   enddo
+   enddo 
 
 endif
   
@@ -695,10 +740,12 @@ vh=ftemp1/r+ftemp2
 !!!!!!!!! Caulculate energy !!!!!!!!!!!!!
 e_kin=0d0
 do ish=1,Nshell
-  call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish),ftemp1)
+do isp=1, Nspin
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish,isp),ftemp1)
   call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp1**2*r**2,e1)
-  call integ_BodesN_value(Ngrid,r,tools, tools_info,0.5d0*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish)**2,e2)
-  e_kin=e_kin+shell_occ(ish)*(e1+e2)
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,0.5d0*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish,isp)**2,e2)
+  e_kin=e_kin+shell_occ(ish,isp)*(e1+e2)
+enddo
 enddo
 
 call integ_BodesN_value(Ngrid,r,tools,tools_info,-r*rho*Z,e_ext)
@@ -706,13 +753,15 @@ call integ_BodesN_value(Ngrid,r,tools,tools_info,-r*rho*Z,e_ext)
 call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*rho*vh,e_h)
 
 e2=0d0
+  do isp=1,Nspin
   do ish=1,Nshell
-    call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish)*psi(:,ish)*&
-            (hybx_w(4,1)*vx_psi(:,ish)+hybx_w(5,1)*vx_psi_sr(:,ish)),e1)
-    e2=e2+e1
+    !call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish,1)*psi(:,ish)*&
+    !        (hybx_w(4,1)*vx_psi(:,ish)+hybx_w(5,1)*vx_psi_sr(:,ish)),e1)
+    !e2=e2+e1
   enddo
-  call integ_BodesN_value(Ngrid,r,tools, tools_info,(exc)*rho*r**2,e3)
-
+  enddo
+ 
+  call integ_BodesN_value(Ngrid,r,tools, tools_info,exc(:,1)*rho*r**2,e3)
  e_x=e2+e3
  energy0=energy
  energy=e_kin+e_ext+e_h+e_x
@@ -724,6 +773,7 @@ if (maxval(eig).gt.0) then
   write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0, " POSITIVE EIGENVALUE! "
 else
   write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0
+  !write(*,*)"E=Ekin+Eext+Eh+Ex",energy,"=",e_kin,e_ext,e_h,e_x
 endif
 
   
@@ -734,9 +784,13 @@ endif
   close(11)
 
   open(11,file='eigval_de.out',status='old', access='append')
+  
   do ish=1,Nshell
-    write(11,*)iscl, eig(ish), eig(ish)-eigp(ish), shell_occ(ish)
+  do isp=1, Nspin
+    write(11,*)iscl, eig(ish,isp), eig(ish,isp)-eigp(ish,isp), shell_occ(ish,isp)
   enddo
+  enddo
+
   close(11)
 
 
@@ -750,20 +804,22 @@ if(((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-13).and.(abs(energy-energy0).lt.1d
         write(*,*)"max(eig-eigp) absolute : ",maxval(abs(eig-eigp))," relative: ",maxval(abs(eig-eigp)/(abs(eig-1d0)))
         exit
 else
-        if (iscl.gt.90)then
-         ish=maxloc(abs((eig-eigp)/(eig-1d0)),Nshell)
+       ! if (iscl.gt.90)then
+       !  ish=maxloc(abs((eig-eigp)/(eig-1d0)),Nshell)
        !  write(*,*)"eigenvalue with largest relative ", maxval(abs((eig-eigp)/(eig-1d0)))," and absolute ",&
        !          maxval(abs(eig-eigp)), "change:"
        !  write(*,*)"n=",shell_n(ish)," l=",shell_l(ish), " eig=", eig(ish) 
-        endif
+       ! endif
 endif
 
 l_n=0
 psip=psi
 eigp=eig
   do il=1,lmax+1
-  call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,Z,il-1,shell_l,shell_occ,count_l(il),l_n,&
-            Nshell,lmax,vxc,vh,vx_psi,vx_psi_sr,psip,psi,eig,Bess_ik)
+  do isp=1,Nspin
+  call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,Z,il-1,isp,shell_l,shell_occ,count_l(il),l_n,&
+            Nshell,Nspin,lmax,vxc,vh,vx_psi,vx_psi_sr,psip,psi,eig,Bess_ik)
+  enddo
     do inn=1,count_l(il)
        l_n=l_n+1
     enddo
@@ -782,7 +838,12 @@ l_n=0
 do il=1,lmax+1
   do inn=1,count_l(il)
     l_n=l_n+1
-    write(*,*)"l=",il-1," n=",inn," eig=",eig(l_n)," occ=",shell_occ(l_n)
+    if (.not.spin)then
+      write(*,*)"l=",il-1," n=",inn," eig=",eig(l_n,1)," occ=",shell_occ(l_n,1)
+    else
+    write(*,*)"l=",il-1," n=",inn," eig=",eig(l_n,1)," occ=",shell_occ(l_n,1),"up"
+    write(*,*)"l=",il-1," n=",inn," eig=",eig(l_n,2)," occ=",shell_occ(l_n,2),"down"
+    endif
   enddo
 enddo
 
@@ -823,7 +884,7 @@ endif
   do il=1,lmax+1
     do icl=1, count_l(il)
       il_icl=il_icl+1
-      write(11,*) icl, il, eig(il_icl) 
+      write(11,*) icl, il, eig(il_icl,1) 
     enddo
   enddo
   write(11,*)"Tot Energy: ", energy

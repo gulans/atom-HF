@@ -13,6 +13,8 @@ Grid 0-equidistant 1-cubic 2-exponential 3-advanced_cubic
 3
 Number of shells - 1s 2s
 5
+spin
+.false.
 List of shells: n l occupation
 1 0 2.0d0
 2 0 2.0d0

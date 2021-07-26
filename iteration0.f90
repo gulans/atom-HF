@@ -1,5 +1,5 @@
 
-subroutine iteration0 (Ngrid,r,Z,Nshell,shell_l,lmax,count_l,eig,psi)
+subroutine iteration0 (Ngrid,r,Z,Nshell,shell_l,lmax,count_l,Nspin,eig,psi)
        Implicit None
       Integer, Intent (In) :: Ngrid
       real(8), Intent (In) :: r(Ngrid)
@@ -8,12 +8,13 @@ subroutine iteration0 (Ngrid,r,Z,Nshell,shell_l,lmax,count_l,eig,psi)
       integer, intent (In) :: shell_l(Nshell)
       integer, intent (In) :: lmax
       integer, intent (In) :: count_l(lmax+1)
-      real(8), Intent (Out) :: eig(Nshell)
-      real(8), Intent (Out) :: psi(Ngrid,Nshell)
+      integer, intent (In) :: Nspin
+      real(8), Intent (Out) :: eig(Nshell,Nspin)
+      real(8), Intent (Out) :: psi(Ngrid,Nshell,Nspin)
       
-integer :: ish,l,n,ir,nq
+integer :: ish,l,n,ir,nq,isp
 integer :: alpha, k !indexes for Laguerre polynomials 
-real(8) :: eig1
+real(8) :: eig1,psi1(Ngrid)
 real(8) :: lag(Ngrid) !Laguerre polynomials
 real(8) :: rho(Ngrid) !Laguerre polynomials argument
 real(8) :: fact !factoral function
@@ -25,7 +26,7 @@ do l=0,lmax
     k=n-1
     nq=n+l ! quantum number n
     ish=ish+1
-    eig(ish)=-0.5d0*Z**2/nq**2
+    eig1=-0.5d0*Z**2/nq**2
 !    write(*,*)ish,". n=",n," l=",l," eig=",eig(ish)," k:",k," alpha: ",alpha
 
     rho=2d0*Z*r/dble(nq)
@@ -41,10 +42,12 @@ do l=0,lmax
 !     enddo
 !      close(11)
 !    endif
-
-    psi(:,ish)=dsqrt((2d0*Z/dble(nq))**3*fact(nq-l-1)/(2d0*dble(nq)*fact(nq+l)))*&
+  psi1=dsqrt((2d0*Z/dble(nq))**3*fact(nq-l-1)/(2d0*dble(nq)*fact(nq+l)))*&
             exp(-Z*r/dble(nq))*(2d0*Z*r/dble(nq))**l*lag
-
+  do isp=1, Nspin
+    psi(:,ish,isp)=psi1
+    eig(ish, isp)=eig1
+  enddo
 
   enddo
 enddo

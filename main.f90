@@ -24,7 +24,7 @@ real(8), allocatable :: r(:),vh(:),vxc(:,:),exc(:,:),psi(:,:,:),rho(:),ftemp1(:)
         exc1(:),exc2(:),exc3(:),vxcsigma(:),&
         vx_psi_sr(:,:)
 !spin polarised variables
-real(8), allocatable :: rho_sp(:,:),vxc1_sp(:,:),vxc2_sp(:,:)
+real(8), allocatable :: rho_sp(:,:),vxc1_sp(:,:),vxc2_sp(:,:),vxc3_sp(:,:)
 real(8), allocatable :: grho_sp(:,:),grho2_sp(:,:),vxcsigma_sp(:,:),gvxcsigma_sp(:,:),g2rho_sp(:,:)
 
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
@@ -505,7 +505,7 @@ allocate(rho_sp(Nspin,Ngrid),vxc1(Ngrid),exc1(Ngrid)) !differenet order for libx
 
 
 
-allocate(grho_sp(2,Ngrid),grho2_sp(3,Ngrid),vxc1_sp(2,Ngrid),vxc2_sp(2,Ngrid),&
+allocate(grho_sp(2,Ngrid),grho2_sp(3,Ngrid),vxc1_sp(2,Ngrid),vxc2_sp(2,Ngrid),vxc3_sp(2,Ngrid),&
         vxcsigma_sp(3,Ngrid),gvxcsigma_sp(3,Ngrid),g2rho_sp(2,Ngrid))
 
 
@@ -573,8 +573,6 @@ exc3=0d0*r
 !! EXCHANGE-CORRELATION 1  !!!
 
 if (xc1_num.gt.0)then
-
-
   if (xc_f03_func_info_get_family(xc1_info).eq.XC_FAMILY_LDA) then
     if (.not.spin)then 
           call xc_f03_lda_exc_vxc(xc1_func, Ngrid, rho(1), exc1(1),vxc1(1))
@@ -600,13 +598,6 @@ if (xc1_num.gt.0)then
       call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
      vxc1=vxc1-2d0*(grho*ftemp1+vxcsigma*g2rho)
 !   !!!!! end formula 6.0.5 (exciting variants) !!!!!!
-     write(*,*)" potential"
-     do i=1, Ngrid
-     write(*,*)vxc1(i)
-     enddo
-
-     stop
-
 
      else! spin polarised GGA
 
@@ -628,21 +619,30 @@ if (xc1_num.gt.0)then
      call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(1,:),gvxcsigma_sp(1,:))
      call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(2,:),gvxcsigma_sp(2,:))
      call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(3,:),gvxcsigma_sp(3,:))
-
+ 
+   ! v_xc for spin up is being calculated using this formula:
+   ! $V_{xc}^{\uparrow}({\bf r})=\frac{\partial\hat{\epsilon}_{xc}}{\partial
+   ! \rho^{\uparrow}({\bf r})}-2\left(\nabla\frac{\partial\hat{\epsilon}_{xc}}
+   ! {\partial(\nabla\rho^{\uparrow})^2}\right)\cdot\nabla\rho^{\uparrow}
+   ! -2\frac{\hat{\epsilon}_{xc}}{\partial(\nabla\rho^{\uparrow})^2}\nabla^2
+   ! \rho^{\uparrow}-$\\
+   ! $-\left(\nabla\frac{\hat{\epsilon}_{xc}}{\partial(\nabla\rho^{\uparrow}
+   ! \cdot\nabla\rho^{\downarrow})}\right)\cdot\nabla\rho^{\downarrow}
+   ! -\frac{\partial\hat{\epsilon}_{xc}}{\partial(\nabla\rho^{\uparrow}\cdot
+   ! \nabla\rho^{\downarrow})}\nabla^2\rho^{\downarrow},$\\
+   
      vxc1_sp(1,:)=vxc1_sp(1,:)-2d0*gvxcsigma_sp(1,:)*grho_sp(1,:)-2d0*vxcsigma_sp(1,:)*g2rho_sp(1,:)-&
              gvxcsigma_sp(2,:)*grho_sp(2,:)-vxcsigma_sp(2,:)*g2rho_sp(2,:)
 
      vxc1_sp(2,:)=vxc1_sp(2,:)-2d0*gvxcsigma_sp(3,:)*grho_sp(2,:)-2d0*vxcsigma_sp(3,:)*g2rho_sp(2,:)-&
              gvxcsigma_sp(2,:)*grho_sp(1,:)-vxcsigma_sp(2,:)*g2rho_sp(1,:)
 
+!     write(*,*)"Get spin polarized potential"
+!     do i=1, Ngrid
+!     write(*,*)vxc1_sp(1,i),vxc1_sp(2,i)
+!     enddo
+!    stop
 
-
-     write(*,*)"Get spin polarized potential"
-     do i=1, Ngrid
-     write(*,*)vxc1_sp(1,i),vxc1_sp(2,i)
-     enddo
-
-     stop
      endif
  
   else
@@ -669,13 +669,46 @@ if (xc2_num.ne.0) then
 
   elseif  ((xc_f03_func_info_get_family(xc2_info).eq.XC_FAMILY_GGA).or.&
                  (xc_f03_func_info_get_family(xc2_info).eq.XC_FAMILY_HYB_GGA)) then
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
-    g2rho=g2rho*r**(-2)
-    grho2=grho**2
-    call xc_f03_gga_exc_vxc(xc2_func, Ngrid, rho(1), grho2(1), exc2(1),vxc2(1),vxcsigma(1))
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
-    vxc2=vxc2-2d0*(grho*ftemp1+vxcsigma*g2rho)
+
+    if(.not.spin)then         
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
+     g2rho=g2rho*r**(-2)
+     grho2=grho**2
+     call xc_f03_gga_exc_vxc(xc2_func, Ngrid, rho(1), grho2(1), exc2(1),vxc2(1),vxcsigma(1))
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
+     vxc2=vxc2-2d0*(grho*ftemp1+vxcsigma*g2rho)
+    else! spin polarised GGA
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho_sp(1,:),grho_sp(1,:))
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho_sp(2,:),grho_sp(2,:))
+     grho2_sp(1,:)=grho_sp(1,:)**2
+     grho2_sp(2,:)=grho_sp(1,:)*grho_sp(2,:)
+     grho2_sp(3,:)=grho_sp(2,:)**2
+     call xc_f03_gga_exc_vxc(xc2_func, Ngrid, rho_sp(1,1), grho2_sp(1,1), exc2(1),vxc2_sp(1,1),vxcsigma_sp(1,1))
+
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho_sp(1,:),g2rho_sp(1,:))
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho_sp(2,:),g2rho_sp(2,:))
+     g2rho_sp(1,:)=g2rho_sp(1,:)*r**(-2)
+     g2rho_sp(2,:)=g2rho_sp(2,:)*r**(-2)
+
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(1,:),gvxcsigma_sp(1,:))
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(2,:),gvxcsigma_sp(2,:))
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(3,:),gvxcsigma_sp(3,:))
+
+     vxc2_sp(1,:)=vxc2_sp(1,:)-2d0*gvxcsigma_sp(1,:)*grho_sp(1,:)-2d0*vxcsigma_sp(1,:)*g2rho_sp(1,:)-&
+             gvxcsigma_sp(2,:)*grho_sp(2,:)-vxcsigma_sp(2,:)*g2rho_sp(2,:)
+
+     vxc2_sp(2,:)=vxc2_sp(2,:)-2d0*gvxcsigma_sp(3,:)*grho_sp(2,:)-2d0*vxcsigma_sp(3,:)*g2rho_sp(2,:)-&
+             gvxcsigma_sp(2,:)*grho_sp(1,:)-vxcsigma_sp(2,:)*g2rho_sp(1,:)
+
+!     write(*,*)"Get spin polarized potential"
+!     do i=1, Ngrid
+!     write(*,*)vxc1_sp(1,i),vxc1_sp(2,i)
+!     enddo
+!    stop
+    endif
+
+
   else
     write(*,*)"2-nd XC functional not supported!"
   endif
@@ -685,16 +718,48 @@ endif
 !! EXCHANGE-CORRELATION 3 !!!
 if (xc3_num.ne.0) then
   if (xc_f03_func_info_get_family(xc3_info).eq.XC_FAMILY_LDA) then
-    call xc_f03_lda_exc_vxc(xc3_func, Ngrid, rho(1), exc3(1),vxc3(1))
+    if(.not.spin) then
+      call xc_f03_lda_exc_vxc(xc3_func, Ngrid, rho(1), exc3(1),vxc3(1))
+    else !spin polarised LDA
+      call xc_f03_lda_exc_vxc(xc3_func, Ngrid, rho_sp(1,1), exc3(1),vxc3_sp(1,1))
+
+
+    endif
+
   elseif ((xc_f03_func_info_get_family(xc3_info).eq.XC_FAMILY_GGA).or.&
                  (xc_f03_func_info_get_family(xc3_info).eq.XC_FAMILY_HYB_GGA)) then
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
-    g2rho=g2rho*r**(-2)
-    grho2=grho**2
-    call xc_f03_gga_exc_vxc(xc3_func, Ngrid, rho(1), grho2(1), exc3(1),vxc3(1),vxcsigma(1))
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
-    vxc3=vxc3-2d0*(grho*ftemp1+vxcsigma*g2rho)
+    if (.not.spin) then
+      call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
+      call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
+      g2rho=g2rho*r**(-2)
+      grho2=grho**2
+      call xc_f03_gga_exc_vxc(xc3_func, Ngrid, rho(1), grho2(1), exc3(1),vxc3(1),vxcsigma(1))
+      call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
+      vxc3=vxc3-2d0*(grho*ftemp1+vxcsigma*g2rho)
+    else
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho_sp(1,:),grho_sp(1,:))
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho_sp(2,:),grho_sp(2,:))
+     grho2_sp(1,:)=grho_sp(1,:)**2
+     grho2_sp(2,:)=grho_sp(1,:)*grho_sp(2,:)
+     grho2_sp(3,:)=grho_sp(2,:)**2
+     call xc_f03_gga_exc_vxc(xc3_func, Ngrid, rho_sp(1,1), grho2_sp(1,1), exc3(1),vxc3_sp(1,1),vxcsigma_sp(1,1))
+
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho_sp(1,:),g2rho_sp(1,:))
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho_sp(2,:),g2rho_sp(2,:))
+     g2rho_sp(1,:)=g2rho_sp(1,:)*r**(-2)
+     g2rho_sp(2,:)=g2rho_sp(2,:)*r**(-2)
+
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(1,:),gvxcsigma_sp(1,:))
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(2,:),gvxcsigma_sp(2,:))
+     call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(3,:),gvxcsigma_sp(3,:))
+
+     vxc3_sp(1,:)=vxc3_sp(1,:)-2d0*gvxcsigma_sp(1,:)*grho_sp(1,:)-2d0*vxcsigma_sp(1,:)*g2rho_sp(1,:)-&
+             gvxcsigma_sp(2,:)*grho_sp(2,:)-vxcsigma_sp(2,:)*g2rho_sp(2,:)
+
+     vxc3_sp(2,:)=vxc3_sp(2,:)-2d0*gvxcsigma_sp(3,:)*grho_sp(2,:)-2d0*vxcsigma_sp(3,:)*g2rho_sp(2,:)-&
+             gvxcsigma_sp(2,:)*grho_sp(1,:)-vxcsigma_sp(2,:)*g2rho_sp(1,:)
+
+    endif
   else
     write(*,*)"3-rd XC functional not supported!"
   endif
@@ -709,7 +774,7 @@ vxc(:,1)=hybx_w(1,1)*vxc1+hybx_w(2,1)*vxc2+hybx_w(3,1)*vxc3
 
 else
         do isp=1, Nspin
-        vxc(:,isp)=hybx_w(1,1)*vxc1_sp(isp,:)+hybx_w(2,1)*vxc2_sp(isp,:)
+        vxc(:,isp)=hybx_w(1,1)*vxc1_sp(isp,:)+hybx_w(2,1)*vxc2_sp(isp,:)+hybx_w(3,1)*vxc3_sp(isp,:)
 
         enddo
 endif

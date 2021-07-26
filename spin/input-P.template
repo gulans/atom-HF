@@ -16,7 +16,7 @@ spin
 .true.
 List of shells: n l occupation
 1 0 1d0 1d0
-2 0 2d0 1d0
+2 0 1d0 1d0
 2 1 3d0 3d0
 3 0 1d0 1d0
 3 1 3d0 0d0

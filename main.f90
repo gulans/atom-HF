@@ -19,10 +19,10 @@ program atomHF
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 
 real(8), allocatable :: r(:),vh(:),vxc(:,:),exc(:,:),psi(:,:,:),rho(:),ftemp1(:),&
-        ftemp2(:),vx_psi(:,:),&
+        ftemp2(:),vx_psi(:,:,:),&
         grho(:),grho2(:),g2rho(:),g3rho(:),vxc1(:),vxc2(:),vxc3(:),&
         exc1(:),exc2(:),exc3(:),vxcsigma(:),&
-        vx_psi_sr(:,:)
+        vx_psi_sr(:,:,:)
 !spin polarised variables
 real(8), allocatable :: rho_sp(:,:),vxc1_sp(:,:),vxc2_sp(:,:),vxc3_sp(:,:)
 real(8), allocatable :: grho_sp(:,:),grho2_sp(:,:),vxcsigma_sp(:,:),gvxcsigma_sp(:,:),g2rho_sp(:,:)
@@ -500,7 +500,7 @@ if (version.eq.1) then
 allocate(r(Ngrid),vh(Ngrid),rho(Ngrid),vxc(Ngrid,Nspin),exc(Ngrid,Nspin),&
         vxc2(Ngrid),exc2(Ngrid),vxc3(Ngrid),exc3(Ngrid),psi(Ngrid,Nshell,Nspin),eig(Nshell,Nspin),&
         grho2(Ngrid),ftemp1(Ngrid),ftemp2(Ngrid),vxcsigma(Ngrid),grho(Ngrid),g2rho(Ngrid),&
-        psip(Ngrid,Nshell,Nspin),vx_psi(Ngrid,Nshell),vx_psi_sr(Ngrid,Nshell),eigp(Nshell,Nspin))
+        psip(Ngrid,Nshell,Nspin),vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin),eigp(Nshell,Nspin))
 allocate(rho_sp(Nspin,Ngrid),vxc1(Ngrid),exc1(Ngrid)) !differenet order for libxc
 
 
@@ -788,11 +788,20 @@ rho_sp=rho_sp*(4d0*Pi)
 if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
  do ish=1,Nshell
  do isp=1,Nspin
-! call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ,lmax,psi(:,ish,isp),psi,&
-!           vx_psi(:,ish),vx_psi_sr(:,ish),rsfunC,Nrsfun,hybx_w,Bess_ik)
+ call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ(:,isp),lmax,psi(:,ish,isp),psi(:,:,isp),&
+           vx_psi(:,ish,isp),vx_psi_sr(:,ish,isp),rsfunC,Nrsfun,hybx_w,Bess_ik)
    enddo
    enddo 
+vx_psi=vx_psi*dble(Nspin)
+vx_psi_sr=vx_psi_sr*dble(Nspin)
 
+! do ish=1,Nshell
+! do isp=1,Nspin
+! do ir=1,10
+! write(*,*)ir,ish,isp,vx_psi(ir,ish,isp)
+! enddo
+! enddo
+! enddo 
 endif
   
 ! Get Coulomb potential
@@ -820,9 +829,9 @@ call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*rho*vh,e_h)
 e2=0d0
   do isp=1,Nspin
   do ish=1,Nshell
-    !call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish,1)*psi(:,ish)*&
-    !        (hybx_w(4,1)*vx_psi(:,ish)+hybx_w(5,1)*vx_psi_sr(:,ish)),e1)
-    !e2=e2+e1
+    call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish,isp)*psi(:,ish,isp)*&
+            (hybx_w(4,1)*vx_psi(:,ish,isp)+hybx_w(5,1)*vx_psi_sr(:,ish,isp)),e1)
+    e2=e2+e1
   enddo
   enddo
  
@@ -949,7 +958,11 @@ endif
   do il=1,lmax+1
     do icl=1, count_l(il)
       il_icl=il_icl+1
+      if (.not.spin)then
       write(11,*) icl, il, eig(il_icl,1) 
+      else
+      write(11,*) icl, il, eig(il_icl,1),"(occ",shell_occ(il_icl,1) , ")",eig(il_icl,2),"(occ",shell_occ(il_icl,2) , ")"
+      endif
     enddo
   enddo
   write(11,*)"Tot Energy: ", energy

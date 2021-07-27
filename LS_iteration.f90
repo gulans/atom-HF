@@ -32,8 +32,8 @@ real(8) :: Winv(nmax,nmax),x(nmax,nmax),xp(nmax,nmax),Hevec(nmax,nmax),Heval(nma
 real(8) :: lambda(nmax),temp1(nmax,nmax),temp2(nmax,nmax)
 real(8) :: f1(Ngrid),f2(Ngrid),f3(Ngrid),f4(Ngrid),lambda_test(nmax,nmax)
 real(8) :: phi(Ngrid,nmax),norm,eigp(Nshell,Nspin)
-integer :: iscl,maxscl,ir
-
+integer :: iscl,maxscl,ir,isp
+real(8) :: e_shift
 maxscl=20
 do iscl=1,maxscl
 
@@ -47,19 +47,28 @@ endif
 
 do inn=1,nmax
   ish=shell0+inn
-  call scrPoisson(Ngrid, r,tools,tools_info,hybx_w, Z, l, vh, vxc(:,sp),&
+  !e_shift=1d0
+  e_shift=-0d0
+  eig(ish,sp)=eig(ish,sp)+e_shift
+  !end test
+  call scrPoisson(Ngrid, r,tools,tools_info,hybx_w, Z, l, vh+e_shift, vxc(:,sp),&
           vx_psi(:,ish,sp),vx_psi_sr(:,ish,sp),psi_in(:,ish,sp), eig(ish,sp), psi(:,ish,sp))
-   call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,ish,sp)**2,norm)
+  call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,ish,sp)**2,norm)
    psi(:,ish,sp)=psi(:,ish,sp)/dsqrt(norm)
+  eig(ish,sp)=eig(ish,sp)-e_shift
+
 enddo
 
 !Overlap and Hamiltonian matrix
 if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
    do inn=1,nmax
    ish=inn+shell0
-!   call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ,lmax,&
-!           psi(:,ish),psi_in,vx_chi(:,ish),vx_chi_sr(:,ish),rsfunC,Nrsfun,hybx_w,Bess_ik)
+   call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ(:,sp),lmax,&
+           psi(:,ish,sp),psi_in(:,:,sp),vx_chi(:,ish,sp),vx_chi_sr(:,ish,sp),rsfunC,Nrsfun,hybx_w,Bess_ik)
+vx_chi(:,ish,sp)=vx_chi(:,ish,sp)*dble(Nspin)
+vx_chi_sr(:,ish,sp)=vx_chi(:,ish,sp)*dble(Nspin)
    enddo
+
 endif
 
 do inn=1,nmax
@@ -118,6 +127,7 @@ call inver(W,Winv,nmax)
  Hevec=Hp
 !!!!!!!! SOLVE H'x'=x'
  call diasym_small(Hevec,lambda,nmax)
+
 ! print *,"lambda:"
 ! print *,lambda(:)
  do i=1, nmax
@@ -165,7 +175,6 @@ do inn=1,nmax
 !  call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn+shell0)**2,norm)
 !  write(*,*)"l=",l," eig(",inn,")=",eig(inn+shell0),"norm=",norm," eigp(",inn,")=",eigp(inn+shell0)
   enddo
-
 enddo
 end subroutine
 
@@ -192,7 +201,7 @@ real(8) :: besi,besk
 
 !write(*,*)"e=",e
 if (e.gt.0) then
-        !write(*,*)"scrPoisson Error: positive eigenvalue!"
+!        write(*,*)"scrPoisson Error: positive eigenvalue!"
         e=-1d-3
 endif
 

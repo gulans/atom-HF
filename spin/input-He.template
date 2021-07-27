@@ -1,5 +1,5 @@
 Z Rmin Rmax Ngrid version
-2d0 1d-5 15d0 400 1
+2d0 1d-5 40d0 1000 1
 xc_id(libxc_id or -1(LDA) -2(PBE))  weigth number_of_parameters
 1 1d0 0
 7 1d0 0

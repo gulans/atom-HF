@@ -48,7 +48,7 @@ endif
 do inn=1,nmax
   ish=shell0+inn
   !e_shift=1d0
-  e_shift=-0d0
+  e_shift=0d0
   eig(ish,sp)=eig(ish,sp)+e_shift
   !end test
   call scrPoisson(Ngrid, r,tools,tools_info,hybx_w, Z, l, vh+e_shift, vxc(:,sp),&
@@ -66,7 +66,7 @@ if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
    call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ(:,sp),lmax,&
            psi(:,ish,sp),psi_in(:,:,sp),vx_chi(:,ish,sp),vx_chi_sr(:,ish,sp),rsfunC,Nrsfun,hybx_w,Bess_ik)
 vx_chi(:,ish,sp)=vx_chi(:,ish,sp)*dble(Nspin)
-vx_chi_sr(:,ish,sp)=vx_chi(:,ish,sp)*dble(Nspin)
+vx_chi_sr(:,ish,sp)=vx_chi_sr(:,ish,sp)*dble(Nspin)
    enddo
 
 endif

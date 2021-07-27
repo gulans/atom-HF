@@ -795,13 +795,9 @@ if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
 vx_psi=vx_psi*dble(Nspin)
 vx_psi_sr=vx_psi_sr*dble(Nspin)
 
-! do ish=1,Nshell
-! do isp=1,Nspin
-! do ir=1,10
-! write(*,*)ir,ish,isp,vx_psi(ir,ish,isp)
-! enddo
-! enddo
-! enddo 
+
+
+
 endif
   
 ! Get Coulomb potential
@@ -980,6 +976,28 @@ endif
   write(11,*)Z, iscl-1, Ngrid, Rmax, grid, energy, energy-energy0
   close(11)
 
+!write all wave functions to a file
+  open(11,file='wave_fun.dat',status='replace')
+
+  write(11,'(a2)',advance="no")"r "
+  do ish=1,Nshell
+  do isp=1,Nspin
+    write(11,'(a2,i1,a1,i1,a1)',advance="no") "WF",ish,"-",isp," "
+  enddo
+  enddo
+  write(11,*)""
+
+  do ir=1,Ngrid
+  write(11,'(ES23.14E3)',advance="no")r(ir)
+  do ish=1,Nshell
+  do isp=1,Nspin
+    write(11,'(ES23.14E3)',advance="no") psi(ir,ish,isp)
+  enddo
+  enddo
+  write(11,*)""
+  enddo
+  close(11)
+!end write all wave functions to a file
 
 
 deallocate(r,vh,rho,vxc,exc,vxc1,exc1,vxc2,exc2,vxc3,exc3,psi,eig,&

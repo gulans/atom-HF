@@ -1,8 +1,9 @@
 Z Rmin Rmax Ngrid version
-3d0 1d-5 24d0 600 1
+3d0 1d-5 40d0 1200 1
 xc_id(libxc_id or -1(LDA) -2(PBE))  weigth number_of_parameters
-1 1d0 0
-7 1d0 0
+400 1d0 1
+0.3d0
+0 0d0 0
 0 0d0 0
 Non-local exchange:
 .false.         (true to override hybrid libxc functional parameters)

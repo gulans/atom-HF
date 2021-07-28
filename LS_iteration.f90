@@ -47,10 +47,15 @@ endif
 
 do inn=1,nmax
   ish=shell0+inn
-  !e_shift=1d0
   e_shift=0d0
+  if(.true.) then !use eigenvalue shifting
+  if(eig(ish,sp).gt.0) then
+    e_shift=-0.1d0
+    write(*,*)"Shifting eigenvalue ",eig(ish,sp) ," (ish=", ish," sp=",sp,") to", eig(ish,sp)+e_shift
+  endif
+  endif 
   eig(ish,sp)=eig(ish,sp)+e_shift
-  !end test
+
   call scrPoisson(Ngrid, r,tools,tools_info,hybx_w, Z, l, vh+e_shift, vxc(:,sp),&
           vx_psi(:,ish,sp),vx_psi_sr(:,ish,sp),psi_in(:,ish,sp), eig(ish,sp), psi(:,ish,sp))
   call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,ish,sp)**2,norm)

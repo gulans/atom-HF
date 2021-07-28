@@ -1,8 +1,9 @@
 F90 = gfortran 
-F90_OPTS = -O3 -cpp -I /home/janis/atom-HFtest/atom-HF-libxc/include/ 
+LIBXC=/home/janis/app/libxc/
+F90_OPTS = -O3 -cpp -I $(LIBXC)/include/ 
 
 SRCS := $(wildcard *.f90)
-OBJECTS := $(SRCS:%.f90=%.o) -llapack -lblas /home/janis/atom-HFtest/atom-HF-libxc/lib/libxcf03.a /home/janis/atom-HFtest/atom-HF-libxc/lib/libxc.a 
+OBJECTS := $(SRCS:%.f90=%.o) -llapack -lblas $(LIBXC)/lib/libxcf03.a $(LIBXC)/lib/libxc.a 
 
 all: ${OBJECTS} link
 

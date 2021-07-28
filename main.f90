@@ -13,9 +13,6 @@ program atomHF
 !!!!!!!!!! libxc !!!!!!!!
 
 
-
-
-
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 
 real(8), allocatable :: r(:),vh(:),vxc(:,:),exc(:,:),psi(:,:,:),rho(:),ftemp1(:),&
@@ -55,6 +52,7 @@ logical :: override_libxc_hyb
 integer :: param_nr1,param_nr2,param_nr3
 real(8), allocatable :: param1(:), param2(:), param3(:)
 
+logical :: relativity
 positive_eig_iter=0
 
 call timesec(time0)
@@ -89,6 +87,8 @@ read(*,*) hybx_w(5,1),hybx_w(5,2)
 read(*,*)
 read(*,*) grid
 read(*,*) 
+read(*,*) relativity
+read(*,*)
 read(*,*) Nshell
 read(*,*)
 read(*,*) spin
@@ -888,7 +888,7 @@ eigp=eig
   do il=1,lmax+1
   do isp=1,Nspin
   call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,Z,il-1,isp,shell_l,shell_occ,count_l(il),l_n,&
-            Nshell,Nspin,lmax,vxc,vh,vx_psi,vx_psi_sr,psip,psi,eig,Bess_ik)
+            Nshell,Nspin,relativity,lmax,vxc,vh,vx_psi,vx_psi_sr,psip,psi,eig,Bess_ik)
   enddo
     do inn=1,count_l(il)
        l_n=l_n+1

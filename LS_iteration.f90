@@ -1,5 +1,5 @@
 subroutine LS_iteration(Ngrid, r,tools,tools_info,rsfunC,Nrsfun,hybx_w, Z,l,sp,shell_l,shell_occ, nmax,&
-                shell0, Nshell,Nspin,lmax, vxc, vh,vx_psi,vx_psi_sr, psi_in,psi,eig,Bess_ik)
+                shell0, Nshell,Nspin,relativity,lmax, vxc, vh,vx_psi,vx_psi_sr, psi_in,psi,eig,Bess_ik)
         ! Ngrid
         ! r
         ! vfull - potential (v_n+v_h+v_xc)
@@ -20,6 +20,7 @@ integer, intent(in) :: Ngrid, nmax, shell0, Nshell,Nspin
 integer, intent(in) :: l,sp, shell_l(Nshell) 
 real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid,Nspin),vh(Ngrid),shell_occ(Nshell,Nspin)
 real(8), intent(in) :: psi_in(Ngrid,Nshell,Nspin),vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin)
+logical, intent(in) :: relativity
 complex(8), intent(in) ::Bess_ik(Ngrid,Nrsfun,2*lmax+1,2)
 real(8), intent(inout) :: eig(Nshell,Nspin)
 real(8), intent(out) :: psi(Ngrid,Nshell,Nspin)
@@ -33,7 +34,7 @@ real(8) :: lambda(nmax),temp1(nmax,nmax),temp2(nmax,nmax)
 real(8) :: f1(Ngrid),f2(Ngrid),f3(Ngrid),f4(Ngrid),lambda_test(nmax,nmax)
 real(8) :: phi(Ngrid,nmax),norm,eigp(Nshell,Nspin)
 integer :: iscl,maxscl,ir,isp
-real(8) :: e_shift
+real(8) :: e_shift,f(Ngrid)
 maxscl=20
 do iscl=1,maxscl
 
@@ -48,16 +49,21 @@ endif
 do inn=1,nmax
   ish=shell0+inn
   e_shift=0d0
-  if(.true.) then !use eigenvalue shifting
+  if(.false.) then !use eigenvalue shifting
   if(eig(ish,sp).gt.0) then
     e_shift=-0.1d0
     write(*,*)"Shifting eigenvalue ",eig(ish,sp) ," (ish=", ish," sp=",sp,") to", eig(ish,sp)+e_shift
   endif
   endif 
   eig(ish,sp)=eig(ish,sp)+e_shift
+  
+  f=-2d0*( (-Z/r+vh+vxc(:,sp))*psi_in(:,ish,sp) + hybx_w(4,1)*vx_psi(:,ish,sp)&
+          + hybx_w(5,1)*vx_psi_sr(:,ish,sp) )
 
-  call scrPoisson(Ngrid, r,tools,tools_info,hybx_w, Z, l, vh+e_shift, vxc(:,sp),&
-          vx_psi(:,ish,sp),vx_psi_sr(:,ish,sp),psi_in(:,ish,sp), eig(ish,sp), psi(:,ish,sp))
+  call scrPoisson(Ngrid, r,tools,tools_info,l, f, eig(ish,sp), psi(:,ish,sp))
+
+
+
   call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,ish,sp)**2,norm)
    psi(:,ish,sp)=psi(:,ish,sp)/dsqrt(norm)
   eig(ish,sp)=eig(ish,sp)-e_shift
@@ -183,18 +189,16 @@ do inn=1,nmax
 enddo
 end subroutine
 
-subroutine scrPoisson(Ngrid, r,tools,tools_info,hybx_w,&
-                Z, l, vh, vxc,vx_phi,vx_phi_sr,phi, e, psi)
+subroutine scrPoisson(Ngrid, r,tools,tools_info,l,f, e, psi)
 
 integer, intent(in) :: tools_info(3)
-real(8), intent(in) :: tools(Ngrid,tools_info(1)),hybx_w(5,2)
+real(8), intent(in) :: tools(Ngrid,tools_info(1))
 integer, intent(in) :: Ngrid
 integer, intent(in) :: l
-real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid),vh(Ngrid),phi(Ngrid),vx_phi(Ngrid),&
-        vx_phi_sr(Ngrid)
+real(8), intent(in) :: r(Ngrid)
 real(8), intent(inout) :: e
-real(8) :: vx(Ngrid),vc(Ngrid)
 real(8), intent(out) :: psi(Ngrid)
+
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 real(8) :: f(Ngrid),lam
 real(8) :: besrezi(0:50), besrezk(0:50)
@@ -211,9 +215,6 @@ if (e.gt.0) then
 endif
 
 lam=dsqrt(-2d0*e)
-
-
-f=-2d0*( (-Z/r+vh+vxc)*phi + hybx_w(4,1)*vx_phi + hybx_w(5,1)*vx_phi_sr )
 
 
 f11=0d0*r

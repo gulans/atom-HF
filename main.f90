@@ -14,9 +14,10 @@ program atomHF
 
 
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
+real(8), PARAMETER :: alpha2=0.5d0*7.2973525693d-3**2 !1/(2*c^2)
 
-real(8), allocatable :: r(:),vh(:),vxc(:,:),exc(:,:),psi(:,:,:),rho(:),ftemp1(:),&
-        ftemp2(:),vx_psi(:,:,:),&
+real(8), allocatable :: r(:),vh(:),vxcp(:,:),vxc(:,:),exc(:,:),psi(:,:,:),rho(:),ftemp1(:),&
+        ftemp2(:),ftemp3(:),ftemp4(:),ftemp(:),vx_psi(:,:,:),v_rel(:,:),&
         grho(:),grho2(:),g2rho(:),g3rho(:),vxc1(:),vxc2(:),vxc3(:),&
         exc1(:),exc2(:),exc3(:),vxcsigma(:),&
         vx_psi_sr(:,:,:)
@@ -45,6 +46,7 @@ real(8), allocatable :: tools(:,:)
 integer :: xc1_num,xc2_num,xc3_num
 
 real(8) :: rsmu
+integer :: iner_loop
 integer :: Nrsfun, Nspin, isp
 complex(8), allocatable :: rsfunC(:,:)
 
@@ -497,10 +499,11 @@ if (version.eq.1) then
   endif
   close(11)
 
-allocate(r(Ngrid),vh(Ngrid),rho(Ngrid),vxc(Ngrid,Nspin),exc(Ngrid,Nspin),&
+allocate(r(Ngrid),vh(Ngrid),rho(Ngrid),vxc(Ngrid,Nspin),vxcp(Ngrid,Nspin),exc(Ngrid,Nspin),&
         vxc2(Ngrid),exc2(Ngrid),vxc3(Ngrid),exc3(Ngrid),psi(Ngrid,Nshell,Nspin),eig(Nshell,Nspin),&
         grho2(Ngrid),ftemp1(Ngrid),ftemp2(Ngrid),vxcsigma(Ngrid),grho(Ngrid),g2rho(Ngrid),&
-        psip(Ngrid,Nshell,Nspin),vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin),eigp(Nshell,Nspin))
+        psip(Ngrid,Nshell,Nspin),vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin),eigp(Nshell,Nspin),&
+        v_rel(Ngrid,Nspin),ftemp3(Ngrid),ftemp4(Ngrid),ftemp(Ngrid))
 allocate(rho_sp(Nspin,Ngrid),vxc1(Ngrid),exc1(Ngrid)) !differenet order for libxc
 
 
@@ -537,8 +540,55 @@ write(*,*)
 write(*,*)"**********Starting self consistent loop************"
 ! Lippmann–Schwinger iterations and solving screened Poisson equation.
 
+
+
+
+
+!ftemp1=r**3+2d0*r**2+3d0*r
+!
+!call rderivative_lagrN(Ngrid,r,tools,tools_info,ftemp1,ftemp2)
+!do ir=1, 20
+!write(*,*)3d0*r(ir)**2+4d0*r(ir)+3d0,ftemp2(ir),3d0*r(ir)**2+4d0*r(ir)+3d0-ftemp2(ir)
+!enddo
+!      stop
+
+
+
+
+
+
+
+
+
+
+
+
+
 call iteration0(Ngrid,r,Z,Nshell,shell_l,lmax,count_l,Nspin,eig,psi)
 eigp=eig*0d0
+vxc=vxc*0d0
+vxcp=vxc*0d0
+
+
+
+
+!input WF from file
+
+if (.false.) then
+  do ir=1,Ngrid
+  read(*,*)r(ir), psi(ir,1,1)
+    
+  enddo
+psi(:,1,1)=psi(:,1,1)/r
+
+endif
+
+
+
+
+
+
+
 
 ! $\left( \nabla^2+ 2\epsilon \right \psi(\mathbf{r}) = v(\mathbf{r}) \psi(\mathbf{r})$
 
@@ -769,6 +819,8 @@ endif
 
 exc(:,1)=hybx_w(1,1)*exc1+hybx_w(2,1)*exc2+hybx_w(3,1)*exc3
 
+vxcp=vxc
+
 if (.not.spin) then
 vxc(:,1)=hybx_w(1,1)*vxc1+hybx_w(2,1)*vxc2+hybx_w(3,1)*vxc3
 
@@ -778,7 +830,7 @@ else
 
         enddo
 endif
-
+!vxc=0.5d0*vxc+0.5d0*vxcp
 
 rho=rho*(4d0*Pi)
 rho_sp=rho_sp*(4d0*Pi)
@@ -806,17 +858,60 @@ call  integ_BodesN_fun(Ngrid,r,tools,tools_info,1,r**2*rho,ftemp1)
 call  integ_BodesN_fun(Ngrid,r,tools,tools_info,-1,r*rho,ftemp2)
 vh=ftemp1/r+ftemp2
 
+! Potential for relativity (in Hamiltoniam in between nablas)
+if(.not.relativity)then
+      do isp=1, Nspin
+        v_rel(:,isp)=r*0d0
+      enddo
+else
+      do isp=1, Nspin
+        v_rel(:,isp)=-Z/r!+vh+vxc(:,isp)
+        v_rel(:,isp)=0d0*r
+        enddo
+endif
+
+!ftemp1=1d0/(1+alpha2*v_rel(:,isp))
+!call rderivative_lagrN(Ngrid,r,tools,tools_info,ftemp1,ftemp2)
+!ftemp3=-(alpha2*Z/r**2)/(1-alpha2*Z/r)
+!do ir=1,Ngrid
+!write(*,*)r(ir),ftemp2(ir), ftemp3(ir),ftemp2(ir)-ftemp3(ir)
+!enddo
+!stop
 
 !!!!!!!!! Caulculate energy !!!!!!!!!!!!!
 e_kin=0d0
+if (.not.relativity) then
 do ish=1,Nshell
 do isp=1, Nspin
   call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish,isp),ftemp1)
   call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp1**2*r**2,e1)
   call integ_BodesN_value(Ngrid,r,tools, tools_info,0.5d0*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish,isp)**2,e2)
   e_kin=e_kin+shell_occ(ish,isp)*(e1+e2)
+!  write(*,*)"e1, e2",e1,e2
 enddo
 enddo
+else !relativity
+do ish=1,Nshell
+do isp=1, Nspin
+
+!    ftemp1=1d0/(1d0-v_rel(:,isp)*alpha2)
+!    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish,isp),ftemp2)
+!    call rderivative_lagrN(Ngrid,r,tools,tools_info,ftemp1*ftemp2*r**2,ftemp3)
+!    ftemp4=ftemp3/r**2
+!    call integ_BodesN_value(Ngrid,r,tools,tools_info,-0.5d0*psi(:,ish,isp)*ftemp4*r**2,e1)
+
+    ftemp2=1d0/(1d0-v_rel(:,isp)*alpha2)
+   call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish,isp),ftemp1)
+   call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp2*ftemp1**2*r**2,e1)
+
+
+    call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp2*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish,isp)**2,e2)
+    e_kin=e_kin+shell_occ(ish,isp)*(e1+e2)
+!    write(*,*)"e1,e2",e1,e2
+enddo
+enddo
+
+endif
 
 call integ_BodesN_value(Ngrid,r,tools,tools_info,-r*rho*Z,e_ext)
 
@@ -840,10 +935,10 @@ e2=0d0
 
 if (maxval(eig).gt.0) then 
   positive_eig_iter=iscl
-  write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0, " POSITIVE EIGENVALUE! "
+  write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0, " POSITIVE EIGENVALUE! ", "(",iner_loop,")"
 else
-  write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0
-  !write(*,*)"E=Ekin+Eext+Eh+Ex",energy,"=",e_kin,e_ext,e_h,e_x
+  write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0, "(",iner_loop,")"
+!  write(*,*)"E=Ekin+Eext+Eh+Ex",energy,"=",e_kin,e_ext,e_h,e_x
 endif
 
   
@@ -888,12 +983,61 @@ eigp=eig
   do il=1,lmax+1
   do isp=1,Nspin
   call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,Z,il-1,isp,shell_l,shell_occ,count_l(il),l_n,&
-            Nshell,Nspin,relativity,lmax,vxc,vh,vx_psi,vx_psi_sr,psip,psi,eig,Bess_ik)
+            Nshell,Nspin,relativity,lmax,vxc,v_rel(:,isp),vh,vx_psi,vx_psi_sr,psip,psi,eig,Bess_ik,iner_loop)
   enddo
     do inn=1,count_l(il)
        l_n=l_n+1
     enddo
   enddo
+
+  if (iscl.eq.20) then
+!write all wave functions to a file
+  open(11,file='He_1.dat',status='replace')
+
+  write(11,'(a2)',advance="no")"r "
+  do ish=1,Nshell
+  do isp=1,Nspin
+    write(11,'(a2,i1,a1,i1,a1)',advance="no") "WF",ish,"-",isp," "
+  enddo
+  enddo
+  write(11,*)""
+
+  do ir=1,Ngrid
+  write(11,'(ES23.14E3)',advance="no")r(ir)
+  do ish=1,Nshell
+  do isp=1,Nspin
+    write(11,'(ES23.14E3)',advance="no") psi(ir,ish,isp)
+  enddo
+  enddo
+  write(11,*)""
+  enddo
+  close(11)
+!end write all wave functions to a file
+elseif (iscl.eq.40)then
+!write all wave functions to a file
+  open(11,file='He_2.dat',status='replace')
+
+  write(11,'(a2)',advance="no")"r "
+  do ish=1,Nshell
+  do isp=1,Nspin
+    write(11,'(a2,i1,a1,i1,a1)',advance="no") "WF",ish,"-",isp," "
+  enddo
+  enddo
+  write(11,*)""
+
+  do ir=1,Ngrid
+  write(11,'(ES23.14E3)',advance="no")r(ir)
+  do ish=1,Nshell
+  do isp=1,Nspin
+    write(11,'(ES23.14E3)',advance="no") psi(ir,ish,isp)
+  enddo
+  enddo
+  write(11,*)""
+  enddo
+  close(11)
+!end write all wave functions to a file
+endif
+
 
 
 enddo

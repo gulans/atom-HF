@@ -1,5 +1,5 @@
 subroutine LS_iteration(Ngrid, r,tools,tools_info,rsfunC,Nrsfun,hybx_w, Z,l,sp,shell_l,shell_occ, nmax,&
-                shell0, Nshell,Nspin,relativity,lmax, vxc, vh,vx_psi,vx_psi_sr, psi_in,psi,eig,Bess_ik)
+                shell0, Nshell,Nspin,relativity,lmax, vxc,v_rel, vh,vx_psi,vx_psi_sr, psi_in,psi,eig,Bess_ik,iner_loop)
         ! Ngrid
         ! r
         ! vfull - potential (v_n+v_h+v_xc)
@@ -21,26 +21,41 @@ integer, intent(in) :: l,sp, shell_l(Nshell)
 real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid,Nspin),vh(Ngrid),shell_occ(Nshell,Nspin)
 real(8), intent(in) :: psi_in(Ngrid,Nshell,Nspin),vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin)
 logical, intent(in) :: relativity
+real(8), intent(in) :: v_rel(Ngrid)
 complex(8), intent(in) ::Bess_ik(Ngrid,Nrsfun,2*lmax+1,2)
 real(8), intent(inout) :: eig(Nshell,Nspin)
+integer, intent(out) :: iner_loop
 real(8), intent(out) :: psi(Ngrid,Nshell,Nspin)
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
+real(8), PARAMETER :: alpha2=0.5d0*7.2973525693d-3**2 !1/(2*c^2)
 integer :: inn,inp,ish,i,j 
 real(8) :: vx_chi(Ngrid,Nshell,Nspin),vx_chi_sr(Ngrid,Nshell,Nspin)
 real(8) :: S(nmax,nmax),H(nmax,nmax),Snn,Hnn !Overlap and Hamiltonian matrix
 real(8) :: Sevec(nmax,nmax),Seval(nmax),s12(nmax,nmax),W(nmax,nmax),test(nmax,nmax)
 real(8) :: Winv(nmax,nmax),x(nmax,nmax),xp(nmax,nmax),Hevec(nmax,nmax),Heval(nmax),Hp(nmax,nmax)
 real(8) :: lambda(nmax),temp1(nmax,nmax),temp2(nmax,nmax)
-real(8) :: f1(Ngrid),f2(Ngrid),f3(Ngrid),f4(Ngrid),lambda_test(nmax,nmax)
+real(8) :: f1(Ngrid),f2(Ngrid),f3(Ngrid),f4(Ngrid),f5(Ngrid),lambda_test(nmax,nmax)
+real(8) :: f6(Ngrid),f7(Ngrid)
 real(8) :: phi(Ngrid,nmax),norm,eigp(Nshell,Nspin)
 integer :: iscl,maxscl,ir,isp
 real(8) :: e_shift,f(Ngrid)
+
+do isp=1, Nspin
+do ish=1, Nshell
+vx_chi(:,ish,isp)=0d0*r
+vx_chi_sr(:,ish,isp)=0d0*r
+enddo
+enddo
+
+
 maxscl=20
+iner_loop=maxscl+1
 do iscl=1,maxscl
 
 !write(*,*)iscl,". eig-eigp: ",eig-eigp
 !convergence check
-if((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-13)then 
+if((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-13)then
+        iner_loop=iscl-1
        !write(*,*)"Convergence of internal cycle reached, iteration ",iscl
        !write(*,*)"max(eig-eigp) absolute : ",maxval(abs(eig-eigp))," relative: ",maxval(abs(eig-eigp)/(abs(eig-1d0)))
         exit
@@ -48,18 +63,39 @@ endif
 
 do inn=1,nmax
   ish=shell0+inn
-  e_shift=0d0
-  if(.false.) then !use eigenvalue shifting
-  if(eig(ish,sp).gt.0) then
-    e_shift=-0.1d0
-    write(*,*)"Shifting eigenvalue ",eig(ish,sp) ," (ish=", ish," sp=",sp,") to", eig(ish,sp)+e_shift
-  endif
-  endif 
-  eig(ish,sp)=eig(ish,sp)+e_shift
-  
+
+  if (.not.relativity)then 
   f=-2d0*( (-Z/r+vh+vxc(:,sp))*psi_in(:,ish,sp) + hybx_w(4,1)*vx_psi(:,ish,sp)&
           + hybx_w(5,1)*vx_psi_sr(:,ish,sp) )
+  else
 
+ ! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f1)
+ ! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,f1,f2)
+ ! f3=1+alpha2*Z/r
+
+ ! f4 =alpha2*r**(-2)*( -Z/f3 -(alpha2*Z**2/r)/f3**2 )*f1
+ ! f6 =alpha2*r**(-2)*(Z*r/f3)*f2 
+
+ ! f5 = -Z*r**(-1)*alpha2/(1d0+Z*r**(-1)*alpha2)
+ ! f7= 2d0*(-Z/r+vh+vxc(:,sp))*psi_in(:,ish,sp)
+ ! f=(-f4-f6+f5*dble(l*(l+1))/r**2*psi_in(:,ish,sp))+f7
+ ! open(11,file='psi_f1_f2_f_1.dat',status='replace')
+ ! write(11,*)"r psi -f4 -f6 f7"
+ ! do ir=1, Ngrid
+ !   write(11,*)r(ir),psi(ir,ish,sp),-f4(ir),-f6(ir),f7(ir)
+ ! enddo
+ !
+ ! close(11)
+ ! f=-f
+
+
+ f1=v_rel*alpha2/(1d0-v_rel*alpha2)
+ call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f2)
+ call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,f1*f2*r**2,f3)
+ f3=f3/r**2
+ f=-f3+f1*dble(l*(l+1))/r**2*psi_in(:,ish,sp) + 2d0*(-Z/r+vh+vxc(:,sp))*psi_in(:,ish,sp) 
+ f=-f
+  endif
   call scrPoisson(Ngrid, r,tools,tools_info,l, f, eig(ish,sp), psi(:,ish,sp))
 
 
@@ -82,7 +118,7 @@ vx_chi_sr(:,ish,sp)=vx_chi_sr(:,ish,sp)*dble(Nspin)
 
 endif
 
-do inn=1,nmax
+do inn=1,nmax !matrix is symetric !!!OPTIMIZATION possible!!!!
   do inp=1,nmax
     call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn+shell0,sp)*psi(:,inp+shell0,sp),Snn)
     S(inn,inp)=Snn
@@ -92,28 +128,61 @@ do inn=1,nmax
 !    f1=f1/r
 !    call integ_BodesN_value(Ngrid,r,tools,tools_info,-0.5d0*psi(:,inn+shell0)*f1*r**2,Hnn)
 !!!!! 
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inp+shell0,sp),f4)
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inn+shell0,sp),f1)
-    call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*f4*f1*r**2,Hnn)
-!!!!!
+
+if(.not.relativity)then
+
+!    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inp+shell0,sp),f1)
+!    call rderivative_lagrN(Ngrid,r,tools,tools_info,f1,f2)
+!    f3=2d0*f1/r+f2
+!    call integ_BodesN_value(Ngrid,r,tools,tools_info,-0.5d0*psi(:,inn+shell0,sp)*f3*r**2, H(inn,inp))
 
 
-!Hybrid exchange
-    f2=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+vxc(:,sp))*psi(:,inp+shell0,sp)+&
+
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inp+shell0,sp),f2)
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,f2*r**2,f3)
+    call integ_BodesN_value(Ngrid,r,tools,tools_info,-0.5d0*psi(:,inn+shell0,sp)*f3, H(inn,inp))
+    
+!    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inp+shell0,sp),f4)
+!    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inn+shell0,sp),f1)
+!    call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*f4*f1*r**2,H(inn,inp))
+!write(*,*) "H1", H(inn,inp)
+
+    f=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+vxc(:,sp))*psi(:,inp+shell0,sp)+&
             hybx_w(4,1)*vx_chi(:,inp+shell0,sp)+hybx_w(5,1)*vx_chi_sr(:,inp+shell0,sp)
-    H(inn,inp)=Hnn
-    call integ_BodesN_value(Ngrid,r,tools,tools_info,psi(:,inn+shell0,sp)*f2*r**2,Hnn)
+    call integ_BodesN_value(Ngrid,r,tools,tools_info,psi(:,inn+shell0,sp)*f*r**2,Hnn)
+
     H(inn,inp)=H(inn,inp)+Hnn
-  enddo
+else
+    f1=1d0/(1d0-v_rel*alpha2)
+ 
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inp+shell0,sp),f2)
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inn+shell0,sp),f3)
+    call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*f2*f1*f3*r**2,H(inn,inp))
+
+
+
+    f=(0.5d0*f1*dble(l*(l+1))/r**2-Z/r+vh+vxc(:,sp))*psi(:,inp+shell0,sp)
+    call integ_BodesN_value(Ngrid,r,tools,tools_info,psi(:,inn+shell0,sp)*f*r**2,Hnn)
+    H(inn,inp)=H(inn,inp)+Hnn
+
+
+
+
+
+endif
+    enddo
 enddo
-!write(*,*)"S:"
-!do inn=1,nmax
-!  write(*,*)S(inn,:)
-!enddo
-!write(*,*)"H:"
-!do inn=1,nmax
-!  write(*,*)H(inn,:)
-!enddo
+
+if (.false.)then
+write(*,*)"S:"
+do inn=1,nmax
+  write(*,*)S(inn,:)
+enddo
+write(*,*)"H:"
+do inn=1,nmax
+  write(*,*)H(inn,:)
+enddo
+endif!print and stop
 
 !!!!!!!!Caulculate W=S^-0.5 matrix
  Sevec=s
@@ -141,6 +210,11 @@ call inver(W,Winv,nmax)
 
 ! print *,"lambda:"
 ! print *,lambda(:)
+!if(iscl.eq.2)then
+!stop
+!endif
+
+
  do i=1, nmax
    do j=1, nmax
      if (i.eq.j) then

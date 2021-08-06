@@ -46,7 +46,7 @@ real(8), allocatable :: tools(:,:)
 integer :: xc1_num,xc2_num,xc3_num
 
 real(8) :: rsmu
-integer :: iner_loop
+integer,allocatable :: iner_loop(:)
 integer :: Nrsfun, Nspin, isp
 complex(8), allocatable :: rsfunC(:,:)
 
@@ -139,7 +139,7 @@ enddo
 
 
 lmax=maxval(shell_l)
-allocate(count_l(lmax+1))
+allocate(count_l(lmax+1),iner_loop(lmax+1))
 
 
 
@@ -211,7 +211,6 @@ if ((version.eq.0).or.(version.eq.1)) then
   write(*,'("Libxc version: ",I1,".",I1,".",I1)') vmajor, vminor, vmicro
 
 if (xc1_num.gt.0) then
-!!!!info 1-st XC functional 
   write(*,*)"1-st XC functional number: ",xc1_num
   if (.not.spin)then
   call xc_f03_func_init(xc1_func, xc1_num, XC_UNPOLARIZED)
@@ -219,53 +218,8 @@ if (xc1_num.gt.0) then
   call xc_f03_func_init(xc1_func, xc1_num, XC_POLARIZED)
   endif
   xc1_info = xc_f03_func_get_info(xc1_func)
-  ! Get the type of the functional
-  select case(xc_f03_func_info_get_kind(xc1_info))
-  case (XC_EXCHANGE)
-    write(kind, '(a)') 'an exchange functional'
-  case (XC_CORRELATION)
-    write(kind, '(a)') 'a correlation functional'
-  case (XC_EXCHANGE_CORRELATION)
-    write(kind, '(a)') 'an exchange-correlation functional'
-  case (XC_KINETIC)
-    write(kind, '(a)') 'a kinetic energy functional'
-  case default
-    write(kind, '(a)') 'of unknown kind'
-  end select
-  ! Get the family
-  select case (xc_f03_func_info_get_family(xc1_info))
-  case (XC_FAMILY_LDA);
-    write(family,'(a)') "LDA"
-  case (XC_FAMILY_GGA);
-    write(family,'(a)') "GGA"
-  case (XC_FAMILY_HYB_GGA);
-    write(family,'(a)') "Hybrid GGA"
-  case (XC_FAMILY_MGGA);
-    write(family,'(a)') "MGGA"
-  case (XC_FAMILY_HYB_MGGA);
-    write(family,'(a)') "Hybrid MGGA"
-  case default;
-    write(family,'(a)') "unknown"
-  end select
-  ! Print out information
-  write(*,'("The functional ''", a, "'' is ", a, ", it belongs to the ''", a, "'' family and is defined in the reference(s):")') &
-    trim(xc_f03_func_info_get_name(xc1_info)), trim(kind), trim(family)
-
-  i = 0
-  if(xc1_num.ne.524)then
-  do while(i >= 0)
-    write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(xc1_info, i)))
-  end do
-  endif
-  write(*,*)"FUCTIONAL: ",trim(xc_f03_func_info_get_name(xc1_info))," Supports: ",&
-          xc_f03_func_info_get_n_ext_params(xc1_info),  "external parameters."
-   
-  do i=0, xc_f03_func_info_get_n_ext_params(xc1_info)-1
-  write(*,*)i,". ", trim(xc_f03_func_info_get_ext_params_name(xc1_info,i))," default value: ",&
-         xc_f03_func_info_get_ext_params_default_value(xc1_info,i)," ",&
-         trim(xc_f03_func_info_get_ext_params_description(xc1_info,i))
- enddo
- endif
+  call functional_info(xc1_num,xc1_func)
+endif
 
   
 if (xc2_num.gt.0) then
@@ -276,55 +230,10 @@ write(*,*)"2-nd XC functional number: ",xc2_num
   else
   call xc_f03_func_init(xc2_func, xc2_num, XC_POLARIZED)
   endif
-
   xc2_info = xc_f03_func_get_info(xc2_func)
-  ! Get the type of the functional
-  select case(xc_f03_func_info_get_kind(xc2_info))
-  case (XC_EXCHANGE)
-    write(kind, '(a)') 'an exchange functional'
-  case (XC_CORRELATION)
-    write(kind, '(a)') 'a correlation functional'
-  case (XC_EXCHANGE_CORRELATION)
-    write(kind, '(a)') 'an exchange-correlation functional'
-  case (XC_KINETIC)
-    write(kind, '(a)') 'a kinetic energy functional'
-  case default
-    write(kind, '(a)') 'of unknown kind'
-  end select
-  ! Get the family
-  select case (xc_f03_func_info_get_family(xc2_info))
-  case (XC_FAMILY_LDA);
-    write(family,'(a)') "LDA"
-  case (XC_FAMILY_GGA);
-    write(family,'(a)') "GGA"
-  case (XC_FAMILY_HYB_GGA);
-    write(family,'(a)') "Hybrid GGA"
-  case (XC_FAMILY_MGGA);
-    write(family,'(a)') "MGGA"
-  case (XC_FAMILY_HYB_MGGA);
-    write(family,'(a)') "Hybrid MGGA"
-  case default;
-    write(family,'(a)') "unknown"
-  end select
-  ! Print out information
-  write(*,'("The functional ''", a, "'' is ", a, ", it belongs to the ''", a, "'' family and is defined in the reference(s):")') &
-    trim(xc_f03_func_info_get_name(xc2_info)), trim(kind), trim(family)
-  ! Print out references
-  i = 0
-  if(xc2_num.ne.524)then
-  do while(i >= 0)
-    write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(xc2_info, i)))
-  end do
-  endif
-  write(*,*)"FUCTIONAL: ",trim(xc_f03_func_info_get_name(xc2_info))," Supports: ",&
-          xc_f03_func_info_get_n_ext_params(xc2_info),  "external parameters."
+  call functional_info(xc3_num,xc3_func)
+endif
 
-  do i=0, xc_f03_func_info_get_n_ext_params(xc2_info)-1
-  write(*,*)i,". ", trim(xc_f03_func_info_get_ext_params_name(xc2_info,i))," default value: ",&
-         xc_f03_func_info_get_ext_params_default_value(xc2_info,i)," ",&
-         trim(xc_f03_func_info_get_ext_params_description(xc2_info,i))
-  enddo
-  endif
 !!!!info 3-rd XC functional  
 if (xc3_num.gt.0) then
 write(*,*)"3rd XC functional number: ",xc3_num
@@ -333,57 +242,8 @@ write(*,*)"3rd XC functional number: ",xc3_num
   else
   call xc_f03_func_init(xc3_func, xc3_num, XC_POLARIZED)
   endif
-
-
   xc3_info = xc_f03_func_get_info(xc3_func)
-  ! Get the type of the functional
-  select case(xc_f03_func_info_get_kind(xc3_info))
-  case (XC_EXCHANGE)
-    write(kind, '(a)') 'an exchange functional'
-  case (XC_CORRELATION)
-    write(kind, '(a)') 'a correlation functional'
-  case (XC_EXCHANGE_CORRELATION)
-    write(kind, '(a)') 'an exchange-correlation functional'
-  case (XC_KINETIC)
-    write(kind, '(a)') 'a kinetic energy functional'
-  case default
-    write(kind, '(a)') 'of unknown kind'
-  end select
-  ! Get the family
-  select case (xc_f03_func_info_get_family(xc3_info))
-  case (XC_FAMILY_LDA);
-    write(family,'(a)') "LDA"
-  case (XC_FAMILY_GGA);
-    write(family,'(a)') "GGA"
-  case (XC_FAMILY_HYB_GGA);
-    write(family,'(a)') "Hybrid GGA"
-  case (XC_FAMILY_MGGA);
-    write(family,'(a)') "MGGA"
-  case (XC_FAMILY_HYB_MGGA);
-    write(family,'(a)') "Hybrid MGGA"
-  case default;
-    write(family,'(a)') "unknown"
-  end select
-  ! Print out information
-  write(*,'("The functional ''", a, "'' is ", a, ", it belongs to the ''", a, "'' family and is defined in the reference(s):")') &
-    trim(xc_f03_func_info_get_name(xc3_info)), trim(kind), trim(family)
-  ! Print out references
-  i = 0
-  if(xc3_num.ne.524)then
-  do while(i >= 0)
-    write(*, '(a,i1,2a)') '[', i+1, '] ', trim(xc_f03_func_reference_get_ref(xc_f03_func_info_get_references(xc3_info, i)))
-  end do
-  endif
-  write(*,*)"FUCTIONAL: ",trim(xc_f03_func_info_get_name(xc3_info))," Supports: ",&
-          xc_f03_func_info_get_n_ext_params(xc3_info),  "external parameters."
-
-  do i=0, xc_f03_func_info_get_n_ext_params(xc3_info)-1
-  
-  write(*,*)i,". ", trim(xc_f03_func_info_get_ext_params_name(xc3_info,i))," default value: ",&
-         xc_f03_func_info_get_ext_params_default_value(xc3_info,i)," ",&
-         trim(xc_f03_func_info_get_ext_params_description(xc3_info,i))
- enddo
-
+  call functional_info(xc3_num,xc3_func)
 endif
 
 
@@ -713,7 +573,7 @@ eigp=eig
   do il=1,lmax+1
   do isp=1,Nspin
   call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,Z,il-1,isp,shell_l,shell_occ,count_l(il),l_n,&
-            Nshell,Nspin,relativity,lmax,vxc,v_rel(:,isp),vh,vx_psi,vx_psi_sr,psip,psi,eig,Bess_ik,iner_loop)
+            Nshell,Nspin,relativity,lmax,vxc,v_rel(:,isp),vh,vx_psi,vx_psi_sr,psip,psi,eig,Bess_ik,iner_loop(il))
   enddo
     do inn=1,count_l(il)
        l_n=l_n+1

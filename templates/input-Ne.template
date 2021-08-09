@@ -11,7 +11,7 @@ Non-local exchange:
 Grid 0-equidistant 1-cubic 2-exponential 3-advanced_cubic
 3
 relativity
-.true.
+.false.
 Number of shells - 1s 2s 2p
 3
 spin

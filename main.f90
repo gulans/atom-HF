@@ -231,7 +231,7 @@ write(*,*)"2-nd XC functional number: ",xc2_num
   call xc_f03_func_init(xc2_func, xc2_num, XC_POLARIZED)
   endif
   xc2_info = xc_f03_func_get_info(xc2_func)
-  call functional_info(xc3_num,xc3_func)
+  call functional_info(xc2_num,xc2_func)
 endif
 
 !!!!info 3-rd XC functional  
@@ -430,9 +430,10 @@ endif
 
 !START self consistent loop
 do iscl=1,150
-
+vxcp=vxc
 call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nspin,psi,&
          xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,hybx_w,exc,vxc,vh,rho)
+!vxc=0.5d0*vxc+0.5d0*vxcp
 
  ! Get non-local exchange
 
@@ -573,7 +574,8 @@ eigp=eig
   do il=1,lmax+1
   do isp=1,Nspin
   call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,Z,il-1,isp,shell_l,shell_occ,count_l(il),l_n,&
-            Nshell,Nspin,relativity,lmax,vxc,v_rel(:,isp),vh,vx_psi,vx_psi_sr,psip,psi,eig,Bess_ik,iner_loop(il))
+            Nshell,Nspin,relativity,lmax,vxc,v_rel(:,isp),vh,vx_psi,vx_psi_sr,psip,psi,eig,Bess_ik,iner_loop(il),&
+            xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func)
   enddo
     do inn=1,count_l(il)
        l_n=l_n+1
@@ -714,9 +716,13 @@ endif
   open(11,file='wave_fun.dat',status='replace')
 
   write(11,'(a2)',advance="no")"r "
-  do ish=1,Nshell
   do isp=1,Nspin
-    write(11,'(a2,i1,a1,i1,a1)',advance="no") "WF",ish,"-",isp," "
+  do ish=1,Nshell
+    if (ish.lt.10) then
+      write(11,'(a2,i1,a1,i1,a1)',advance="no") "WF",ish,"-",isp," "
+    else
+      write(11,'(a2,i2,a1,i1,a1)',advance="no") "WF",ish,"-",isp," "
+    endif
   enddo
   enddo
   write(11,*)""

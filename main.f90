@@ -53,7 +53,7 @@ complex(8), allocatable :: rsfunC(:,:)
 logical :: override_libxc_hyb
 integer :: param_nr1,param_nr2,param_nr3
 real(8), allocatable :: param1(:), param2(:), param3(:)
-
+integer :: sh0,sh1
 logical :: relativity
 positive_eig_iter=0
 
@@ -205,7 +205,7 @@ write(*,*) "sum(occ)=", sum(shell_occ)," Z=", Z
 write(*,*)
 write(*,*)"**********XC functional info:************"
 !!!!!!!!!! libxc !!!!!!!!!
-if ((version.eq.0).or.(version.eq.1)) then 
+if ((version.eq.0).or.(version.eq.1).or.(version.eq.2)) then 
 ! Print out libxc version
           call xc_f03_version(vmajor, vminor, vmicro)
   write(*,'("Libxc version: ",I1,".",I1,".",I1)') vmajor, vminor, vmicro
@@ -327,7 +327,7 @@ endif !override
 endif
 
 
-if (version.eq.1) then
+if ((version.eq.1).or.(version.eq.2)) then
 
   inquire(file='eigval_de.out',EXIST=file_exists)
   if (file_exists) then
@@ -408,20 +408,62 @@ vxc(:,isp)=r*0d0
 enddo
 vxcp=vxc*0d0
 
-
-
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!Restart part
+if (version.eq.2) then
 
 !input WF from file
+  read(*,*) !Header row
 
-if (.false.) then
-  do ir=1,Ngrid
-  read(*,*)r(ir), psi(ir,1,1)
-    
+do ir=1,Ngrid
+    read(*,'(ES25.16E3)',advance="no")e1 !r(ir)
+  !  read(*,'(a1)',advance="no") !seperator
+  do isp=1,Nspin
+  do ish=1,Nshell
+    read(*,'(ES25.16E3)',advance="no")psi(ir,ish,isp)
   enddo
-psi(:,1,1)=psi(:,1,1)/r
+  enddo
+  read(*,*)!read end of line
 
-endif
+  
+  enddo  !ir
 
+ ! Get non-local exchange
+
+if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
+ do ish=1,Nshell
+ do isp=1,Nspin
+ call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ(:,isp),lmax,psi(:,ish,isp),psi(:,:,isp),&
+           vx_psi(:,ish,isp),vx_psi_sr(:,ish,isp),rsfunC,Nrsfun,hybx_w,Bess_ik)
+   enddo
+   enddo
+vx_psi=vx_psi*dble(Nspin)
+vx_psi_sr=vx_psi_sr*dble(Nspin)
+
+endif !end get Fock exchange
+
+
+call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nspin,psi,&
+         xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,hybx_w,exc,vxc,vh,rho)
+
+do isp=1,Nspin
+sh0=0
+  do il=1, lmax+1
+
+  sh1=sh0+count_l(il)
+  call orthonorm_get_eig(Ngrid,r,tools,tools_info,Z,il-1,count_l(il),relativity,v_rel,hybx_w,&
+        vxc(:,isp),vh,vx_psi(:,sh0+1:sh1,isp),vx_psi_sr(:,sh0+1:sh1,isp),&
+        psi(:,sh0+1:sh1,isp),eig(sh0+1:sh1,isp))
+  sh0=sh1
+  enddo
+enddo
+do isp=1,Nspin
+do ish=1,Nshell
+  write(*,*)ish,eig(ish,isp)
+enddo
+enddo
+endif !version 2
+!END Restart part !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
 
@@ -460,6 +502,9 @@ else
         v_rel(:,isp)=0d0*r
         enddo
 endif
+
+
+
 
 !ftemp1=1d0/(1+alpha2*v_rel(:,isp))
 !call rderivative_lagrN(Ngrid,r,tools,tools_info,ftemp1,ftemp2)
@@ -581,6 +626,8 @@ eigp=eig
        l_n=l_n+1
     enddo
   enddo
+
+
 
   if (iscl.eq.1) then
 !write all wave functions to a file
@@ -728,10 +775,10 @@ endif
   write(11,*)""
 
   do ir=1,Ngrid
-  write(11,'(ES23.14E3)',advance="no")r(ir)
-  do ish=1,Nshell
+  write(11,'(ES25.16E3)',advance="no")r(ir)
   do isp=1,Nspin
-    write(11,'(ES23.14E3)',advance="no") psi(ir,ish,isp)
+  do ish=1,Nshell
+    write(11,'(ES25.16E3)',advance="no") psi(ir,ish,isp)
   enddo
   enddo
   write(11,*)""

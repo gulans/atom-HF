@@ -44,11 +44,11 @@ real(8) :: f6(Ngrid),f7(Ngrid)
 real(8) :: phi(Ngrid,nmax),norm,eigp(Nshell,Nspin)
 integer :: iscl,maxscl,ir,isp
 real(8) :: f(Ngrid)
-
 !real(8) :: vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin)
 !real(8) :: vh(Ngrid),vxc(Ngrid,Nspin)
 real(8) :: rho(Ngrid),exc(Ngrid,Nspin) !not used
 logical :: spin
+
 !psi=psi_in
 !vxc=vxc_in
 !vh=vh_in
@@ -118,7 +118,6 @@ do inn=1,nmax
  f=-f
   endif
   call scrPoisson(Ngrid, r,tools,tools_info,l, f, eig(ish,sp), psi(:,ish,sp))
-
 
 
   call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,ish,sp)**2,norm)

@@ -34,20 +34,19 @@ real(8) :: x(nmax,nmax),xp(nmax,nmax),W(nmax,nmax),Winv(nmax,nmax)
 real(8) :: psi_new(Ngrid,nmax)
 real(8) :: f(Ngrid),f1(Ngrid),f2(Ngrid),f3(Ngrid),f4(Ngrid),f5(Ngrid)
 
-
 do inn=1,nmax !matrix is symetric !!!OPTIMIZATION possible!!!!
   do inp=1,nmax
     call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn)*psi(:,inp),Snn)
     S(inn,inp)=Snn
 
 if(.not.relativity)then
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inp),f2)
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,f2*r**2,f3)
-    call integ_BodesN_value(Ngrid,r,tools,tools_info,-0.5d0*psi(:,inn)*f3, H(inn,inp))
+!    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inp),f2)
+!    call rderivative_lagrN(Ngrid,r,tools,tools_info,f2*r**2,f3)
+!    call integ_BodesN_value(Ngrid,r,tools,tools_info,-0.5d0*psi(:,inn)*f3, H(inn,inp))
     
-!    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inp+shell0,sp),f4)
-!    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inn+shell0,sp),f1)
-!    call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*f4*f1*r**2,H(inn,inp))
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inp),f4)
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inn),f1)
+    call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*f4*f1*r**2,H(inn,inp))
 !write(*,*) "H1", H(inn,inp)
 
     f=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+vxc)*psi(:,inp)+&

@@ -16,7 +16,7 @@ program atomHF
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 real(8), PARAMETER :: alpha2=0.5d0*7.2973525693d-3**2 !1/(2*c^2)
 
-real(8), allocatable :: r(:),vh(:),vxcp(:,:),vxc(:,:),exc(:,:),psi(:,:,:),rho(:),ftemp1(:),&
+real(8), allocatable :: r(:),vh(:),vhp(:),vxcp(:,:),vxc(:,:),exc(:,:),psi(:,:,:),rho(:),ftemp1(:),&
         ftemp2(:),ftemp3(:),ftemp4(:),ftemp(:),vx_psi(:,:,:),v_rel(:,:),&
         grho(:),grho2(:),g2rho(:),g3rho(:),vxc1(:),vxc2(:),vxc3(:),&
         exc1(:),exc2(:),exc3(:),vxcsigma(:),&
@@ -34,7 +34,7 @@ complex(8), allocatable :: Bess_ik(:,:,:,:)
 
 integer :: il,icl,il_icl,iscl,lmax,l_n,inn, positive_eig_iter
 real(8) :: Z,rez,a1,a2
-real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0,e_kin,e_ext,e_h,e_x,e_pot
+real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0,e_kin,e_ext,e_h,e_xc,e_pot
 integer :: grid, Nshell, ish, d_order,i_order
 integer :: ir,i,j,countl0, version,tools_info(3)
 integer(8) :: Ngrid 
@@ -344,7 +344,7 @@ if ((version.eq.1).or.(version.eq.2)) then
   else
      open(11,file='E_dE.out',status='new')
   endif
-  write(11,*)"iter E dE E_ext E_h E_x eig_sum Z=",Z
+  write(11,*)"iter E dE E_ext E_h E_xc eig_sum Z=",Z
   close(11)
 
   inquire(file='res.dat',EXIST=file_exists)
@@ -359,7 +359,7 @@ if ((version.eq.1).or.(version.eq.2)) then
   endif
   close(11)
 
-allocate(r(Ngrid),vh(Ngrid),rho(Ngrid),vxc(Ngrid,Nspin),vxcp(Ngrid,Nspin),exc(Ngrid,Nspin),&
+allocate(r(Ngrid),vh(Ngrid),vhp(Ngrid),rho(Ngrid),vxc(Ngrid,Nspin),vxcp(Ngrid,Nspin),exc(Ngrid,Nspin),&
         vxc2(Ngrid),exc2(Ngrid),vxc3(Ngrid),exc3(Ngrid),psi(Ngrid,Nshell,Nspin),eig(Nshell,Nspin),&
         grho2(Ngrid),ftemp1(Ngrid),ftemp2(Ngrid),vxcsigma(Ngrid),grho(Ngrid),g2rho(Ngrid),&
         psip(Ngrid,Nshell,Nspin),vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin),eigp(Nshell,Nspin),&
@@ -400,14 +400,17 @@ write(*,*)
 write(*,*)"**********Starting self consistent loop************"
 ! Lippmann–Schwinger iterations and solving screened Poisson equation.
 
+if (version.eq.1) then
 call iteration0(Ngrid,r,Z,Nshell,shell_l,lmax,count_l,Nspin,eig,psi)
 eigp=eig*0d0
+endif
 
 do isp=1, Nspin
 vxc(:,isp)=r*0d0
 enddo
 vxcp=vxc*0d0
-
+vh=0d0*r
+vhp=0d0*r
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!Restart part
 if (version.eq.2) then
@@ -473,10 +476,11 @@ endif !version 2
 !START self consistent loop
 do iscl=1,150
 vxcp=vxc
+vhp=vh
 call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nspin,psi,&
          xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,hybx_w,exc,vxc,vh,rho)
 !vxc=0.5d0*vxc+0.5d0*vxcp
-
+!vh=0.5d0*vhp+0.5d0*vh
  ! Get non-local exchange
 
 if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
@@ -514,58 +518,13 @@ endif
 !enddo
 !stop
 
-!!!!!!!!! Caulculate energy !!!!!!!!!!!!!
-e_kin=0d0
-if (.not.relativity) then
-do ish=1,Nshell
-do isp=1, Nspin
-  call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish,isp),ftemp1)
-  call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp1**2*r**2,e1)
-  call integ_BodesN_value(Ngrid,r,tools, tools_info,0.5d0*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish,isp)**2,e2)
-  e_kin=e_kin+shell_occ(ish,isp)*(e1+e2)
-!  write(*,*)"e1, e2",e1,e2
-enddo
-enddo
-else !relativity
-do ish=1,Nshell
-do isp=1, Nspin
-
-!    ftemp1=1d0/(1d0-v_rel(:,isp)*alpha2)
-!    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish,isp),ftemp2)
-!    call rderivative_lagrN(Ngrid,r,tools,tools_info,ftemp1*ftemp2*r**2,ftemp3)
-!    ftemp4=ftemp3/r**2
-!    call integ_BodesN_value(Ngrid,r,tools,tools_info,-0.5d0*psi(:,ish,isp)*ftemp4*r**2,e1)
-
-    ftemp2=1d0/(1d0-v_rel(:,isp)*alpha2)
-   call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish,isp),ftemp1)
-   call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp2*ftemp1**2*r**2,e1)
+call get_energy(Ngrid,r,tools,tools_info,Z,Nshell,shell_occ,spin,relativity,v_rel,Nspin,shell_l,hybx_w,&
+        vxc,exc,rho,vh,vx_psi,vx_psi_sr,psi,&
+        e_kin,e_ext,e_h,e_xc)
 
 
-    call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp2*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish,isp)**2,e2)
-    e_kin=e_kin+shell_occ(ish,isp)*(e1+e2)
-!    write(*,*)"e1,e2",e1,e2
-enddo
-enddo
-
-endif
-
-call integ_BodesN_value(Ngrid,r,tools,tools_info,-r*rho*Z,e_ext)
-
-call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*rho*vh,e_h)
-
-e2=0d0
-  do isp=1,Nspin
-  do ish=1,Nshell
-    call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish,isp)*psi(:,ish,isp)*&
-            (hybx_w(4,1)*vx_psi(:,ish,isp)+hybx_w(5,1)*vx_psi_sr(:,ish,isp)),e1)
-    e2=e2+e1
-  enddo
-  enddo
- 
-  call integ_BodesN_value(Ngrid,r,tools, tools_info,exc(:,1)*rho*r**2,e3)
- e_x=e2+e3
  energy0=energy
- energy=e_kin+e_ext+e_h+e_x
+ energy=e_kin+e_ext+e_h+e_xc
 
 !!!!!!!!! End Caulculate energy !!!!!!!!!!!!!
 
@@ -574,14 +533,14 @@ if (maxval(eig).gt.0) then
   write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0, " POSITIVE EIGENVALUE! ", "(",iner_loop,")"
 else
   write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0, "(",iner_loop,")"
-!  write(*,*)"E=Ekin+Eext+Eh+Ex",energy,"=",e_kin,e_ext,e_h,e_x
+!  write(*,*)"E=Ekin+Eext+Eh+Ex",energy,"=",e_kin,e_ext,e_h,e_xc
 endif
 
   
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   open(11,file='E_dE.out',status='old', access='append')
-  write(11,*)iscl, energy, energy-energy0,e_ext,e_h,e_x,e1
+  write(11,*)iscl, energy, energy-energy0,e_ext,e_h,e_xc,e1
   close(11)
 
   open(11,file='eigval_de.out',status='old', access='append')

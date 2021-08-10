@@ -45,11 +45,14 @@ real(8) :: phi(Ngrid,nmax),norm,eigp(Nshell,Nspin)
 integer :: iscl,maxscl,ir,isp
 real(8) :: f(Ngrid)
 !real(8) :: vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin)
-!real(8) :: vh(Ngrid),vxc(Ngrid,Nspin)
-real(8) :: rho(Ngrid),exc(Ngrid,Nspin) !not used
+!real(8) :: vh1(Ngrid),vxc1(Ngrid,Nspin)
+!real(8) :: rho1(Ngrid),exc1(Ngrid,Nspin) !not used
 logical :: spin
 
-!psi=psi_in
+do ish=shell0+1,shell0+nmax
+  psi(:,ish,sp)=psi_in(:,ish,sp)
+enddo
+
 !vxc=vxc_in
 !vh=vh_in
 !vx_psi_sr=vx_psi_sr_in
@@ -73,7 +76,7 @@ maxscl=20
 iner_loop=maxscl+1
 do iscl=1,maxscl
 
-!write(*,*)iscl,". eig-eigp: ",eig-eigp
+!write(*,*)l,eig,iscl!,". eig-eigp: ",eig-eigp
 !convergence check
 if((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-13)then
         iner_loop=iscl-1
@@ -141,6 +144,9 @@ endif
 
 
 eigp=eig
+
+
+
 
 call orthonorm_get_eig(Ngrid,r,tools,tools_info,Z,l,nmax,relativity,v_rel,hybx_w,&
         vxc(:,sp),vh,vx_chi(:,shell0+1:shell0+nmax,sp),vx_chi_sr(:,shell0+1:shell0+nmax,sp),&

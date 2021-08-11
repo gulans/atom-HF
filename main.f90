@@ -28,7 +28,7 @@ real(8), allocatable :: grho_sp(:,:),grho2_sp(:,:),vxcsigma_sp(:,:),gvxcsigma_sp
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 
 real(8), allocatable :: shell_occ(:,:),eig(:,:)
-real(8), allocatable :: psip(:,:,:),eigp(:,:)
+real(8), allocatable :: psip(:,:,:),eigp(:,:),eig_temp(:,:)
 
 complex(8), allocatable :: Bess_ik(:,:,:,:)
 
@@ -55,6 +55,8 @@ integer :: param_nr1,param_nr2,param_nr3
 real(8), allocatable :: param1(:), param2(:), param3(:)
 integer :: sh0,sh1
 logical :: relativity
+character(len=120) :: str
+
 positive_eig_iter=0
 
 call timesec(time0)
@@ -363,7 +365,7 @@ allocate(r(Ngrid),vh(Ngrid),vhp(Ngrid),rho(Ngrid),vxc(Ngrid,Nspin),vxcp(Ngrid,Ns
         vxc2(Ngrid),exc2(Ngrid),vxc3(Ngrid),exc3(Ngrid),psi(Ngrid,Nshell,Nspin),eig(Nshell,Nspin),&
         grho2(Ngrid),ftemp1(Ngrid),ftemp2(Ngrid),vxcsigma(Ngrid),grho(Ngrid),g2rho(Ngrid),&
         psip(Ngrid,Nshell,Nspin),vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin),eigp(Nshell,Nspin),&
-        v_rel(Ngrid,Nspin),ftemp3(Ngrid),ftemp4(Ngrid),ftemp(Ngrid))
+        v_rel(Ngrid,Nspin),ftemp3(Ngrid),ftemp4(Ngrid),ftemp(Ngrid), eig_temp(Nshell,Nspin))
 allocate(rho_sp(Nspin,Ngrid),vxc1(Ngrid),exc1(Ngrid)) !differenet order for libxc
 
 
@@ -448,6 +450,13 @@ endif !end get Fock exchange
 
 call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nspin,psi,&
          xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,hybx_w,exc,vxc,vh,rho)
+ if (relativity) then
+       do isp=1, Nspin
+        v_rel(:,isp)=-Z/r!+vh+vxc(:,isp)
+!        v_rel(:,isp)=0d0*r
+        enddo
+ endif
+
 
 do isp=1,Nspin
 sh0=0
@@ -474,13 +483,13 @@ endif !version 2
 ! $\left( \nabla^2+ 2\epsilon \right \psi(\mathbf{r}) = v(\mathbf{r}) \psi(\mathbf{r})$
 
 !START self consistent loop
-do iscl=1,150
+do iscl=1,400
 vxcp=vxc
 vhp=vh
 call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nspin,psi,&
          xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,hybx_w,exc,vxc,vh,rho)
-!vxc=0.5d0*vxc+0.5d0*vxcp
-!vh=0.5d0*vhp+0.5d0*vh
+vxc=0.5d0*vxc+0.5d0*vxcp
+vh=0.5d0*vhp+0.5d0*vh
  ! Get non-local exchange
 
 if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
@@ -503,7 +512,7 @@ if(.not.relativity)then
 else
       do isp=1, Nspin
         v_rel(:,isp)=-Z/r!+vh+vxc(:,isp)
-        v_rel(:,isp)=0d0*r
+!        v_rel(:,isp)=0d0*r
         enddo
 endif
 
@@ -572,6 +581,13 @@ else
        ! endif
 endif
 
+
+
+
+
+
+
+
 l_n=0
 psip=psi
 eigp=eig
@@ -586,6 +602,50 @@ eigp=eig
     enddo
   enddo
 
+if (.false.)then  
+!!Sew function
+
+do isp=1, Nspin
+do ish=1, Nshell
+call sew_function(Ngrid,r,tools,tools_info,Z,shell_l(ish),1d-4,eig(ish,isp),psi(:,ish,isp),ftemp1)
+
+write(str,'(a10,i2,a4)')"psi_in_sew",ish,".dat"
+ open(11,file=trim(str),status='replace')
+ do ir=1, Ngrid
+  write(11,*)r(ir),psi(ir,ish,isp),ftemp1(ir)
+ enddo
+ close(11)
+ psi(:,ish,isp)=ftemp1(:)
+enddo
+enddo
+
+endif !!true/false sew functions
+
+!stop
+if(.false.)then
+!! Refresh eigenvalues
+!call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nspin,psi,&
+!         xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,hybx_w,exc,vxc,vh,rho)
+
+eig_temp=eig
+do isp=1,Nspin
+sh0=0
+  do il=1, lmax+1
+
+  sh1=sh0+count_l(il)
+  call orthonorm_get_eig(Ngrid,r,tools,tools_info,Z,il-1,count_l(il),relativity,v_rel(:,isp),hybx_w,&
+        vxc(:,isp),vh,vx_psi(:,sh0+1:sh1,isp),vx_psi_sr(:,sh0+1:sh1,isp),&
+        psi(:,sh0+1:sh1,isp),eig(sh0+1:sh1,isp))
+  sh0=sh1
+  enddo
+enddo
+do isp=1,Nspin
+do ish=1,Nshell
+  write(*,*)"eig before and after: ",ish,eig_temp(ish,isp),eig(ish,isp),eig_temp(ish,isp)-eig(ish,isp)
+enddo
+enddo
+endif  !true/false Refresh potentials and eigenvalues
+!!!end Sew function
 
 
   if (iscl.eq.1) then

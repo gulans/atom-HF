@@ -40,7 +40,7 @@ real(8) :: Sevec(nmax,nmax),Seval(nmax),s12(nmax,nmax),W(nmax,nmax),test(nmax,nm
 real(8) :: Winv(nmax,nmax),x(nmax,nmax),xp(nmax,nmax),Hevec(nmax,nmax),Heval(nmax),Hp(nmax,nmax)
 real(8) :: lambda(nmax),temp1(nmax,nmax),temp2(nmax,nmax)
 real(8) :: f1(Ngrid),f2(Ngrid),f3(Ngrid),f4(Ngrid),f5(Ngrid),lambda_test(nmax,nmax)
-real(8) :: f6(Ngrid),f7(Ngrid)
+real(8) :: f6(Ngrid),f7(Ngrid),f8(Ngrid)
 real(8) :: phi(Ngrid,nmax),norm,eigp(Nshell,Nspin)
 integer :: iscl,maxscl,ir,isp
 real(8) :: f(Ngrid)
@@ -48,6 +48,8 @@ real(8) :: f(Ngrid)
 !real(8) :: vh1(Ngrid),vxc1(Ngrid,Nspin)
 !real(8) :: rho1(Ngrid),exc1(Ngrid,Nspin) !not used
 logical :: spin
+character(len=120) :: str
+
 
 do ish=shell0+1,shell0+nmax
   psi(:,ish,sp)=psi_in(:,ish,sp)
@@ -89,36 +91,63 @@ do inn=1,nmax
   ish=shell0+inn
 
   if (.not.relativity)then 
-  f=-2d0*( (-Z/r+vh+vxc(:,sp))*psi_in(:,ish,sp) + hybx_w(4,1)*vx_psi(:,ish,sp)&
+  f=-2d0*( (-Z/r+vh+vxc(:,sp))*psi(:,ish,sp) + hybx_w(4,1)*vx_psi(:,ish,sp)&
           + hybx_w(5,1)*vx_psi_sr(:,ish,sp) )
   else
 
- ! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f1)
- ! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,f1,f2)
- ! f3=1+alpha2*Z/r
 
- ! f4 =alpha2*r**(-2)*( -Z/f3 -(alpha2*Z**2/r)/f3**2 )*f1
- ! f6 =alpha2*r**(-2)*(Z*r/f3)*f2 
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish,sp),f1)
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,f1,f2)
 
- ! f5 = -Z*r**(-1)*alpha2/(1d0+Z*r**(-1)*alpha2)
- ! f7= 2d0*(-Z/r+vh+vxc(:,sp))*psi_in(:,ish,sp)
- ! f=(-f4-f6+f5*dble(l*(l+1))/r**2*psi_in(:,ish,sp))+f7
- ! open(11,file='psi_f1_f2_f_1.dat',status='replace')
- ! write(11,*)"r psi -f4 -f6 f7"
- ! do ir=1, Ngrid
- !   write(11,*)r(ir),psi(ir,ish,sp),-f4(ir),-f6(ir),f7(ir)
- ! enddo
- !
- ! close(11)
- ! f=-f
+!  call sew_function3(Ngrid,r,tools,tools_info,Z,shell_l(ish),1d-4,eig(ish,sp),psi(:,ish,sp),f1,f2,&!input psi, psi', psi''
+!          f3,f4,f5) !out sewed function psi, psi', psi''
+f4=f1
+f5=f2
 
 
- f1=v_rel*alpha2/(1d0-v_rel*alpha2)
- call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f2)
- call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,f1*f2*r**2,f3)
- f3=f3/r**2
- f=-f3+f1*dble(l*(l+1))/r**2*psi_in(:,ish,sp) + 2d0*(-Z/r+vh+vxc(:,sp))*psi_in(:,ish,sp) 
- f=-f
+write(str,'(a10,i2,a4)')"psi_in_sew",ish,".dat"
+ open(11,file=trim(str),status='replace')
+ do ir=1, Ngrid
+ write(11,*)r(ir),psi(ir,ish,sp),f1(ir),f2(ir),f3(ir),f4(ir),f5(ir) !psi, psi_sewed, psi', psi_sewed'
+ enddo
+ close(11)
+
+! stop
+
+
+
+!psi(:,ish,sp)=f3
+
+
+
+!Nezkapēc nestrādā
+  f6=v_rel*alpha2/(1d0-v_rel*alpha2)
+  call rderivative_lagrN(Ngrid,r,tools,tools_info,f6,f7)
+  f8=(2*f6/r+f7)*f4 + f6*f5
+  f=-f8+f6*dble(l*(l+1))/r**2*psi(:,ish,sp) + 2d0*(-Z/r+vh+vxc(:,sp))*psi(:,ish,sp) 
+!end Nezkapēc nestrādā
+
+!kaut kas pa vidu
+!f1=v_rel*alpha2/(1d0-v_rel*alpha2)
+!call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,f1,f2)
+!call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,psi(:,ish,sp),f3)
+!call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,f3,f4)
+!f5=(2*f1/r+f2)*f3+f1*f4
+!f=-f5+f1*dble(l*(l+1))/r**2*psi(:,ish,sp) + 2d0*(-Z/r+vh+vxc(:,sp))*psi(:,ish,sp) 
+!endkaut kas pa vidu
+
+
+
+!!Šis labi strādā
+! f1=v_rel*alpha2/(1d0-v_rel*alpha2)
+! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,psi(:,ish,sp),f2)
+! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,f1*f2*r**2,f3)
+! f3=f3/r**2
+! f=-f3+f1*dble(l*(l+1))/r**2*psi(:,ish,sp) + 2d0*(-Z/r+vh+vxc(:,sp))*psi(:,ish,sp) 
+!!end Šis labi strādā
+
+
+  f=-f
   endif
   call scrPoisson(Ngrid, r,tools,tools_info,l, f, eig(ish,sp), psi(:,ish,sp))
 
@@ -152,8 +181,32 @@ call orthonorm_get_eig(Ngrid,r,tools,tools_info,Z,l,nmax,relativity,v_rel,hybx_w
         vxc(:,sp),vh,vx_chi(:,shell0+1:shell0+nmax,sp),vx_chi_sr(:,shell0+1:shell0+nmax,sp),&
         psi(:,shell0+1:shell0+nmax,sp),eig(shell0+1:shell0+nmax,sp))
 
+if (.false.) then !sew function
+
+do ish=shell0+1,shell0+nmax
+call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish,sp),f1)
+call sew_function2(Ngrid,r,tools,tools_info,Z,shell_l(ish),1d-4,eig(ish,sp),psi(:,ish,sp),f1,f7)
+call rderivative_lagrN(Ngrid,r,tools,tools_info,f7,f6)
 
 
+write(str,'(a10,i2,a4)')"psi_in_sew",ish,".dat"
+ open(11,file=trim(str),status='replace')
+ do ir=1, Ngrid
+  write(11,*)r(ir),psi(ir,ish,sp),f7(ir),f1(ir),f6(ir) !psi, psi_sewed, psi', psi_sewed'
+ enddo
+ close(11)
+psi(:,ish,sp)=f7
+
+enddo
+
+endif !!true/false sew functions
+
+
+
+!do ish=shell0+1,shell0+nmax
+!call sew_function(Ngrid,r,tools,tools_info,Z,shell_l(ish),1d-4,eig(ish,sp),psi(:,ish,sp),f7)
+!psi(:,ish,sp)=f7
+!enddo
 !Place for convergence check!!!!!!!!!!!
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

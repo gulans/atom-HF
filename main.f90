@@ -487,16 +487,16 @@ vxc=0.5d0*vxc+0.5d0*vxcp
 vh=0.5d0*vhp+0.5d0*vh
  ! Get non-local exchange
 
-if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
- do ish=1,Nshell
- do isp=1,Nspin
- call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ(:,isp),lmax,psi(:,ish,isp),psi(:,:,isp),&
-           vx_psi(:,ish,isp),vx_psi_sr(:,ish,isp),rsfunC,Nrsfun,hybx_w,Bess_ik)
-   enddo
-   enddo 
-vx_psi=vx_psi*dble(Nspin)
-vx_psi_sr=vx_psi_sr*dble(Nspin)
-endif !end get Fock exchange
+!if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
+! do ish=1,Nshell
+! do isp=1,Nspin
+! call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ(:,isp),lmax,psi(:,ish,isp),psi(:,:,isp),&
+!           vx_psi(:,ish,isp),vx_psi_sr(:,ish,isp),rsfunC,Nrsfun,hybx_w,Bess_ik)
+!   enddo
+!   enddo 
+!vx_psi=vx_psi*dble(Nspin)
+!vx_psi_sr=vx_psi_sr*dble(Nspin)
+!endif !end get Fock exchange
   
 ! Potential for relativity (in Hamiltoniam in between nablas)
 if(.not.relativity)then
@@ -572,9 +572,13 @@ eigp=eig
 l_n=0
   do il=1,lmax+1
   do isp=1,Nspin
-  call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,Z,il-1,isp,shell_l,shell_occ,count_l(il),l_n,&
-            Nshell,Nspin,relativity,lmax,vxc,v_rel(:,isp),vh,vx_psi,vx_psi_sr,psip,psi,eig,Bess_ik,iner_loop(il),&
-            xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func)
+  call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,Z,il-1,isp,shell_l,shell_occ,count_l(il),l_n,& !in
+            Nshell,Nspin,relativity,lmax,vxc,v_rel(:,isp),vh,& !in
+            vx_psi(:,l_n+1:l_n+count_l(il),isp),vx_psi_sr(:,l_n+1:l_n+count_l(il),isp),& !inout parameters
+            psip,& !in
+            psi(:,l_n+1:l_n+count_l(il),isp),eig(l_n+1:l_n+count_l(il),isp),& !inout 
+            Bess_ik,iner_loop(il),& !in
+            xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func) !in
   enddo
     do inn=1,count_l(il)
        l_n=l_n+1

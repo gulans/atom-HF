@@ -1,5 +1,5 @@
 subroutine LS_iteration(Ngrid, r,tools,tools_info,rsfunC,Nrsfun,hybx_w, Z,l,sp,shell_l,shell_occ, nmax,&
-                shell0, Nshell,Nspin,relativity,lmax,vxc,v_rel, vh,vx_psi_in,vx_psi_sr_in, psi_in,psi,eig,Bess_ik,&
+                shell0, Nshell,Nspin,relativity,lmax,vxc,v_rel, vh,vx_psi,vx_psi_sr, psi_in,psi,eig,Bess_ik,&
                 iner_loop,xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func)
         ! Ngrid
         ! r
@@ -21,48 +21,46 @@ real(8), intent(in) :: tools(Ngrid,tools_info(1)),hybx_w(5,2)
 integer, intent(in) :: Ngrid, nmax, shell0, Nshell,Nspin
 integer, intent(in) :: l,sp, shell_l(Nshell) 
 real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid,Nspin),vh(Ngrid),shell_occ(Nshell,Nspin)
-real(8), intent(in) :: psi_in(Ngrid,Nshell,Nspin),vx_psi_in(Ngrid,Nshell,Nspin),vx_psi_sr_in(Ngrid,Nshell,Nspin)
+real(8), intent(in) :: psi_in(Ngrid,Nshell,Nspin)
+real(8), intent(inout) :: vx_psi(Ngrid,nmax),vx_psi_sr(Ngrid,nmax)
 
 logical, intent(in) :: relativity
 real(8), intent(in) :: v_rel(Ngrid)
 complex(8), intent(in) ::Bess_ik(Ngrid,Nrsfun,2*lmax+1,2)
-real(8), intent(inout) :: eig(Nshell,Nspin)
+real(8), intent(inout) :: eig(nmax)
 integer, intent(out) :: iner_loop
-real(8), intent(out) :: psi(Ngrid,Nshell,Nspin)
+real(8), intent(out) :: psi(Ngrid,nmax)
 integer, intent(in) ::xc1_num,xc2_num,xc3_num
 TYPE(xc_f03_func_t) :: xc1_func,xc2_func,xc3_func
 
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 real(8), PARAMETER :: alpha2=0.5d0*7.2973525693d-3**2 !1/(2*c^2)
 integer :: inn,inp,ish,i,j 
-real(8) :: vx_chi(Ngrid,Nshell,Nspin),vx_chi_sr(Ngrid,Nshell,Nspin)
+real(8) :: vx_chi(Ngrid,nmax),vx_chi_sr(Ngrid,nmax)
 real(8) :: S(nmax,nmax),H(nmax,nmax),Snn,Hnn !Overlap and Hamiltonian matrix
 real(8) :: Sevec(nmax,nmax),Seval(nmax),s12(nmax,nmax),W(nmax,nmax),test(nmax,nmax)
 real(8) :: Winv(nmax,nmax),x(nmax,nmax),xp(nmax,nmax),Hevec(nmax,nmax),Heval(nmax),Hp(nmax,nmax)
 real(8) :: lambda(nmax),temp1(nmax,nmax),temp2(nmax,nmax)
 real(8) :: f1(Ngrid),f2(Ngrid),f3(Ngrid),f4(Ngrid),f5(Ngrid),lambda_test(nmax,nmax)
 real(8) :: f6(Ngrid),f7(Ngrid)
-real(8) :: phi(Ngrid,nmax),norm,eigp(Nshell,Nspin)
+real(8) :: phi(Ngrid,nmax),norm,eigp(nmax)
 integer :: iscl,maxscl,ir,isp
 real(8) :: f(Ngrid)
-real(8) :: vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin)
+!real(8) :: vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin)
 !real(8) :: vh1(Ngrid),vxc1(Ngrid,Nspin)
 !real(8) :: rho1(Ngrid),exc1(Ngrid,Nspin) !not used
 logical :: spin
 
-do ish=shell0+1,shell0+nmax
- psi(:,ish,sp)=psi_in(:,ish,sp)
- vx_psi(:,ish,sp)=vx_psi_in(:,ish,sp)
- vx_psi_sr(:,ish,sp)=vx_psi_sr_in(:,ish,sp)
+do inn=1,nmax
+ish=shell0+inn
+!psi(:,inn)=psi_in(:,ish,sp) !delete?
+! vx_psi(:,ish,sp)=vx_psi_in(:,ish,sp)
+! vx_psi_sr(:,ish,sp)=vx_psi_sr_in(:,ish,sp)
 enddo
 
 
-do isp=1, Nspin
-do ish=1, Nshell
-vx_chi(:,ish,isp)=0d0*r
-vx_chi_sr(:,ish,isp)=0d0*r
-enddo
-enddo
+vx_chi=psi*0d0
+vx_chi_sr=psi*0d0
 
 if (Nspin.eq.2)then
         spin=.true.
@@ -88,8 +86,8 @@ do inn=1,nmax
   ish=shell0+inn
 
   if (.not.relativity)then 
-  f=-2d0*( (-Z/r+vh+vxc(:,sp))*psi(:,ish,sp) + hybx_w(4,1)*vx_psi(:,ish,sp)&
-          + hybx_w(5,1)*vx_psi_sr(:,ish,sp) )
+  f=-2d0*( (-Z/r+vh+vxc(:,sp))*psi(:,inn) + hybx_w(4,1)*vx_psi(:,inn)&
+          + hybx_w(5,1)*vx_psi_sr(:,inn) )
   else
 
  ! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f1)
@@ -119,11 +117,11 @@ do inn=1,nmax
  f=-f3+f1*dble(l*(l+1))/r**2*psi_in(:,ish,sp) + 2d0*(-Z/r+vh+vxc(:,sp))*psi_in(:,ish,sp) 
  f=-f
   endif
-  call scrPoisson(Ngrid, r,tools,tools_info,l, f, eig(ish,sp), psi(:,ish,sp))
+  call scrPoisson(Ngrid, r,tools,tools_info,l, f, eig(inn), psi(:,inn))
 
 
-  call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,ish,sp)**2,norm)
-  psi(:,ish,sp)=psi(:,ish,sp)/dsqrt(norm)
+  call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn)**2,norm)
+  psi(:,inn)=psi(:,inn)/dsqrt(norm)
 
 enddo
 
@@ -134,9 +132,9 @@ if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
    do inn=1,nmax
    ish=inn+shell0
    call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ(:,sp),lmax,&
-           psi(:,ish,sp),psi_in(:,:,sp),vx_chi(:,ish,sp),vx_chi_sr(:,ish,sp),rsfunC,Nrsfun,hybx_w,Bess_ik)
-   vx_chi(:,ish,sp)=vx_chi(:,ish,sp)*dble(Nspin)
-   vx_chi_sr(:,ish,sp)=vx_chi_sr(:,ish,sp)*dble(Nspin)
+           psi(:,inn),psi_in(:,:,sp),vx_chi(:,inn),vx_chi_sr(:,inn),rsfunC,Nrsfun,hybx_w,Bess_ik)
+   vx_chi(:,inn)=vx_chi(:,inn)*dble(Nspin)
+   vx_chi_sr(:,inn)=vx_chi_sr(:,inn)*dble(Nspin)
    enddo
 
 endif
@@ -148,9 +146,9 @@ eigp=eig
 
 
 call orthonorm_get_eig(Ngrid,r,tools,tools_info,Z,l,nmax,relativity,v_rel,hybx_w,&
-        vxc(:,sp),vh,vx_chi(:,shell0+1:shell0+nmax,sp),vx_chi_sr(:,shell0+1:shell0+nmax,sp),&
-        psi(:,shell0+1:shell0+nmax,sp),eig(shell0+1:shell0+nmax,sp),&
-        vx_psi(:,shell0+1:shell0+nmax,sp),vx_psi_sr(:,shell0+1:shell0+nmax,sp))
+        vxc(:,sp),vh,vx_chi,vx_chi_sr,&
+        psi,eig,&
+        vx_psi,vx_psi_sr)
 
 
 !if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then

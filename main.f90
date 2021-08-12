@@ -457,7 +457,7 @@ sh0=0
   sh1=sh0+count_l(il)
   call orthonorm_get_eig(Ngrid,r,tools,tools_info,Z,il-1,count_l(il),relativity,v_rel,hybx_w,&
         vxc(:,isp),vh,vx_psi(:,sh0+1:sh1,isp),vx_psi_sr(:,sh0+1:sh1,isp),&
-        psi(:,sh0+1:sh1,isp),eig(sh0+1:sh1,isp))
+        psi(:,sh0+1:sh1,isp),eig(sh0+1:sh1,isp),vx_psi(:,sh0+1:sh1,isp),vx_psi_sr(:,sh0+1:sh1,isp))
   sh0=sh1
   enddo
 enddo
@@ -477,7 +477,7 @@ eigp=eig*0d0
 ! $\left( \nabla^2+ 2\epsilon \right \psi(\mathbf{r}) = v(\mathbf{r}) \psi(\mathbf{r})$
 
 !START self consistent loop
-do iscl=1,300
+do iscl=1,500
 vxcp=vxc
 vhp=vh
 

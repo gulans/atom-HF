@@ -1,6 +1,6 @@
 subroutine orthonorm_get_eig(Ngrid,r,tools,tools_info,Z,l,nmax,relativity,v_rel,hybx_w,&
         vxc,vh,vx_psi,vx_psi_sr,&
-        psi,eig)
+        psi,eig, vx_psi_out, vx_psi_sr_out)
 
 use xc_f03_lib_m
 implicit none
@@ -20,6 +20,9 @@ real(8), intent(in) :: vx_psi(Ngrid,nmax)
 real(8), intent(in) :: vx_psi_sr(Ngrid,nmax)
 real(8), intent(inout) :: psi(Ngrid,nmax) 
 real(8), intent(out) :: eig(nmax)
+real(8), intent(out) :: vx_psi_out(Ngrid,nmax)
+real(8), intent(out) :: vx_psi_sr_out(Ngrid,nmax)
+
 
 
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
@@ -33,6 +36,10 @@ real(8) :: lambda_test(nmax,nmax),lambda(nmax)
 real(8) :: x(nmax,nmax),xp(nmax,nmax),W(nmax,nmax),Winv(nmax,nmax)
 real(8) :: psi_new(Ngrid,nmax)
 real(8) :: f(Ngrid),f1(Ngrid),f2(Ngrid),f3(Ngrid),f4(Ngrid),f5(Ngrid)
+
+
+vx_psi_out=0d0*vx_psi
+vx_psi_sr_out=0d0*vx_psi
 
 do inn=1,nmax !matrix is symetric !!!OPTIMIZATION possible!!!!
   do inp=1,nmax
@@ -146,6 +153,28 @@ do inn=1,nmax
     psi_new(:,inn)=psi_new(:,inn)+x(inp,inn)*psi(:,inp)
   enddo 
 enddo
+
+!!CONSTRUCT non-local exhange
+
+
+if (abs(hybx_w(4,1)).gt.1d-20) then
+do inn=1,nmax
+  do inp=1,nmax
+    vx_psi_out(:,inn)=vx_psi_out(:,inn)+x(inp,inn)*vx_psi(:,inp)
+  enddo
+enddo
+endif
+
+if (abs(hybx_w(5,1)).gt.1d-20) then
+do inn=1,nmax
+  do inp=1,nmax
+    vx_psi_sr_out(:,inn)=vx_psi_sr_out(:,inn)+x(inp,inn)*vx_psi_sr(:,inp)
+  enddo
+enddo
+endif
+
+
+
 
 !!STORE WF and eigenvalues
 

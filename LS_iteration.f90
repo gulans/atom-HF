@@ -149,18 +149,18 @@ eigp=eig
 
 call orthonorm_get_eig(Ngrid,r,tools,tools_info,Z,l,nmax,relativity,v_rel,hybx_w,&
         vxc(:,sp),vh,vx_chi(:,shell0+1:shell0+nmax,sp),vx_chi_sr(:,shell0+1:shell0+nmax,sp),&
-        psi(:,shell0+1:shell0+nmax,sp),eig(shell0+1:shell0+nmax,sp))
+        psi(:,shell0+1:shell0+nmax,sp),eig(shell0+1:shell0+nmax,sp),&
+        vx_psi(:,shell0+1:shell0+nmax,sp),vx_psi_sr(:,shell0+1:shell0+nmax,sp))
 
 
-if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
- do ish=shell0+1,shell0+nmax
- call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ(:,sp),lmax,psi(:,ish,sp),psi_in(:,:,sp),&
-           vx_psi(:,ish,sp),vx_psi_sr(:,ish,sp),rsfunC,Nrsfun,hybx_w,Bess_ik)
-   enddo
-vx_psi=vx_psi*dble(Nspin)
-vx_psi_sr=vx_psi_sr*dble(Nspin)
-
-endif !end get Fock exchange
+!if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
+! do ish=shell0+1,shell0+nmax
+! call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ(:,sp),lmax,psi(:,ish,sp),psi_in(:,:,sp),&
+!           vx_psi(:,ish,sp),vx_psi_sr(:,ish,sp),rsfunC,Nrsfun,hybx_w,Bess_ik)
+!   enddo
+!vx_psi=vx_psi*dble(Nspin)
+!vx_psi_sr=vx_psi_sr*dble(Nspin)
+!endif !end get Fock exchange
 
 
 !Place for convergence check!!!!!!!!!!!

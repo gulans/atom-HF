@@ -287,6 +287,9 @@ write(*,*)"**********Non-local exchange info************"
 if (override_libxc_hyb) then
    write(*,*)"Non-local exchange parameters taken from input:"
    write(*,*)"Fock exchange with weigth: ",hybx_w(4,1)
+   if(abs(hybx_w(5,1)).lt.1d-20)then
+           hybx_w(5,2)=0d0 !or else the value in output is a bit confusing
+   endif
    write(*,*)"Fock SR exchange with weigth: ",hybx_w(5,1), " parameter: ", hybx_w(5,2)
 else
   if(xc1_num.gt.0)then
@@ -403,7 +406,6 @@ write(*,*)"**********Starting self consistent loop************"
 
 if (version.eq.1) then
 call iteration0(Ngrid,r,Z,Nshell,shell_l,lmax,count_l,Nspin,eig,psi)
-eigp=eig*0d0
 endif
 
 do isp=1, Nspin
@@ -437,6 +439,7 @@ do ir=1,Ngrid
 if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
  do ish=1,Nshell
  do isp=1,Nspin
+
  call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ(:,isp),lmax,psi(:,ish,isp),psi(:,:,isp),&
            vx_psi(:,ish,isp),vx_psi_sr(:,ish,isp),rsfunC,Nrsfun,hybx_w,Bess_ik)
    enddo
@@ -450,15 +453,17 @@ endif !end get Fock exchange
 call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nspin,psi,&
          xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,hybx_w,exc,vxc,vh,rho)
 
+vx_psip=vx_psi
+vx_psi_srp=vx_psi_sr
 do isp=1,Nspin
 sh0=0
   do il=1, lmax+1
-
   sh1=sh0+count_l(il)
   call orthonorm_get_eig(Ngrid,r,tools,tools_info,Z,il-1,count_l(il),relativity,v_rel,hybx_w,&
-        vxc(:,isp),vh,vx_psi(:,sh0+1:sh1,isp),vx_psi_sr(:,sh0+1:sh1,isp),&
+        vxc(:,isp),vh,vx_psip(:,sh0+1:sh1,isp),vx_psi_srp(:,sh0+1:sh1,isp),&
         psi(:,sh0+1:sh1,isp),eig(sh0+1:sh1,isp),vx_psi(:,sh0+1:sh1,isp),vx_psi_sr(:,sh0+1:sh1,isp))
-  sh0=sh1
+
+sh0=sh1
   enddo
 enddo
 do isp=1,Nspin
@@ -468,6 +473,28 @@ enddo
 enddo
 endif !version 2
 !END Restart part !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!Total energy after 0-th iteration
+rho=0d0*r
+do isp=1,Nspin
+do ish=1,Nshell
+    rho=rho+shell_occ(ish,isp)*psi(:,ish,isp)**2
+enddo
+enddo
+call get_energy(Ngrid,r,tools,tools_info,Z,Nshell,shell_occ,spin,relativity,v_rel,Nspin,shell_l,hybx_w,&
+        vxc,exc,rho,vh,vx_psi,vx_psi_sr,psi,&
+        e_kin,e_ext,e_h,e_xc)
+energy=e_kin+e_ext+e_h+e_xc
+if (maxval(eig).gt.0) then
+  positive_eig_iter=0
+  write(*,*)"Energy_tot:",energy, " (", 0,")"," POSITIVE EIGENVALUE! "
+!  write(*,*)"E=Ekin+Eext+Eh+Ex",energy,"=",e_kin,e_ext,e_h,e_xc
+else
+  write(*,*)"Energy_tot:",energy, " (", 0,")"
+!  write(*,*)"E=Ekin+Eext+Eh+Ex",energy,"=",e_kin,e_ext,e_h,e_xc
+endif
+
+!End Total energy after 0-th iteration
 
 
 
@@ -480,35 +507,27 @@ eigp=eig*0d0
 do iscl=1,500
 vxcp=vxc
 vhp=vh
-
 call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nspin,psi,&
          xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,hybx_w,exc,vxc,vh,rho)
 vxc=0.5d0*vxc+0.5d0*vxcp
 vh=0.5d0*vhp+0.5d0*vh
- ! Get non-local exchange
-
-!if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
-! do ish=1,Nshell
-! do isp=1,Nspin
-! call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ(:,isp),lmax,psi(:,ish,isp),psi(:,:,isp),&
-!           vx_psi(:,ish,isp),vx_psi_sr(:,ish,isp),rsfunC,Nrsfun,hybx_w,Bess_ik)
-!   enddo
-!   enddo 
-!vx_psi=vx_psi*dble(Nspin)
-!vx_psi_sr=vx_psi_sr*dble(Nspin)
-!endif !end get Fock exchange
   
-! Potential for relativity (in Hamiltoniam in between nablas)
-if(.not.relativity)then
-      do isp=1, Nspin
-        v_rel(:,isp)=r*0d0
-      enddo
-else
-      do isp=1, Nspin
-        v_rel(:,isp)=-Z/r!+vh+vxc(:,isp)
-        v_rel(:,isp)=0d0*r
-        enddo
-endif
+
+psip=psi
+eigp=eig
+l_n=0
+  do il=1,lmax+1
+  do isp=1,Nspin
+  call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,Z,il-1,isp,shell_l,shell_occ,count_l(il),l_n,& !in
+            Nshell,Nspin,relativity,lmax,vxc,v_rel(:,isp),vh,& !in
+            vx_psi(:,l_n+1:l_n+count_l(il),isp),vx_psi_sr(:,l_n+1:l_n+count_l(il),isp),& !inout parameters
+            psip,& !in
+            psi(:,l_n+1:l_n+count_l(il),isp),eig(l_n+1:l_n+count_l(il),isp),& !inout 
+            Bess_ik,iner_loop(il),& !in
+            xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func) !in
+  enddo
+    l_n=l_n+count_l(il)
+  enddo
 
 
 
@@ -516,7 +535,6 @@ endif
 call get_energy(Ngrid,r,tools,tools_info,Z,Nshell,shell_occ,spin,relativity,v_rel,Nspin,shell_l,hybx_w,&
         vxc,exc,rho,vh,vx_psi,vx_psi_sr,psi,&
         e_kin,e_ext,e_h,e_xc)
-
 
  energy0=energy
  energy=e_kin+e_ext+e_h+e_xc
@@ -528,7 +546,7 @@ if (maxval(eig).gt.0) then
   write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0, " POSITIVE EIGENVALUE! ", "(",iner_loop,")"
 else
   write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0, "(",iner_loop,")"
-!  write(*,*)"E=Ekin+Eext+Eh+Ex",energy,"=",e_kin,e_ext,e_h,e_xc
+ ! write(*,*)"E=Ekin+Eext+Eh+Ex",energy,"=",e_kin,e_ext,e_h,e_xc
 endif
 
   
@@ -554,87 +572,10 @@ endif
 
 !write(*,*)iscl,". " ,eig,eigp, "eig eigp"
 if(((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-13).and.(abs(energy-energy0).lt.1d-6))then !1d-13 for best result 
-        !without (abs(energy-energy0).lt.1d-6) Helium converges after 1-st iteration.
         write(*,*)"Convergence of external cycle reached:"
         write(*,*)"max(eig-eigp) absolute : ",maxval(abs(eig-eigp))," relative: ",maxval(abs(eig-eigp)/(abs(eig-1d0)))
         exit
-else
-       ! if (iscl.gt.90)then
-       !  ish=maxloc(abs((eig-eigp)/(eig-1d0)),Nshell)
-       !  write(*,*)"eigenvalue with largest relative ", maxval(abs((eig-eigp)/(eig-1d0)))," and absolute ",&
-       !          maxval(abs(eig-eigp)), "change:"
-       !  write(*,*)"n=",shell_n(ish)," l=",shell_l(ish), " eig=", eig(ish) 
-       ! endif
 endif
-psip=psi
-eigp=eig
-
-l_n=0
-  do il=1,lmax+1
-  do isp=1,Nspin
-  call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,Z,il-1,isp,shell_l,shell_occ,count_l(il),l_n,& !in
-            Nshell,Nspin,relativity,lmax,vxc,v_rel(:,isp),vh,& !in
-            vx_psi(:,l_n+1:l_n+count_l(il),isp),vx_psi_sr(:,l_n+1:l_n+count_l(il),isp),& !inout parameters
-            psip,& !in
-            psi(:,l_n+1:l_n+count_l(il),isp),eig(l_n+1:l_n+count_l(il),isp),& !inout 
-            Bess_ik,iner_loop(il),& !in
-            xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func) !in
-  enddo
-    do inn=1,count_l(il)
-       l_n=l_n+1
-    enddo
-  enddo
-
-
-
-  if (iscl.eq.1) then
-!write all wave functions to a file
-  open(11,file='He_1.dat',status='replace')
-
-  write(11,'(a2)',advance="no")"r "
-  do ish=1,Nshell
-  do isp=1,Nspin
-    write(11,'(a2,i1,a1,i1,a1)',advance="no") "WF",ish,"-",isp," "
-  enddo
-  enddo
-  write(11,*)""
-
-  do ir=1,Ngrid
-  write(11,'(ES23.14E3)',advance="no")r(ir)
-  do ish=1,Nshell
-  do isp=1,Nspin
-    write(11,'(ES23.14E3)',advance="no") psi(ir,ish,isp)
-  enddo
-  enddo
-  write(11,*)""
-  enddo
-  close(11)
-!end write all wave functions to a file
-elseif (iscl.eq.40)then
-!write all wave functions to a file
-  open(11,file='He_2.dat',status='replace')
-
-  write(11,'(a2)',advance="no")"r "
-  do ish=1,Nshell
-  do isp=1,Nspin
-    write(11,'(a2,i1,a1,i1,a1)',advance="no") "WF",ish,"-",isp," "
-  enddo
-  enddo
-  write(11,*)""
-
-  do ir=1,Ngrid
-  write(11,'(ES23.14E3)',advance="no")r(ir)
-  do ish=1,Nshell
-  do isp=1,Nspin
-    write(11,'(ES23.14E3)',advance="no") psi(ir,ish,isp)
-  enddo
-  enddo
-  write(11,*)""
-  enddo
-  close(11)
-!end write all wave functions to a file
-endif
-
 
 
 enddo

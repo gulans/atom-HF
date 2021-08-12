@@ -37,26 +37,13 @@ real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 real(8), PARAMETER :: alpha2=0.5d0*7.2973525693d-3**2 !1/(2*c^2)
 integer :: inn,inp,ish,i,j 
 real(8) :: vx_chi(Ngrid,nmax),vx_chi_sr(Ngrid,nmax)
-real(8) :: S(nmax,nmax),H(nmax,nmax),Snn,Hnn !Overlap and Hamiltonian matrix
-real(8) :: Sevec(nmax,nmax),Seval(nmax),s12(nmax,nmax),W(nmax,nmax),test(nmax,nmax)
-real(8) :: Winv(nmax,nmax),x(nmax,nmax),xp(nmax,nmax),Hevec(nmax,nmax),Heval(nmax),Hp(nmax,nmax)
-real(8) :: lambda(nmax),temp1(nmax,nmax),temp2(nmax,nmax)
-real(8) :: f1(Ngrid),f2(Ngrid),f3(Ngrid),f4(Ngrid),f5(Ngrid),lambda_test(nmax,nmax)
+real(8) :: f1(Ngrid),f2(Ngrid),f3(Ngrid),f4(Ngrid),f5(Ngrid)
 real(8) :: f6(Ngrid),f7(Ngrid)
 real(8) :: phi(Ngrid,nmax),norm,eigp(nmax)
 integer :: iscl,maxscl,ir,isp
 real(8) :: f(Ngrid)
-!real(8) :: vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin)
-!real(8) :: vh1(Ngrid),vxc1(Ngrid,Nspin)
-!real(8) :: rho1(Ngrid),exc1(Ngrid,Nspin) !not used
 logical :: spin
 
-do inn=1,nmax
-ish=shell0+inn
-!psi(:,inn)=psi_in(:,ish,sp) !delete?
-! vx_psi(:,ish,sp)=vx_psi_in(:,ish,sp)
-! vx_psi_sr(:,ish,sp)=vx_psi_sr_in(:,ish,sp)
-enddo
 
 
 vx_chi=psi*0d0

@@ -19,7 +19,7 @@ real(8), PARAMETER :: alpha2=0.5d0*7.2973525693d-3**2 !1/(2*c^2)
 real(8), allocatable :: r(:),vh(:),vhp(:),vxcp(:,:),vxc(:,:),exc(:,:),psi(:,:,:),rho(:),ftemp1(:),&
         ftemp2(:),ftemp3(:),ftemp4(:),ftemp(:),vx_psi(:,:,:),v_rel(:,:),&
         grho(:),grho2(:),g2rho(:),g3rho(:),vxc1(:),vxc2(:),vxc3(:),&
-        exc1(:),exc2(:),exc3(:),vxcsigma(:),&
+        exc1(:),exc2(:),exc3(:),vxcsigma(:),vx_psip(:,:,:),vx_psi_srp(:,:,:),&
         vx_psi_sr(:,:,:)
 !spin polarised variables
 real(8), allocatable :: rho_sp(:,:),vxc1_sp(:,:),vxc2_sp(:,:),vxc3_sp(:,:)
@@ -363,7 +363,8 @@ allocate(r(Ngrid),vh(Ngrid),vhp(Ngrid),rho(Ngrid),vxc(Ngrid,Nspin),vxcp(Ngrid,Ns
         vxc2(Ngrid),exc2(Ngrid),vxc3(Ngrid),exc3(Ngrid),psi(Ngrid,Nshell,Nspin),eig(Nshell,Nspin),&
         grho2(Ngrid),ftemp1(Ngrid),ftemp2(Ngrid),vxcsigma(Ngrid),grho(Ngrid),g2rho(Ngrid),&
         psip(Ngrid,Nshell,Nspin),vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin),eigp(Nshell,Nspin),&
-        v_rel(Ngrid,Nspin),ftemp3(Ngrid),ftemp4(Ngrid),ftemp(Ngrid))
+        v_rel(Ngrid,Nspin),ftemp3(Ngrid),ftemp4(Ngrid),ftemp(Ngrid),vx_psip(Ngrid,Nshell,Nspin),&
+        vx_psi_srp(Ngrid,Nshell,Nspin))
 allocate(rho_sp(Nspin,Ngrid),vxc1(Ngrid),exc1(Ngrid)) !differenet order for libxc
 
 
@@ -470,17 +471,20 @@ endif !version 2
 
 
 
+psip=psi*0d0
+eigp=eig*0d0
 
 ! $\left( \nabla^2+ 2\epsilon \right \psi(\mathbf{r}) = v(\mathbf{r}) \psi(\mathbf{r})$
 
 !START self consistent loop
-do iscl=1,150
+do iscl=1,300
 vxcp=vxc
 vhp=vh
+
 call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nspin,psi,&
          xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,hybx_w,exc,vxc,vh,rho)
-!vxc=0.5d0*vxc+0.5d0*vxcp
-!vh=0.5d0*vhp+0.5d0*vh
+vxc=0.5d0*vxc+0.5d0*vxcp
+vh=0.5d0*vhp+0.5d0*vh
  ! Get non-local exchange
 
 if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
@@ -492,7 +496,6 @@ if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
    enddo 
 vx_psi=vx_psi*dble(Nspin)
 vx_psi_sr=vx_psi_sr*dble(Nspin)
-
 endif !end get Fock exchange
   
 ! Potential for relativity (in Hamiltoniam in between nablas)
@@ -509,14 +512,6 @@ endif
 
 
 
-
-!ftemp1=1d0/(1+alpha2*v_rel(:,isp))
-!call rderivative_lagrN(Ngrid,r,tools,tools_info,ftemp1,ftemp2)
-!ftemp3=-(alpha2*Z/r**2)/(1-alpha2*Z/r)
-!do ir=1,Ngrid
-!write(*,*)r(ir),ftemp2(ir), ftemp3(ir),ftemp2(ir)-ftemp3(ir)
-!enddo
-!stop
 
 call get_energy(Ngrid,r,tools,tools_info,Z,Nshell,shell_occ,spin,relativity,v_rel,Nspin,shell_l,hybx_w,&
         vxc,exc,rho,vh,vx_psi,vx_psi_sr,psi,&
@@ -571,10 +566,10 @@ else
        !  write(*,*)"n=",shell_n(ish)," l=",shell_l(ish), " eig=", eig(ish) 
        ! endif
 endif
-
-l_n=0
 psip=psi
 eigp=eig
+
+l_n=0
   do il=1,lmax+1
   do isp=1,Nspin
   call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,Z,il-1,isp,shell_l,shell_occ,count_l(il),l_n,&

@@ -1,5 +1,5 @@
 subroutine LS_iteration(Ngrid, r,tools,tools_info,rsfunC,Nrsfun,hybx_w, Z,l,sp,shell_l,shell_occ, nmax,&
-                shell0, Nshell,Nspin,relativity,lmax,vxc,v_rel, vh,vx_psi,vx_psi_sr, psi_in,psi,eig,Bess_ik,&
+                shell0, Nshell,Nspin,relativity,lmax,vxc,v_rel, vh,vx_psi_in,vx_psi_sr_in, psi_in,psi,eig,Bess_ik,&
                 iner_loop,xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func)
         ! Ngrid
         ! r
@@ -21,7 +21,8 @@ real(8), intent(in) :: tools(Ngrid,tools_info(1)),hybx_w(5,2)
 integer, intent(in) :: Ngrid, nmax, shell0, Nshell,Nspin
 integer, intent(in) :: l,sp, shell_l(Nshell) 
 real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid,Nspin),vh(Ngrid),shell_occ(Nshell,Nspin)
-real(8), intent(in) :: psi_in(Ngrid,Nshell,Nspin),vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin)
+real(8), intent(in) :: psi_in(Ngrid,Nshell,Nspin),vx_psi_in(Ngrid,Nshell,Nspin),vx_psi_sr_in(Ngrid,Nshell,Nspin)
+
 logical, intent(in) :: relativity
 real(8), intent(in) :: v_rel(Ngrid)
 complex(8), intent(in) ::Bess_ik(Ngrid,Nrsfun,2*lmax+1,2)
@@ -44,19 +45,17 @@ real(8) :: f6(Ngrid),f7(Ngrid)
 real(8) :: phi(Ngrid,nmax),norm,eigp(Nshell,Nspin)
 integer :: iscl,maxscl,ir,isp
 real(8) :: f(Ngrid)
-!real(8) :: vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin)
+real(8) :: vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin)
 !real(8) :: vh1(Ngrid),vxc1(Ngrid,Nspin)
 !real(8) :: rho1(Ngrid),exc1(Ngrid,Nspin) !not used
 logical :: spin
 
 do ish=shell0+1,shell0+nmax
-  psi(:,ish,sp)=psi_in(:,ish,sp)
+ psi(:,ish,sp)=psi_in(:,ish,sp)
+ vx_psi(:,ish,sp)=vx_psi_in(:,ish,sp)
+ vx_psi_sr(:,ish,sp)=vx_psi_sr_in(:,ish,sp)
 enddo
 
-!vxc=vxc_in
-!vh=vh_in
-!vx_psi_sr=vx_psi_sr_in
-!vx_psi=vx_psi_in
 
 do isp=1, Nspin
 do ish=1, Nshell
@@ -72,7 +71,7 @@ else
 endif
 
 
-maxscl=20
+maxscl=4
 iner_loop=maxscl+1
 do iscl=1,maxscl
 
@@ -89,7 +88,7 @@ do inn=1,nmax
   ish=shell0+inn
 
   if (.not.relativity)then 
-  f=-2d0*( (-Z/r+vh+vxc(:,sp))*psi_in(:,ish,sp) + hybx_w(4,1)*vx_psi(:,ish,sp)&
+  f=-2d0*( (-Z/r+vh+vxc(:,sp))*psi(:,ish,sp) + hybx_w(4,1)*vx_psi(:,ish,sp)&
           + hybx_w(5,1)*vx_psi_sr(:,ish,sp) )
   else
 
@@ -152,6 +151,16 @@ call orthonorm_get_eig(Ngrid,r,tools,tools_info,Z,l,nmax,relativity,v_rel,hybx_w
         vxc(:,sp),vh,vx_chi(:,shell0+1:shell0+nmax,sp),vx_chi_sr(:,shell0+1:shell0+nmax,sp),&
         psi(:,shell0+1:shell0+nmax,sp),eig(shell0+1:shell0+nmax,sp))
 
+
+if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
+ do ish=shell0+1,shell0+nmax
+ call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ(:,sp),lmax,psi(:,ish,sp),psi_in(:,:,sp),&
+           vx_psi(:,ish,sp),vx_psi_sr(:,ish,sp),rsfunC,Nrsfun,hybx_w,Bess_ik)
+   enddo
+vx_psi=vx_psi*dble(Nspin)
+vx_psi_sr=vx_psi_sr*dble(Nspin)
+
+endif !end get Fock exchange
 
 
 !Place for convergence check!!!!!!!!!!!

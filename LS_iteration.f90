@@ -56,7 +56,7 @@ else
 endif
 
 
-maxscl=4
+maxscl=10
 iner_loop=maxscl+1
 do iscl=1,maxscl
 
@@ -75,6 +75,7 @@ do inn=1,nmax
   if (.not.relativity)then 
   f=-2d0*( (-Z/r+vh+vxc(:,sp))*psi(:,inn) + hybx_w(4,1)*vx_psi(:,inn)&
           + hybx_w(5,1)*vx_psi_sr(:,inn) )
+
   else
 
  ! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f1)
@@ -105,8 +106,9 @@ do inn=1,nmax
  f=-f
   endif
   call scrPoisson(Ngrid, r,tools,tools_info,l, f, eig(inn), psi(:,inn))
-
-
+!  if (inn.eq.2)then
+!          stop
+!  endif
   call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn)**2,norm)
   psi(:,inn)=psi(:,inn)/dsqrt(norm)
 
@@ -189,7 +191,7 @@ real(8), intent(out) :: psi(Ngrid)
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 real(8) :: f(Ngrid),lam
 real(8) :: besrezi(0:50), besrezk(0:50)
-integer :: ri,i
+integer :: ri,i,endpoint
 real(8) :: f11(Ngrid),f12(Ngrid),f21(Ngrid),f22(Ngrid),int1(Ngrid),int2(Ngrid)
 !result=f11*(integral_(0->r)f12)+f21(integral_(r->Ngrid)f22)
 real(8) :: besi,besk
@@ -209,15 +211,19 @@ f12=0d0*r
 f21=0d0*r
 f22=0d0*r
 !write(*,*)"argument       besi         besk"
-
+endpoint=Ngrid
 do ri=1, Ngrid
 if((lam*r(ri)).gt.100d0) then
+endpoint=ri
 exit
 endif
 call msbesseli(l,lam*r(ri), besrezi)
 call msbesselk(l,lam*r(ri), besrezk)
+
+
 besi=besrezi(l)
 besk=besrezk(l)
+!write(*,*)lam*r(ri),besi,besk
 
 f11(ri)=lam*besk
 f12(ri)=besi*f(ri)
@@ -226,8 +232,27 @@ f22(ri)=besk*f(ri)
 enddo
 
 call integ_BodesN_fun(Ngrid,r,tools,tools_info,1,f12*r**2,int1)
-call integ_BodesN_fun(Ngrid,r,tools,tools_info,-1,f22*r**2,int2)
+!call integ_BodesN_fun(Ngrid,r,tools,tools_info,-1,f22*r**2,int2)
+call integ_BodesN_fun(endpoint,r(1:endpoint),tools(1:endpoint,:),tools_info,-1,f22(1:endpoint)*r(1:endpoint)**2,int2(1:endpoint))
+int2(endpoint+1:Ngrid)=0d0*r(endpoint+1:Ngrid)
+!do ri=1, Ngrid
+!write(*,*)r(ri),int2(ri)
+!enddo
+!stop
 psi=f11*int1+f21*int2
+
+! open(11,file='scr_poisson_out1.dat',status='replace')
+!
+!  write(11,*)"r,lam*r,f,f11, int1,f11*int1 , f21, int2,f21*int2, psi'"
+!  do ir=1,Ngrid
+!  write(11,*) r(ir),",",lam*r(ir),",",f(ir),",",f11(ir),",",int1(ir),",",f11(ir)*int1(ir)&
+!          ,",",f21(ir),",",int2(ir),",",f21(ir)*int2(ir),",",psi(ir)
+!
+!  enddo
+!  close(11)
+
+
+
 
 end subroutine
 

@@ -135,10 +135,16 @@ do ir=Ngrid-1,Ngrid-int(Npoints/2),-1
      interp1(2)=interp1(2)+y(i)*tools(ir,20+i)
      interp1(3)=interp1(3)+y(i)*tools(ir,30+i)
    enddo
-   rez(ir)=rez(ir+1)+h*(14d0*fin(ir)+64d0*interp1(1)+24d0*interp1(2)+64d0*interp1(3)+14d0*fin(ir+1))/45d0
-
+!write(*,*)ir,"->",ir+1,fin(ir),interp1(1),interp1(2),interp1(3),fin(ir+1)
+!stop
+!interpolation gives incorect results
+!   rez(ir)=rez(ir+1)+h*(14d0*fin(ir)+64d0*interp1(1)+24d0*interp1(2)+64d0*interp1(3)+14d0*fin(ir+1))/45d0
+!trapezoidal rule is used:
+rez(ir)=rez(ir+1)+4d0*h*(fin(ir)+fin(ir+1))/2d0
+!write(*,*)ir,rez(ir)
 enddo
 
+!stop
 !!! MIDDLE part of function
 do ir=Ngrid-int(Npoints/2)-1,int(Npoints/2)+1,-1 
   do i=1, Npoints

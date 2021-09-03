@@ -33,7 +33,7 @@ real(8), allocatable :: psip(:,:,:),eigp(:,:)
 complex(8), allocatable :: Bess_ik(:,:,:,:)
 
 integer :: il,icl,il_icl,iscl,lmax,l_n,inn, positive_eig_iter
-real(8) :: Z,rez,a1,a2
+real(8) :: Z,rez,a1,a2,mixerC
 real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0,e_kin,e_ext,e_h,e_xc,e_pot
 integer :: grid, Nshell, ish, d_order,i_order
 integer :: ir,i,j,countl0, version,tools_info(3)
@@ -376,7 +376,7 @@ allocate(grho_sp(2,Ngrid),grho2_sp(3,Ngrid),vxc1_sp(2,Ngrid),vxc2_sp(2,Ngrid),vx
         vxcsigma_sp(3,Ngrid),gvxcsigma_sp(3,Ngrid),g2rho_sp(2,Ngrid))
 
 
-call gengrid(grid,Ngrid,Rmin,Rmax,r)
+call gengrid(grid,Z,Ngrid,Rmin,Rmax,r)
 
 
 d_order=9
@@ -504,13 +504,14 @@ eigp=eig*0d0
 ! $\left( \nabla^2+ 2\epsilon \right \psi(\mathbf{r}) = v(\mathbf{r}) \psi(\mathbf{r})$
 
 !START self consistent loop
-do iscl=1,500
+do iscl=1,200
 vxcp=vxc
 vhp=vh
 call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nspin,psi,&
          xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,hybx_w,exc,vxc,vh,rho)
-vxc=0.5d0*vxc+0.5d0*vxcp
-vh=0.5d0*vhp+0.5d0*vh
+mixerC=0.5d0
+vxc=mixerC*vxc+(1d0-mixerC)*vxcp
+vh=mixerC*vh+(1d0-mixerC)*vhp
   
 
 psip=psi
@@ -549,6 +550,10 @@ else
  ! write(*,*)"E=Ekin+Eext+Eh+Ex",energy,"=",e_kin,e_ext,e_h,e_xc
 endif
 
+if (energy.ne.energy)then
+write (*,*)"NAN detected in eigenvalues"
+exit
+endif 
   
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 

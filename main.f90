@@ -28,12 +28,12 @@ real(8), allocatable :: grho_sp(:,:),grho2_sp(:,:),vxcsigma_sp(:,:),gvxcsigma_sp
 integer, allocatable :: shell_n(:),shell_l(:),count_l(:)
 
 real(8), allocatable :: shell_occ(:,:),eig(:,:)
-real(8), allocatable :: psip(:,:,:),eigp(:,:)
+real(8), allocatable :: psip(:,:,:),psipp(:,:,:),eigp(:,:)
 
 complex(8), allocatable :: Bess_ik(:,:,:,:)
 
 integer :: il,icl,il_icl,iscl,lmax,l_n,inn, positive_eig_iter
-real(8) :: Z,rez,a1,a2,mixerC
+real(8) :: Z,rez,a1,a2,mixerC,F_mix
 real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0,e_kin,e_ext,e_h,e_xc,e_pot
 integer :: grid, Nshell, ish, d_order,i_order
 integer :: ir,i,j,countl0, version,tools_info(3)
@@ -367,7 +367,7 @@ allocate(r(Ngrid),vh(Ngrid),vhp(Ngrid),rho(Ngrid),vxc(Ngrid,Nspin),vxcp(Ngrid,Ns
         grho2(Ngrid),ftemp1(Ngrid),ftemp2(Ngrid),vxcsigma(Ngrid),grho(Ngrid),g2rho(Ngrid),&
         psip(Ngrid,Nshell,Nspin),vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin),eigp(Nshell,Nspin),&
         v_rel(Ngrid,Nspin),ftemp3(Ngrid),ftemp4(Ngrid),ftemp(Ngrid),vx_psip(Ngrid,Nshell,Nspin),&
-        vx_psi_srp(Ngrid,Nshell,Nspin))
+        vx_psi_srp(Ngrid,Nshell,Nspin),psipp(Ngrid,Nshell,Nspin))
 allocate(rho_sp(Nspin,Ngrid),vxc1(Ngrid),exc1(Ngrid)) !differenet order for libxc
 
 
@@ -503,8 +503,19 @@ eigp=eig*0d0
 
 ! $\left( \nabla^2+ 2\epsilon \right \psi(\mathbf{r}) = v(\mathbf{r}) \psi(\mathbf{r})$
 
+
+
+
+ if ((Z.gt.28.5d0).and.(Z.lt.29.5d0))then !Cu case
+   mixerC=0.3d0
+ else
+   mixerC=0.5d0
+ endif
+F_mix=1d0
+
+
 !START self consistent loop
-do iscl=1,200
+do iscl=1,20000
 vxcp=vxc
 vhp=vh
 call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nspin,psi,&
@@ -517,7 +528,7 @@ call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nsp
 vxc=mixerC*vxc+(1d0-mixerC)*vxcp
 vh=mixerC*vh+(1d0-mixerC)*vhp
   
-
+psipp=psip
 psip=psi
 eigp=eig
 l_n=0
@@ -526,10 +537,10 @@ l_n=0
   call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,Z,il-1,isp,shell_l,shell_occ,count_l(il),l_n,& !in
             Nshell,Nspin,relativity,lmax,vxc,v_rel(:,isp),vh,& !in
             vx_psi(:,l_n+1:l_n+count_l(il),isp),vx_psi_sr(:,l_n+1:l_n+count_l(il),isp),& !inout parameters
-            psip,& !in
+            psip,psipp,& !in
             psi(:,l_n+1:l_n+count_l(il),isp),eig(l_n+1:l_n+count_l(il),isp),& !inout 
             Bess_ik,iner_loop(il),& !in
-            xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func) !in
+            xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,F_mix) !in
   enddo
     l_n=l_n+count_l(il)
   enddo

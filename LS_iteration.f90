@@ -1,6 +1,6 @@
 subroutine LS_iteration(Ngrid, r,tools,tools_info,rsfunC,Nrsfun,hybx_w, Z,l,sp,shell_l,shell_occ, nmax,&
-                shell0, Nshell,Nspin,relativity,lmax,vxc,v_rel, vh,vx_psi,vx_psi_sr, psi_in,psi,eig,Bess_ik,&
-                iner_loop,xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func)
+                shell0, Nshell,Nspin,relativity,lmax,vxc,v_rel, vh,vx_psi,vx_psi_sr, psi_in,psi_in_p,psi,eig,Bess_ik,&
+                iner_loop,xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,F_mix)
         ! Ngrid
         ! r
         ! vfull - potential (v_n+v_h+v_xc)
@@ -21,7 +21,7 @@ real(8), intent(in) :: tools(Ngrid,tools_info(1)),hybx_w(5,2)
 integer, intent(in) :: Ngrid, nmax, shell0, Nshell,Nspin
 integer, intent(in) :: l,sp, shell_l(Nshell) 
 real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid,Nspin),vh(Ngrid),shell_occ(Nshell,Nspin)
-real(8), intent(in) :: psi_in(Ngrid,Nshell,Nspin)
+real(8), intent(in) :: psi_in(Ngrid,Nshell,Nspin),psi_in_p(Ngrid,Nshell,Nspin),F_mix
 real(8), intent(inout) :: vx_psi(Ngrid,nmax),vx_psi_sr(Ngrid,nmax)
 
 logical, intent(in) :: relativity
@@ -37,6 +37,7 @@ real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 real(8), PARAMETER :: alpha2=0.5d0*7.2973525693d-3**2 !1/(2*c^2)
 integer :: inn,inp,ish,i,j 
 real(8) :: vx_chi(Ngrid,nmax),vx_chi_sr(Ngrid,nmax)
+real(8) :: vx_chi2(Ngrid,nmax),vx_chi2_sr(Ngrid,nmax)
 real(8) :: f1(Ngrid),f2(Ngrid),f3(Ngrid),f4(Ngrid),f5(Ngrid)
 real(8) :: f6(Ngrid),f7(Ngrid)
 real(8) :: phi(Ngrid,nmax),norm,eigp(nmax)
@@ -78,26 +79,6 @@ do inn=1,nmax
 
   else
 
- ! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f1)
- ! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,f1,f2)
- ! f3=1+alpha2*Z/r
-
- ! f4 =alpha2*r**(-2)*( -Z/f3 -(alpha2*Z**2/r)/f3**2 )*f1
- ! f6 =alpha2*r**(-2)*(Z*r/f3)*f2 
-
- ! f5 = -Z*r**(-1)*alpha2/(1d0+Z*r**(-1)*alpha2)
- ! f7= 2d0*(-Z/r+vh+vxc(:,sp))*psi_in(:,ish,sp)
- ! f=(-f4-f6+f5*dble(l*(l+1))/r**2*psi_in(:,ish,sp))+f7
- ! open(11,file='psi_f1_f2_f_1.dat',status='replace')
- ! write(11,*)"r psi -f4 -f6 f7"
- ! do ir=1, Ngrid
- !   write(11,*)r(ir),psi(ir,ish,sp),-f4(ir),-f6(ir),f7(ir)
- ! enddo
- !
- ! close(11)
- ! f=-f
-
-
  f1=v_rel*alpha2/(1d0-v_rel*alpha2)
  call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f2)
  call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,f1*f2*r**2,f3)
@@ -105,10 +86,8 @@ do inn=1,nmax
  f=-f3+f1*dble(l*(l+1))/r**2*psi_in(:,ish,sp) + 2d0*(-Z/r+vh+vxc(:,sp))*psi_in(:,ish,sp) 
  f=-f
   endif
+
   call scrPoisson(Ngrid, r,tools,tools_info,l, f, eig(inn), psi(:,inn))
-!  if (inn.eq.2)then
-!          stop
-!  endif
   call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn)**2,norm)
   psi(:,inn)=psi(:,inn)/dsqrt(norm)
 
@@ -122,8 +101,22 @@ if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
    ish=inn+shell0
    call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ(:,sp),lmax,&
            psi(:,inn),psi_in(:,:,sp),vx_chi(:,inn),vx_chi_sr(:,inn),rsfunC,Nrsfun,hybx_w,Bess_ik)
+
+   if (F_mix.lt.0.999999999d0) then
+   call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ(:,sp),lmax,&
+           psi(:,inn),psi_in_p(:,:,sp),vx_chi2(:,inn),vx_chi2_sr(:,inn),rsfunC,Nrsfun,hybx_w,Bess_ik)
+   vx_chi(:,inn)=F_mix*vx_chi(:,inn)+(1d0-F_mix)*vx_chi2(:,inn)
+   vx_chi_sr(:,inn)=F_mix*vx_chi_sr(:,inn)+(1d0-F_mix)*vx_chi2_sr(:,inn)
+
+   endif
+
+
    vx_chi(:,inn)=vx_chi(:,inn)*dble(Nspin)
    vx_chi_sr(:,inn)=vx_chi_sr(:,inn)*dble(Nspin)
+
+
+
+
    enddo
 
 endif

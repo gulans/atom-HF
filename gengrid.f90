@@ -32,11 +32,23 @@ elseif (grid.eq.2) then !Exponential
 elseif (grid.eq.3) then !Advanced Cubic grid
   do ir=1,Ngrid
     r(ir)=ir*Rmin+(Rmax-Ngrid*Rmin)*(dble(ir-1)/dble(Ngrid-1))**3
-
-!r_i=((i-1)/(N-1))^3*(r_max-N*r_min)+i*r_min
   enddo
 
-elseif (grid.eq.6) then !optimised polynomial grid
+elseif (grid.eq.4) then !Advanced power 4 grid
+  do ir=1,Ngrid
+    r(ir)=ir*Rmin+(Rmax-Ngrid*Rmin)*(dble(ir-1)/dble(Ngrid-1))**4
+  enddo
+elseif (grid.eq.5) then !Advanced power 5 grid
+  do ir=1,Ngrid
+    r(ir)=ir*Rmin+(Rmax-Ngrid*Rmin)*(dble(ir-1)/dble(Ngrid-1))**5
+  enddo
+elseif (grid.eq.6) then !Advanced power 6 grid
+  do ir=1,Ngrid
+    r(ir)=ir*Rmin+(Rmax-Ngrid*Rmin)*(dble(ir-1)/dble(Ngrid-1))**6
+  enddo
+
+
+elseif (grid.eq.7) then !optimised polynomial grid
 if ((Z.gt.2.5).and.(Z.lt.4.5)) then !Li(3) - Be(4) <1e-7 precision with Ngrid=80
 pow=2.7d0
 Rmax1=2d-1
@@ -87,7 +99,13 @@ m2=2d0
 m3=1d0
 else
 write(*,*)"There is no optimised grid for element Z= ",Z
-stop
+pow=5.0d0
+Rmax1=Rmax
+Rmax2=Rmax
+m1=1d0
+m2=1d0
+m3=1d0
+
 endif
 p1=(Rmax1/Rmax)**(1d0/pow)
 p2=(Rmax2/Rmax)**(1d0/pow)-p1
@@ -118,20 +136,20 @@ write(*,*)"grid3: ",ir3_start,ir3_stop, "N=",ir3_stop-ir3_start+1
 ir=1
 do ir1=ir1_start,ir1_stop
 r(ir)=Rmin*ir+(Rmax-Ngrid*Rmin)*(dble(ir1-1)/dble(Ngrid1-1))**pow
-write(*,*)"extir=",ir," ir1=",ir1,"r", r(ir)
+!write(*,*)"extir=",ir," ir1=",ir1,"r", r(ir)
 ir=ir+1
 enddo
 write(*,*)
 do ir2=ir2_start,ir2_stop
 r(ir)=Rmin*ir+(Rmax-Ngrid*Rmin)*(dble(ir2-1)/dble(Ngrid2-1))**pow
-write(*,*)"extir=",ir," ir2=",ir2,"r", r(ir)
+!write(*,*)"extir=",ir," ir2=",ir2,"r", r(ir)
 ir=ir+1
 enddo
 write(*,*)
 
 do ir3=ir3_start,ir3_stop
 r(ir)=Rmin*ir+(Rmax-Ngrid*Rmin)*(dble(ir3-1)/dble(Ngrid3-1))**pow
-write(*,*)"extir=",ir," ir3=",ir3,"r", r(ir)
+!write(*,*)"extir=",ir," ir3=",ir3,"r", r(ir)
 ir=ir+1
 enddo
 

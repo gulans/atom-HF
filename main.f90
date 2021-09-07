@@ -509,7 +509,11 @@ vxcp=vxc
 vhp=vh
 call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nspin,psi,&
          xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,hybx_w,exc,vxc,vh,rho)
-mixerC=0.5d0
+ if ((Z.gt.28.5d0).and.(Z.lt.29.5d0))then !Cu case
+   mixerC=0.3d0
+ else
+   mixerC=0.5d0
+ endif
 vxc=mixerC*vxc+(1d0-mixerC)*vxcp
 vh=mixerC*vh+(1d0-mixerC)*vhp
   

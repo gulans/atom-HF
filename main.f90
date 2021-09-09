@@ -515,7 +515,7 @@ F_mix=1d0
 
 
 !START self consistent loop
-do iscl=1,20000
+do iscl=1,200
 vxcp=vxc
 vhp=vh
 call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nspin,psi,&

@@ -520,11 +520,7 @@ vxcp=vxc
 vhp=vh
 call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nspin,psi,&
          xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,hybx_w,exc,vxc,vh,rho)
- if ((Z.gt.28.5d0).and.(Z.lt.29.5d0))then !Cu case
-   mixerC=0.3d0
- else
-   mixerC=0.5d0
- endif
+
 vxc=mixerC*vxc+(1d0-mixerC)*vxcp
 vh=mixerC*vh+(1d0-mixerC)*vhp
   
@@ -591,7 +587,7 @@ endif
 !Check convergence
 
 !write(*,*)iscl,". " ,eig,eigp, "eig eigp"
-if(((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-13).and.(abs(energy-energy0).lt.1d-6))then !1d-13 for best result 
+if(((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-13).and.(abs(energy-energy0).lt.1d-6).and.(iscl.gt.1))then !1d-13 for best result 
         write(*,*)"Convergence of external cycle reached:"
         write(*,*)"max(eig-eigp) absolute : ",maxval(abs(eig-eigp))," relative: ",maxval(abs(eig-eigp)/(abs(eig-1d0)))
         exit
@@ -705,6 +701,10 @@ endif
   close(11)
 !end write all wave functions to a file
 
+  open(11,file='grid.dat',status='replace')
+  do ir=1, Ngrid
+  write(11,*)r(ir)
+  enddo
 
 deallocate(r,vh,rho,vxc,exc,vxc1,exc1,vxc2,exc2,vxc3,exc3,psi,eig,&
         grho2,ftemp1,ftemp2,vxcsigma,grho,g2rho,psip,vx_psi,vx_psi_sr,eigp)  

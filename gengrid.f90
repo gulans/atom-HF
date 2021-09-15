@@ -27,6 +27,7 @@ elseif (grid.eq.1) then !Cubic
 elseif (grid.eq.2) then !Exponential
   do ir=1,Ngrid
     r(ir)=Rmin*exp(dble(ir-1)*LOG(Rmax/Rmin)/dble(Ngrid-1))
+    r(ir)=dble(ir-1)*Rmin+Rmin*((Rmax-dble(Ngrid-1)*Rmin)/Rmin)**((ir-1)/dble(Ngrid-1))
   enddo
 
 elseif (grid.eq.3) then !Advanced Cubic grid
@@ -46,13 +47,21 @@ elseif (grid.eq.6) then !Advanced power 6 grid
   do ir=1,Ngrid
     r(ir)=ir*Rmin+(Rmax-Ngrid*Rmin)*(dble(ir-1)/dble(Ngrid-1))**6
   enddo
-elseif (grid.eq.7) then !Advanced power 6 grid
+elseif (grid.eq.7) then !Advanced power 7 grid
   do ir=1,Ngrid
     r(ir)=ir*Rmin+(Rmax-Ngrid*Rmin)*(dble(ir-1)/dble(Ngrid-1))**7
   enddo
+elseif (grid.eq.8) then !Advanced power 8 grid
+  do ir=1,Ngrid
+    r(ir)=ir*Rmin+(Rmax-Ngrid*Rmin)*(dble(ir-1)/dble(Ngrid-1))**8
+  enddo
+elseif (grid.eq.9) then !Advanced power 9 grid
+  do ir=1,Ngrid
+    r(ir)=ir*Rmin+(Rmax-Ngrid*Rmin)*(dble(ir-1)/dble(Ngrid-1))**9
+  enddo
 
 
-elseif (grid.eq.0) then !optimised polynomial grid
+elseif (grid.eq.10) then !optimised polynomial grid
 if ((Z.gt.2.5).and.(Z.lt.4.5)) then !Li(3) - Be(4) <1e-7 precision with Ngrid=80
 pow=2.7d0
 Rmax1=2d-1

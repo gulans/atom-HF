@@ -511,7 +511,9 @@ eigp=eig*0d0
  else
    mixerC=0.5d0
  endif
-F_mix=1d0
+mixerC=0.3d0
+
+ F_mix=1d0
 
 
 !START self consistent loop
@@ -523,7 +525,22 @@ call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nsp
 
 vxc=mixerC*vxc+(1d0-mixerC)*vxcp
 vh=mixerC*vh+(1d0-mixerC)*vhp
-  
+
+
+if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
+ do ish=1,Nshell
+ do isp=1,Nspin
+ call get_Fock_ex(Ngrid,r,tools,tools_info,ish,Nshell,shell_l,shell_occ(:,isp),lmax,psi(:,ish,isp),psi(:,:,isp),&
+           vx_psi(:,ish,isp),vx_psi_sr(:,ish,isp),rsfunC,Nrsfun,hybx_w,Bess_ik)
+   enddo
+   enddo
+vx_psi=vx_psi*dble(Nspin)
+vx_psi_sr=vx_psi_sr*dble(Nspin)
+endif !end get Fock exchange
+
+
+
+
 psipp=psip
 psip=psi
 eigp=eig

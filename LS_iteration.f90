@@ -45,7 +45,17 @@ integer :: iscl,maxscl,ir,isp
 real(8) :: f(Ngrid)
 logical :: spin
 
+real(8) :: elimit, eshift
+real(8) :: vx_psi_in(Ngrid,nmax),vx_psi_sr_in(Ngrid,nmax)
+logical :: new_algorithm
+logical :: eig_limiter
 
+new_algorithm=.true.
+eig_limiter=.false.
+elimit=-0.0002d0
+
+vx_psi_in=vx_psi
+vx_psi_sr_in=vx_psi_sr
 
 vx_chi=psi*0d0
 vx_chi_sr=psi*0d0
@@ -74,8 +84,18 @@ do inn=1,nmax
   ish=shell0+inn
 
   if (.not.relativity)then 
+
+          
+if (new_algorithm)then
   f=-2d0*( (-Z/r+vh+vxc(:,sp))*psi(:,inn) + hybx_w(4,1)*vx_psi(:,inn)&
           + hybx_w(5,1)*vx_psi_sr(:,inn) )
+else!old version
+  f=-2d0*( (-Z/r+vh+vxc(:,sp))*psi_in(:,ish,sp) + hybx_w(4,1)*vx_psi_in(:,inn)&
+          + hybx_w(5,1)*vx_psi_sr_in(:,inn) )
+endif
+
+
+
 
   else
 
@@ -87,7 +107,29 @@ do inn=1,nmax
  f=-f
   endif
 
+
+
+
+elimit=-2d0
+if ((eig_limiter).and.(eig(inn).gt.elimit))then
+  eshift=-eig(inn)+elimit
+  eig(inn)=elimit
+  if(new_algorithm)then
+    call scrPoisson(Ngrid, r,tools,tools_info,l, f-2*(eshift)*psi(:,inn), eig(inn), psi(:,inn))
+  else
+    call scrPoisson(Ngrid, r,tools,tools_info,l, f-2*(eshift)*psi_in(:,ish,sp), eig(inn), psi(:,inn))
+  endif    
+  eig(inn)=eig(inn)-eshift
+
+else
   call scrPoisson(Ngrid, r,tools,tools_info,l, f, eig(inn), psi(:,inn))
+endif
+
+
+
+
+
+
   call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn)**2,norm)
   psi(:,inn)=psi(:,inn)/dsqrt(norm)
 
@@ -193,7 +235,7 @@ real(8) :: besi,besk
 !write(*,*)"e=",e
 if (e.gt.0) then
 !        write(*,*)"scrPoisson Error: positive eigenvalue!"
-        e=-1d-3
+        e=-2d-2
 endif
 
 lam=dsqrt(-2d0*e)
@@ -206,7 +248,7 @@ f22=0d0*r
 !write(*,*)"argument       besi         besk"
 endpoint=Ngrid
 do ri=1, Ngrid
-if((lam*r(ri)).gt.100d0) then
+if((lam*r(ri)).gt.200d0) then
 endpoint=ri
 exit
 endif

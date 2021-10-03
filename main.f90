@@ -356,9 +356,9 @@ if ((version.eq.1).or.(version.eq.2)) then
   else
      open(11,file='res.dat',status='new')
      write(11,*)"grid,iter,posit_eig_iter,xc1_num,xc2_num,c2_num,d_order,i_order,Ngrid,Rmin,Rmax,&
-             Z,time,Nrsfuni&
+             Z,N_el,time,Nrsfuni&
              ,Fock_w,Fock_rs_w,rs_mu,",&
-             "dE,energy"
+             "dE,energy,e_homo"
   endif
   close(11)
 
@@ -570,8 +570,16 @@ call get_energy(Ngrid,r,tools,tools_info,Z,Nshell,shell_occ,spin,relativity,v_re
 
 !!!!!!!!! End Caulculate energy !!!!!!!!!!!!!
 
-if (maxval(eig).gt.0) then 
-  positive_eig_iter=iscl
+do ish=1,Nshell
+do isp=1,Nspin
+  if((eig(ish,isp).gt.0d0).and.(shell_occ(ish,isp).gt.1d-10))then
+    positive_eig_iter=iscl
+  endif
+enddo
+enddo
+
+
+if (positive_eig_iter.eq.iscl)then
   write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0, " POSITIVE EIGENVALUE! ", "(",iner_loop,")"
 else
   write(*,*)"Energy_tot:",energy, " (",iscl,")"," dE=",energy-energy0, "(",iner_loop,")"
@@ -650,10 +658,19 @@ endif
   write(11, '(ES9.2E2,a1)',advance="no")Rmin,","
  write(11, '(f5.2)' ,advance="no") Rmax
  write(11, '(a1)',advance="no")","
-  write(11, '(f6.2,a1)',advance="no")Z,","
+  write(11, '(f6.2,a1,f6.2,a1)',advance="no")Z,",",sum(shell_occ),","
   write(11, '(f7.2,a1,i1,a1,f5.2,a1,f5.2,a1,f4.2,a1,ES9.2E2)',advance="no") time1-time0,",",Nrsfun,",",hybx_w(4,1),",",&
           hybx_w(5,1),",",hybx_w(5,2),",",energy-energy0
-  write(11, *)",",energy
+  e1=-1d100
+  do ish=1,Nshell
+  do isp=1,Nspin
+    if ((eig(ish,isp).gt.e1).and.(shell_occ(ish,isp).gt.1d-10))then
+     e1=eig(ish,isp)
+    endif
+  enddo
+  enddo
+
+  write(11, *)",",energy,",",e1
   close(11)
 
   inquire(file='output.dat',EXIST=file_exists)
@@ -662,22 +679,19 @@ endif
   else
      open(11,file='output.dat',status='new')
   endif
-  write(11,*)"Z E dE iterations Ngrid Rmax Rmin"
-  write(11,*)Z, version, iscl-1, Ngrid, Rmax
+  write(11,*)"Z N_el iterations Ngrid Rmax"
+  write(11,*)Z,sum(shell_occ), iscl, Ngrid, Rmax
   write(11,*)"n l eigval"
-  il_icl=0
-  do il=1,lmax+1
-    do icl=1, count_l(il)
-      il_icl=il_icl+1
-      if (.not.spin)then
-      write(11,*) icl, il, eig(il_icl,1) 
-      else
-      write(11,*) icl, il, eig(il_icl,1),"(occ",shell_occ(il_icl,1) , ")",eig(il_icl,2),"(occ",shell_occ(il_icl,2) , ")"
-      endif
-    enddo
+  
+  do ish=1,Nshell
+    if (.not.spin)then
+      write(11,*) shell_n(ish), shell_l(ish), eig(ish,1),"(occ",shell_occ(ish,1) , ")" 
+    else
+      write(11,*) shell_n(ish), shell_l(ish), eig(ish,1),"(occ",shell_occ(ish,1) , ")",eig(ish,2),"(occ",shell_occ(ish,2) , ")"
+    endif
   enddo
-  write(11,*)"Tot Energy: ", energy
-  write(11,*)"dE        : ", energy-energy0
+  write(11,*)"Energy : ", energy
+  write(11,*)"dE     : ", energy-energy0
   write(11,*)"" 
   close(11)
 

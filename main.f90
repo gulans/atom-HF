@@ -20,7 +20,7 @@ real(8), allocatable :: r(:),vh(:),vhp(:),vxcp(:,:),vxc(:,:),exc(:,:),psi(:,:,:)
         ftemp2(:),ftemp3(:),ftemp4(:),ftemp(:),vx_psi(:,:,:),v_rel(:,:),&
         grho(:),grho2(:),g2rho(:),g3rho(:),vxc1(:),vxc2(:),vxc3(:),&
         exc1(:),exc2(:),exc3(:),vxcsigma(:),vx_psip(:,:,:),vx_psi_srp(:,:,:),&
-        vx_psi_sr(:,:,:)
+        vx_psi_sr(:,:,:), vn(:)
 !spin polarised variables
 real(8), allocatable :: rho_sp(:,:),vxc1_sp(:,:),vxc2_sp(:,:),vxc3_sp(:,:)
 real(8), allocatable :: grho_sp(:,:),grho2_sp(:,:),vxcsigma_sp(:,:),gvxcsigma_sp(:,:),g2rho_sp(:,:)
@@ -367,7 +367,7 @@ allocate(r(Ngrid),vh(Ngrid),vhp(Ngrid),rho(Ngrid),vxc(Ngrid,Nspin),vxcp(Ngrid,Ns
         grho2(Ngrid),ftemp1(Ngrid),ftemp2(Ngrid),vxcsigma(Ngrid),grho(Ngrid),g2rho(Ngrid),&
         psip(Ngrid,Nshell,Nspin),vx_psi(Ngrid,Nshell,Nspin),vx_psi_sr(Ngrid,Nshell,Nspin),eigp(Nshell,Nspin),&
         v_rel(Ngrid,Nspin),ftemp3(Ngrid),ftemp4(Ngrid),ftemp(Ngrid),vx_psip(Ngrid,Nshell,Nspin),&
-        vx_psi_srp(Ngrid,Nshell,Nspin),psipp(Ngrid,Nshell,Nspin))
+        vx_psi_srp(Ngrid,Nshell,Nspin),psipp(Ngrid,Nshell,Nspin),vn(Ngrid))
 allocate(rho_sp(Nspin,Ngrid),vxc1(Ngrid),exc1(Ngrid)) !differenet order for libxc
 
 
@@ -377,7 +377,7 @@ allocate(grho_sp(2,Ngrid),grho2_sp(3,Ngrid),vxc1_sp(2,Ngrid),vxc2_sp(2,Ngrid),vx
 
 
 call gengrid(grid,Z,Ngrid,Rmin,Rmax,r)
-
+call gen_vn(Ngrid,Z,r,vn)
 
 d_order=9
 i_order=9
@@ -459,7 +459,7 @@ do isp=1,Nspin
 sh0=0
   do il=1, lmax+1
   sh1=sh0+count_l(il)
-  call orthonorm_get_eig(Ngrid,r,tools,tools_info,Z,il-1,count_l(il),relativity,v_rel,hybx_w,&
+  call orthonorm_get_eig(Ngrid,r,tools,tools_info,vn,il-1,count_l(il),relativity,v_rel,hybx_w,&
         vxc(:,isp),vh,vx_psip(:,sh0+1:sh1,isp),vx_psi_srp(:,sh0+1:sh1,isp),&
         psi(:,sh0+1:sh1,isp),eig(sh0+1:sh1,isp),vx_psi(:,sh0+1:sh1,isp),vx_psi_sr(:,sh0+1:sh1,isp))
 
@@ -481,7 +481,7 @@ do ish=1,Nshell
     rho=rho+shell_occ(ish,isp)*psi(:,ish,isp)**2
 enddo
 enddo
-call get_energy(Ngrid,r,tools,tools_info,Z,Nshell,shell_occ,spin,relativity,v_rel,Nspin,shell_l,hybx_w,&
+call get_energy(Ngrid,r,tools,tools_info,vn,Nshell,shell_occ,spin,relativity,v_rel,Nspin,shell_l,hybx_w,&
         vxc,exc,rho,vh,vx_psi,vx_psi_sr,psi,&
         e_kin,e_ext,e_h,e_xc)
 energy=e_kin+e_ext+e_h+e_xc
@@ -515,7 +515,6 @@ mixerC=0.3d0
 
  F_mix=1d0
 
-
 !START self consistent loop
 do iscl=1,200
 vxcp=vxc
@@ -547,7 +546,7 @@ eigp=eig
 l_n=0
   do il=1,lmax+1
   do isp=1,Nspin
-  call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,Z,il-1,isp,shell_l,shell_occ,count_l(il),l_n,& !in
+  call LS_iteration(Ngrid,r,tools,tools_info,rsfunC,Nrsfun,hybx_w,vn,il-1,isp,shell_l,shell_occ,count_l(il),l_n,& !in
             Nshell,Nspin,relativity,lmax,vxc,v_rel(:,isp),vh,& !in
             vx_psi(:,l_n+1:l_n+count_l(il),isp),vx_psi_sr(:,l_n+1:l_n+count_l(il),isp),& !inout parameters
             psip,psipp,& !in
@@ -561,7 +560,7 @@ l_n=0
 
 
 
-call get_energy(Ngrid,r,tools,tools_info,Z,Nshell,shell_occ,spin,relativity,v_rel,Nspin,shell_l,hybx_w,&
+call get_energy(Ngrid,r,tools,tools_info,vn,Nshell,shell_occ,spin,relativity,v_rel,Nspin,shell_l,hybx_w,&
         vxc,exc,rho,vh,vx_psi,vx_psi_sr,psi,&
         e_kin,e_ext,e_h,e_xc)
 

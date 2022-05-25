@@ -1,4 +1,4 @@
-subroutine orthonorm_get_eig(Ngrid,r,tools,tools_info,Z,l,nmax,relativity,v_rel,hybx_w,&
+subroutine orthonorm_get_eig(Ngrid,r,tools,tools_info,vn,l,nmax,relativity,v_rel,hybx_w,&
         vxc,vh,vx_psi,vx_psi_sr,&
         psi,eig, vx_psi_out, vx_psi_sr_out)
 
@@ -8,7 +8,7 @@ integer(8), intent(in) :: Ngrid
 real(8), intent(in) :: r(Ngrid)
 integer, intent(in) :: tools_info(3)
 real(8), intent(in) :: tools(Ngrid,tools_info(1))
-real(8), intent(in) :: Z
+real(8), intent(in) :: vn(Ngrid)
 integer, intent(in) :: l
 integer, intent(in) :: nmax
 logical, intent(in) :: relativity
@@ -56,7 +56,7 @@ if(.not.relativity)then
     call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*f4*f1*r**2,H(inn,inp))
 !write(*,*) "H1", H(inn,inp)
 
-    f=(0.5d0*dble(l)*dble(l+1)/r**2-Z/r+vh+vxc)*psi(:,inp)+&
+    f=(0.5d0*dble(l)*dble(l+1)/r**2+vn+vh+vxc)*psi(:,inp)+&
             hybx_w(4,1)*vx_psi(:,inp)+hybx_w(5,1)*vx_psi_sr(:,inp)
     call integ_BodesN_value(Ngrid,r,tools,tools_info,psi(:,inn)*f*r**2,Hnn)
 
@@ -71,7 +71,7 @@ else
 
 
 
-    f=(0.5d0*f1*dble(l*(l+1))/r**2-Z/r+vh+vxc)*psi(:,inp)
+    f=(0.5d0*f1*dble(l*(l+1))/r**2+vn+vh+vxc)*psi(:,inp)
     call integ_BodesN_value(Ngrid,r,tools,tools_info,psi(:,inn)*f*r**2,Hnn)
     H(inn,inp)=H(inn,inp)+Hnn
     H(inp,inn)=H(inn,inp)

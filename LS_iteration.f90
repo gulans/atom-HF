@@ -1,4 +1,4 @@
-subroutine LS_iteration(Ngrid, r,tools,tools_info,rsfunC,Nrsfun,hybx_w, Z,l,sp,shell_l,shell_occ, nmax,&
+subroutine LS_iteration(Ngrid, r,tools,tools_info,rsfunC,Nrsfun,hybx_w, vn,l,sp,shell_l,shell_occ, nmax,&
                 shell0, Nshell,Nspin,relativity,lmax,vxc,v_rel, vh,vx_psi,vx_psi_sr, psi_in,psi_in_p,psi,eig,Bess_ik,&
                 iner_loop,xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,F_mix)
         ! Ngrid
@@ -20,7 +20,7 @@ integer, intent(in) :: tools_info(3)
 real(8), intent(in) :: tools(Ngrid,tools_info(1)),hybx_w(5,2)
 integer, intent(in) :: Ngrid, nmax, shell0, Nshell,Nspin
 integer, intent(in) :: l,sp, shell_l(Nshell) 
-real(8), intent(in) :: r(Ngrid),Z,vxc(Ngrid,Nspin),vh(Ngrid),shell_occ(Nshell,Nspin)
+real(8), intent(in) :: r(Ngrid),vn(Ngrid),vxc(Ngrid,Nspin),vh(Ngrid),shell_occ(Nshell,Nspin)
 real(8), intent(in) :: psi_in(Ngrid,Nshell,Nspin),psi_in_p(Ngrid,Nshell,Nspin),F_mix
 real(8), intent(inout) :: vx_psi(Ngrid,nmax),vx_psi_sr(Ngrid,nmax)
 
@@ -87,10 +87,10 @@ do inn=1,nmax
 
           
 if (new_algorithm)then
-  f=-2d0*( (-Z/r+vh+vxc(:,sp))*psi(:,inn) + hybx_w(4,1)*vx_psi(:,inn)&
+  f=-2d0*( (vn+vh+vxc(:,sp))*psi(:,inn) + hybx_w(4,1)*vx_psi(:,inn)&
           + hybx_w(5,1)*vx_psi_sr(:,inn) )
 else!old version
-  f=-2d0*( (-Z/r+vh+vxc(:,sp))*psi_in(:,ish,sp) + hybx_w(4,1)*vx_psi_in(:,inn)&
+  f=-2d0*( (vn+vh+vxc(:,sp))*psi_in(:,ish,sp) + hybx_w(4,1)*vx_psi_in(:,inn)&
           + hybx_w(5,1)*vx_psi_sr_in(:,inn) )
 endif
 
@@ -103,7 +103,7 @@ endif
  call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f2)
  call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,f1*f2*r**2,f3)
  f3=f3/r**2
- f=-f3+f1*dble(l*(l+1))/r**2*psi_in(:,ish,sp) + 2d0*(-Z/r+vh+vxc(:,sp))*psi_in(:,ish,sp) 
+ f=-f3+f1*dble(l*(l+1))/r**2*psi_in(:,ish,sp) + 2d0*(vn+vh+vxc(:,sp))*psi_in(:,ish,sp) 
  f=-f
   endif
 
@@ -169,7 +169,7 @@ eigp=eig
 
 
 
-call orthonorm_get_eig(Ngrid,r,tools,tools_info,Z,l,nmax,relativity,v_rel,hybx_w,&
+call orthonorm_get_eig(Ngrid,r,tools,tools_info,vn,l,nmax,relativity,v_rel,hybx_w,&
         vxc(:,sp),vh,vx_chi,vx_chi_sr,&
         psi,eig,&
         vx_psi,vx_psi_sr)

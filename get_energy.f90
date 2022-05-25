@@ -1,4 +1,4 @@
-subroutine get_energy(Ngrid,r,tools,tools_info,Z,Nshell,shell_occ,spin,relativity,v_rel,Nspin,shell_l,hybx_w,&
+subroutine get_energy(Ngrid,r,tools,tools_info,vn,Nshell,shell_occ,spin,relativity,v_rel,Nspin,shell_l,hybx_w,&
         vxc,exc,rho,vh,vx_psi,vx_psi_sr,psi,&
         e_kin,e_ext,e_h,e_xc)
 
@@ -7,7 +7,7 @@ integer(8), intent(in) :: Ngrid
 real(8), intent(in) :: r(Ngrid)
 integer, intent(in) :: tools_info(3)
 real(8), intent(in) :: tools(Ngrid,tools_info(1))
-real(8), intent(in) :: Z
+real(8), intent(in) :: vn(Ngrid)
 integer, intent(in) :: Nshell, Nspin
 real(8), intent(in) :: shell_occ(Nshell,Nspin)
 logical, intent(in) :: spin
@@ -66,7 +66,7 @@ enddo
 
 endif
 
-call integ_BodesN_value(Ngrid,r,tools,tools_info,-r*rho*Z,e_ext)
+call integ_BodesN_value(Ngrid,r,tools,tools_info, r**2*rho*vn,e_ext)
 
 call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*rho*vh,e_h)
 

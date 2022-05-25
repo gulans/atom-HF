@@ -39,7 +39,7 @@ integer :: grid, Nshell, ish, d_order,i_order
 integer :: ir,i,j,countl0, version,tools_info(3)
 integer(8) :: Ngrid 
 logical :: file_exists, sorted
-character(len=1024) :: filename
+character(len=1024) :: filename,filename1
 
 Real (8)  :: time0,time1, t11
 real(8), allocatable :: tools(:,:)
@@ -525,6 +525,13 @@ call get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nsp
 vxc=mixerC*vxc+(1d0-mixerC)*vxcp
 vh=mixerC*vh+(1d0-mixerC)*vhp
 
+if (relativity)then
+        v_rel(:,1)=-Z/r
+        !v_rel(:,1)=0d0*r
+else
+        v_rel(:,1)=0d0*r
+endif
+
 
 if ((abs(hybx_w(4,1)).gt.1d-20).or.(abs(hybx_w(5,1)).gt.1d-20)) then
  do ish=1,Nshell
@@ -617,6 +624,21 @@ if(((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-13).and.(abs(energy-energy0).lt.1d
         exit
 endif
 
+
+!write wf of current itteration
+if (.true.) then
+  if (iscl.lt.10) then
+  write (filename1, "(A2,I1,A4)") "wf", iscl,".dat"
+  else
+  write (filename1, "(A2,I2,A4)") "wf", iscl,".dat"
+  endif
+  open(11,file=filename1,status='replace')
+  write(11,*)"r psi"
+  do ir=1,Ngrid
+     write(11,*)r(ir), psi(ir,1,1)
+  enddo
+  close(11)
+endif
 
 enddo
 !End of self consistent loop

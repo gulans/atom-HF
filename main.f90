@@ -526,7 +526,7 @@ vxc=mixerC*vxc+(1d0-mixerC)*vxcp
 vh=mixerC*vh+(1d0-mixerC)*vhp
 
 if (relativity)then
-        v_rel(:,1)=-Z/r
+        v_rel(:,1)=vn+vh+vxc(:,1)
         !v_rel(:,1)=0d0*r
 else
         v_rel(:,1)=0d0*r

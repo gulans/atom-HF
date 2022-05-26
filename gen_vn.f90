@@ -6,7 +6,7 @@ real(8), intent(out) :: vn(Ngrid)
 integer :: ir
 real(8) :: sigma
 
-sigma=1d-5
+sigma=1d-6
 vn=-Z/r
 if(.false.)then
   vn=(-Z/r)*erf(r/(dsqrt(2d0)*sigma))

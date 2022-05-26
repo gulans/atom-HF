@@ -99,14 +99,29 @@ endif
 
   else
 
- f1=v_rel*alpha2/(1d0-v_rel*alpha2)
-! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f2)
- call rderivative_lagrN(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f2)
-! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,f1*f2*r**2,f3)
- call rderivative_lagrN(Ngrid,r,tools,tools_info,f1*f2*r**2,f3)
- f3=f3/r**2
- f=-f3+f1*dble(l*(l+1))/r**2*psi_in(:,ish,sp) + 2d0*(vn+vh+vxc(:,sp))*psi_in(:,ish,sp) 
- f=-f
+if(.true.)then
+    f1=1d0/(1d0-alpha2*v_rel)
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,log(f1),f2)
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f3)
+    f4=-f2*f3
+    
+    f2=2d0*(vn+vh+vxc(:,sp))*psi_in(:,ish,sp)/f1
+    f3=2d0*alpha2*v_rel*eig(inn)*psi_in(:,ish,sp)
+    f=f4+f2+f3
+    f=-f
+else
+    f1=v_rel*alpha2/(1d0-v_rel*alpha2)
+    ! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f2)
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f2)
+    ! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,f1*f2*r**2,f3)
+    call rderivative_lagrN(Ngrid,r,tools,tools_info,f1*f2*r**2,f3)
+    f3=f3/r**2
+    f=-f3+f1*dble(l*(l+1))/r**2*psi_in(:,ish,sp) + 2d0*(vn+vh+vxc(:,sp))*psi_in(:,ish,sp) 
+    f=-f
+endif
+
+
+
   endif
 
 

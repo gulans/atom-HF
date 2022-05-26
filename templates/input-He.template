@@ -10,7 +10,7 @@ Non-local exchange:
 0d0 0.11d0     (SR HF weigth and parameter)
 Grid 0-equidistant 1-cubic 2-exponential 3-advanced_cubic
 3
-Relativity(0-false, 1-local v)
+Relativity(0-false, 1-nZORA 2-ZORA)
 .true.
 Number of shells - 1s 2s
 1

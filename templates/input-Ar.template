@@ -1,17 +1,17 @@
 Z Rmin Rmax Ngrid version
-18d0 1d-5 24d0 200 1 
+18d0 1d-8 24d0 5000 1 
 xc_id(libxc_id or -1(LDA) -2(PBE))  weigth number_of_parameters
 1 1d0 0
-12 1d0 0
+13 1d0 0
 0 0d0 0
 Non-local exchange:
-.true.         (true to override hybrid libxc functional parameters)
+.false.         (true to override hybrid libxc functional parameters)
 0d0            (HF weigth)
 0d0 0.11d0     (SR HF weigth and parameter)
 Grid 0-equidistant 1-cubic 2-exponential 3-advanced_cubic
-3
+2
 relativity
-.false.
+.true.
 Number of shells - 1s 2s
 5
 spin

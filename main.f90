@@ -55,13 +55,15 @@ integer :: param_nr1,param_nr2,param_nr3
 real(8), allocatable :: param1(:), param2(:), param3(:)
 integer :: sh0,sh1
 logical :: relativity
+integer :: relcase
+real(8) :: sigma
 positive_eig_iter=0
 
 call timesec(time0)
 
 !read input
 read(*,*) 
-read(*,*) Z, Rmin, Rmax, Ngrid, version
+read(*,*) Z, Rmin, Rmax, Ngrid, version, sigma
 read(*,*)
 read(*,*) xc1_num, hybx_w(1,1), param_nr1
 allocate(param1(param_nr1))
@@ -89,17 +91,25 @@ read(*,*) hybx_w(5,1),hybx_w(5,2)
 read(*,*)
 read(*,*) grid
 read(*,*) 
-read(*,*) relativity
+read(*,*) relcase
 read(*,*)
 read(*,*) Nshell
 read(*,*)
 read(*,*) spin
 read(*,*)
+if (relcase.eq.0) then
+        relativity=.false.
+else
+        relativity=.true.
+endif
+
 if (spin)then
         Nspin=2
 else
         Nspin=1
 endif
+
+
 
 allocate(shell_n(Nshell),shell_l(Nshell),shell_occ(Nshell,Nspin))
 if (.not.spin) then
@@ -355,10 +365,10 @@ if ((version.eq.1).or.(version.eq.2)) then
      open(11,file='res.dat',status='old', access='append')
   else
      open(11,file='res.dat',status='new')
-     write(11,*)"grid,iter,posit_eig_iter,xc1_num,xc2_num,c2_num,d_order,i_order,Ngrid,Rmin,Rmax,&
+     write(11,*)"relativity,sigma,grid,iter,posit_eig_iter,xc1_num,xc2_num,c2_num,d_order,i_order,Ngrid,Rmin,Rmax,&
              Z,N_el,time,Nrsfuni&
              ,Fock_w,Fock_rs_w,rs_mu,",&
-             "dE,energy,e_homo"
+             "dE,energy"
   endif
   close(11)
 
@@ -377,7 +387,7 @@ allocate(grho_sp(2,Ngrid),grho2_sp(3,Ngrid),vxc1_sp(2,Ngrid),vxc2_sp(2,Ngrid),vx
 
 
 call gengrid(grid,Z,Ngrid,Rmin,Rmax,r)
-call gen_vn(Ngrid,Z,r,vn)
+call gen_vn(Ngrid,Z,r,sigma,vn)
 
 d_order=9
 i_order=9
@@ -526,7 +536,14 @@ vxc=mixerC*vxc+(1d0-mixerC)*vxcp
 vh=mixerC*vh+(1d0-mixerC)*vhp
 
 if (relativity)then
+      if (relcase.eq.1) then
+        v_rel(:,1)=vn
+      elseif (relcase.eq.2) then
         v_rel(:,1)=vn+vh+vxc(:,1)
+      else
+        v_rel(:,1)=0d0*r
+        write(*,*) "relcase=",relcase ," 1-nZORA or 2-ZORA"
+      endif
         !v_rel(:,1)=0d0*r
 else
         v_rel(:,1)=0d0*r
@@ -618,7 +635,7 @@ endif
 !Check convergence
 
 !write(*,*)iscl,". " ,eig,eigp, "eig eigp"
-if(((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-13).and.(abs(energy-energy0).lt.1d-6).and.(iscl.gt.1))then !1d-13 for best result 
+if(((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-14).and.(abs(energy-energy0).lt.1d-6).and.(iscl.gt.1))then !1d-13 for best result 
         write(*,*)"Convergence of external cycle reached:"
         write(*,*)"max(eig-eigp) absolute : ",maxval(abs(eig-eigp))," relative: ",maxval(abs(eig-eigp)/(abs(eig-1d0)))
         exit
@@ -674,7 +691,8 @@ endif
 
 !  write results 
   open(11,file='res.dat',status='old', access='append')
-  write(11, '(i1,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i5,a1)',advance="no") grid,",",iscl,",",positive_eig_iter,&
+  write(11, '(i1,a1, ES9.2E2 ,a1,i1,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i3,a1,i5,a1)',advance="no") relcase,",",sigma,",",&
+          grid,",",iscl,",",positive_eig_iter,&
           ",",xc1_num,",",xc2_num,",",xc3_num,",",d_order,",",i_order,",",Ngrid,","
   write(11, '(ES9.2E2,a1)',advance="no")Rmin,","
  write(11, '(f5.2)' ,advance="no") Rmax
@@ -686,12 +704,12 @@ endif
   do ish=1,Nshell
   do isp=1,Nspin
     if ((eig(ish,isp).gt.e1).and.(shell_occ(ish,isp).gt.1d-10))then
-     e1=eig(ish,isp)
+     e1=eig(ish,isp) !E_homo
     endif
   enddo
   enddo
 
-  write(11, *)",",energy,",",e1
+  write(11, *)",",energy!,",",e1
   close(11)
 
   inquire(file='output.dat',EXIST=file_exists)

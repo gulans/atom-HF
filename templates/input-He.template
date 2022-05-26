@@ -1,5 +1,5 @@
-Z Rmin Rmax Ngrid version
-2d0 1d-5 20 1000 1
+Z Rmin Rmax Ngrid version sigma
+2d0 1d-5 20 1000 1 1d-3
 xc_id(libxc_id or -1(LDA) -2(PBE))  weigth number_of_parameters
 1 1d0 0
 13 1d0 0
@@ -11,7 +11,7 @@ Non-local exchange:
 Grid 0-equidistant 1-cubic 2-exponential 3-advanced_cubic
 3
 Relativity(0-false, 1-nZORA 2-ZORA)
-.true.
+2
 Number of shells - 1s 2s
 1
 Spin polarised:

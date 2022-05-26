@@ -73,7 +73,7 @@ do iscl=1,maxscl
 
 !write(*,*)l,eig,iscl!,". eig-eigp: ",eig-eigp
 !convergence check
-if((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-13)then
+if((maxval(abs((eig-eigp)/(eig-1d0)))).lt.1d-14)then
         iner_loop=iscl-1
        !write(*,*)"Convergence of internal cycle reached, iteration ",iscl
        !write(*,*)"max(eig-eigp) absolute : ",maxval(abs(eig-eigp))," relative: ",maxval(abs(eig-eigp)/(abs(eig-1d0)))

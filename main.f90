@@ -1,6 +1,6 @@
 program atomHF
 
-
+use modinteg
 !!!!!!!!!! libxc !!!!!!!!!
   use xc_f03_lib_m
   implicit none
@@ -35,9 +35,9 @@ complex(8), allocatable :: Bess_ik(:,:,:,:)
 integer :: il,icl,il_icl,iscl,lmax,l_n,inn, positive_eig_iter
 real(8) :: Z,rez,a1,a2,mixerC,F_mix
 real(8) :: norm,Rmin,Rmax,hh,dE_min,e1,e2,e3,energy,energy0,e_kin,e_ext,e_h,e_xc,e_pot
-integer :: grid, Nshell, ish, d_order,i_order
+integer :: grid, Nshell, ish
 integer :: ir,i,j,countl0, version,tools_info(3)
-integer(8) :: Ngrid 
+integer :: Ngrid 
 logical :: file_exists, sorted
 character(len=1024) :: filename,filename1
 
@@ -386,12 +386,22 @@ allocate(grho_sp(2,Ngrid),grho2_sp(3,Ngrid),vxc1_sp(2,Ngrid),vxc2_sp(2,Ngrid),vx
         vxcsigma_sp(3,Ngrid),gvxcsigma_sp(3,Ngrid),g2rho_sp(2,Ngrid))
 
 
+
 call gengrid(grid,Z,Ngrid,Rmin,Rmax,r)
 call gen_vn(Ngrid,Z,r,sigma,vn)
 
-d_order=9
+
+
+
+!!Varaibles defined in module mod_integ.f90 
+d_order=8
 i_order=9
-        tools_info=(/40,d_order,i_order/)
+integrate_0_r1=.true.
+call gen_icoef(Ngrid,r)
+
+
+
+tools_info=(/40,d_order,i_order/)
  !info about tools_info array:
  !tools_info(1) - (2-nd dimenstion size of tools array 1-10 - coefficinets for Lagrange interp,
  !                11-20 coefficints for (ri+1/4) interpolation, and 21-30 for (ri+2/4), 31-40 for (ri+3/4) 
@@ -400,6 +410,67 @@ i_order=9
 
 Allocate(tools(Ngrid,tools_info(1)))
 call generate_tools(Ngrid,r,tools,tools_info)
+
+
+
+
+
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+
+
+if(.false.)then
+ftemp=exp(-r)
+call rderivative_lagrN(Ngrid,r,tools,tools_info,ftemp,ftemp1)
+call deriv_f(Ngrid,r,ftemp,ftemp2)
+do ir=1,Ngrid
+write(*,*)ftemp2(ir),ftemp1(ir),-exp(-r(ir)),(ftemp2(ir)+exp(-r(ir)))/exp(-r(ir))
+
+enddo
+stop
+endif
+
+
+!!!!!!!!!!! ŠIM JĀPIEVĒRŠAS KĀDREIZ pie ļoti mazām astēm 1e-60 nesakrīt rezultāti par vairākām kārtām !!!!!!!!!!!!!!!!
+
+if(.false.)then
+  ftemp=r*exp(-r)
+  call integ_BodesN_fun(Ngrid,r,tools,tools_info,-1,ftemp,ftemp1)
+  call integ_f_rev(Ngrid,r,ftemp,ftemp2)
+  !ftemp3=ftemp2(Ngrid)-ftemp2
+  do ir=1,Ngrid
+  !write(*,*)ftemp1(ir),ftemp3(ir),(ftemp1(ir)-ftemp3(ir))/ftemp1(ir)
+  write(*,*)ftemp1(ir),ftemp2(ir),(ftemp1(ir)-ftemp2(ir))/ftemp1(ir)
+  enddo
+  ir=Ngrid
+  write(*,*)ftemp1(ir),ftemp3(ir)
+stop
+endif
+
+if(.false.)then
+  ftemp=r*exp(-r)
+  call integ_BodesN_fun(Ngrid,r,tools,tools_info,1,ftemp,ftemp1)
+  call integ_f(Ngrid,r,ftemp,ftemp2)
+  !ftemp3=ftemp2(Ngrid)-ftemp2
+  do ir=1,Ngrid
+  !write(*,*)ftemp1(ir),ftemp3(ir),(ftemp1(ir)-ftemp3(ir))/ftemp1(ir)
+  write(*,*)ftemp1(ir),ftemp2(ir),(ftemp1(ir)-ftemp2(ir))/ftemp1(ir)
+  enddo
+  ir=Ngrid
+  write(*,*)ftemp1(ir),ftemp3(ir)
+stop
+endif
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+
 
 Nrsfun=8 
 allocate(rsfunC(Nrsfun,2))
@@ -563,7 +634,6 @@ endif !end get Fock exchange
 
 
 
-
 psipp=psip
 psip=psi
 eigp=eig
@@ -661,6 +731,13 @@ enddo
 !End of self consistent loop
 
 call timesec(time1)
+
+
+
+
+
+
+
 
 
 
@@ -775,6 +852,9 @@ endif
   do ir=1, Ngrid
   write(11,*)r(ir)
   enddo
+
+call dealoc_icoef()
+
 
 deallocate(r,vh,rho,vxc,exc,vxc1,exc1,vxc2,exc2,vxc3,exc3,psi,eig,&
         grho2,ftemp1,ftemp2,vxcsigma,grho,g2rho,psip,vx_psi,vx_psi_sr,eigp)  

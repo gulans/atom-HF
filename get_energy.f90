@@ -1,9 +1,9 @@
 subroutine get_energy(Ngrid,r,tools,tools_info,vn,Nshell,shell_occ,spin,relativity,v_rel,Nspin,shell_l,hybx_w,&
         vxc,exc,rho,vh,vx_psi,vx_psi_sr,psi,&
         e_kin,e_ext,e_h,e_xc)
-
+use modinteg
 implicit none
-integer(8), intent(in) :: Ngrid
+integer, intent(in) :: Ngrid
 real(8), intent(in) :: r(Ngrid)
 integer, intent(in) :: tools_info(3)
 real(8), intent(in) :: tools(Ngrid,tools_info(1))
@@ -36,9 +36,12 @@ e_kin=0d0
 if (.not.relativity) then
 do ish=1,Nshell
 do isp=1, Nspin
-  call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish,isp),ftemp1)
-  call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp1**2*r**2,e1)
-  call integ_BodesN_value(Ngrid,r,tools, tools_info,0.5d0*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish,isp)**2,e2)
+  !call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish,isp),ftemp1)
+  call deriv_f(Ngrid,r,psi(:,ish,isp),ftemp1)
+  call integ_v(Ngrid,r,0.5d0*ftemp1**2*r**2,e1)
+  call integ_v(Ngrid,r,0.5d0*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish,isp)**2,e2)
+ ! call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp1**2*r**2,e1)
+ ! call integ_BodesN_value(Ngrid,r,tools, tools_info,0.5d0*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish,isp)**2,e2)
   e_kin=e_kin+shell_occ(ish,isp)*(e1+e2)
 !  write(*,*)"e1, e2",e1,e2
 enddo
@@ -54,32 +57,39 @@ do isp=1, Nspin
 !    call integ_BodesN_value(Ngrid,r,tools,tools_info,-0.5d0*psi(:,ish,isp)*ftemp4*r**2,e1)
 
     ftemp2=1d0/(1d0-v_rel(:,isp)*alpha2)
-   call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish,isp),ftemp1)
-   call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp2*ftemp1**2*r**2,e1)
+   !call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,ish,isp),ftemp1)
+   call deriv_f(Ngrid,r,psi(:,ish,isp),ftemp1) 
+   call integ_v(Ngrid,r,0.5d0*ftemp2*ftemp1**2*r**2,e1)
+   !call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp2*ftemp1**2*r**2,e1)
 
-
-    call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp2*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish,isp)**2,e2)
+    call integ_v(Ngrid,r,0.5d0*ftemp2*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish,isp)**2,e2)
+   !call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*ftemp2*dble(shell_l(ish))*dble(shell_l(ish)+1)*psi(:,ish,isp)**2,e2)
     e_kin=e_kin+shell_occ(ish,isp)*(e1+e2)
 !    write(*,*)"e1,e2",e1,e2
 enddo
 enddo
 
 endif
+call integ_v(Ngrid,r, r**2*rho*vn,e_ext)
+!call integ_BodesN_value(Ngrid,r,tools,tools_info, r**2*rho*vn,e_ext)
 
-call integ_BodesN_value(Ngrid,r,tools,tools_info, r**2*rho*vn,e_ext)
-
-call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*rho*vh,e_h)
+call integ_v(Ngrid,r,r**2*0.5d0*rho*vh,e_h)
+!call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*rho*vh,e_h)
 
 e2=0d0
   do isp=1,Nspin
   do ish=1,Nshell
-    call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish,isp)*psi(:,ish,isp)*&
+    call integ_v(Ngrid,r,r**2*0.5d0*shell_occ(ish,isp)*psi(:,ish,isp)*&
             (hybx_w(4,1)*vx_psi(:,ish,isp)+hybx_w(5,1)*vx_psi_sr(:,ish,isp)),e1)
+
+    !call integ_BodesN_value(Ngrid,r,tools, tools_info,r**2*0.5d0*shell_occ(ish,isp)*psi(:,ish,isp)*&
+    !        (hybx_w(4,1)*vx_psi(:,ish,isp)+hybx_w(5,1)*vx_psi_sr(:,ish,isp)),e1)
     e2=e2+e1
   enddo
   enddo
- 
-  call integ_BodesN_value(Ngrid,r,tools, tools_info,exc(:,1)*rho*r**2,e3)
+  call integ_v(Ngrid,r,exc(:,1)*rho*r**2,e3)
+
+  !call integ_BodesN_value(Ngrid,r,tools, tools_info,exc(:,1)*rho*r**2,e3)
  e_xc=e2+e3
 
 end subroutine

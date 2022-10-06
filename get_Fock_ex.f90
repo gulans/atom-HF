@@ -1,5 +1,6 @@
 subroutine get_Fock_ex(Ngrid,r,tools,tools_info,shell,Nshell,shell_l,shell_occ,lmax,psi,psi_all,&
                 vx_psi,vx_psi_sr,rsfunC,Nrsfun,hybx_w,Bess_ik)
+use modinteg
 implicit none
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
 integer, intent(in) :: tools_info(3),lmax
@@ -43,10 +44,12 @@ do ish=1, Nshell
 
 if (abs(hybx_w(4,1)).gt.1d-20) then          
  !!without range seperation (Coulumb)
-    call integ_BodesN_fun(Ngrid,r, tools, tools_info,1,  u_all(:,ish)*u*r**lpripri    ,integ1)
+    call integ_f(Ngrid,r, u_all(:,ish)*u*r**lpripri ,integ1)
+    !call integ_BodesN_fun(Ngrid,r, tools, tools_info,1,  u_all(:,ish)*u*r**lpripri    ,integ1)
 
       integ1=integ1/r**(lpripri+1)
-      call integ_BodesN_fun(Ngrid,r,tools,tools_info,-1, u_all(:,ish)*u/r**(lpripri+1),integ2)
+   call integ_f_rev(Ngrid,r,u_all(:,ish)*u/r**(lpripri+1),integ2)
+   !call integ_BodesN_fun(Ngrid,r,tools,tools_info,-1, u_all(:,ish)*u/r**(lpripri+1),integ2)
 
 
       integ2=integ2*r**lpripri

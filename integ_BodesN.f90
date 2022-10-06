@@ -67,7 +67,8 @@ do ir=1,int(Npoints/2)
      interp1(3)=interp1(3)+y(i)*tools(ir,30+i)
      enddo
   rez(ir+1)=rez(ir)+h*(14d0*fin(ir)+64d0*interp1(1)+24d0*interp1(2)+64d0*interp1(3)+14d0*fin(ir+1))/45d0
- enddo
+
+  enddo
 
 do ir=int(Npoints/2)+1, Ngrid-int(Npoints/2)-1
   do i=1, Npoints
@@ -90,7 +91,7 @@ do ir=int(Npoints/2)+1, Ngrid-int(Npoints/2)-1
      interp1(3)=interp1(3)+y(i)*tools(ir,30+i)
    enddo
    rez(ir+1)=rez(ir)+h*(14d0*fin(ir)+64d0*interp1(1)+24d0*interp1(2)+64d0*interp1(3)+14d0*fin(ir+1))/45d0
-    
+
     
 enddo
 
@@ -141,6 +142,8 @@ do ir=Ngrid-1,Ngrid-int(Npoints/2),-1
 !   rez(ir)=rez(ir+1)+h*(14d0*fin(ir)+64d0*interp1(1)+24d0*interp1(2)+64d0*interp1(3)+14d0*fin(ir+1))/45d0
 !trapezoidal rule is used:
 rez(ir)=rez(ir+1)+4d0*h*(fin(ir)+fin(ir+1))/2d0
+
+
 !write(*,*)ir,rez(ir)
 enddo
 
@@ -167,8 +170,7 @@ do ir=Ngrid-int(Npoints/2)-1,int(Npoints/2)+1,-1
      interp1(3)=interp1(3)+y(i)*tools(ir,30+i)
    enddo
    rez(ir)=rez(ir+1)+h*(14d0*fin(ir)+64d0*interp1(1)+24d0*interp1(2)+64d0*interp1(3)+14d0*fin(ir+1))/45d0
-    
-    
+   
 enddo
 
 !!!BEGINING of function
@@ -190,7 +192,8 @@ do ir=int(Npoints/2),1,-1
      interp1(3)=interp1(3)+y(i)*tools(ir,30+i)
      enddo
   rez(ir)=rez(ir+1)+h*(14d0*fin(ir)+64d0*interp1(1)+24d0*interp1(2)+64d0*interp1(3)+14d0*fin(ir+1))/45d0
- enddo
+
+  enddo
 
 
 endif

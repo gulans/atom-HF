@@ -1,10 +1,10 @@
 subroutine orthonorm_get_eig(Ngrid,r,tools,tools_info,vn,l,nmax,relativity,v_rel,hybx_w,&
         vxc,vh,vx_psi,vx_psi_sr,&
         psi,eig, vx_psi_out, vx_psi_sr_out)
-
+use modinteg
 use xc_f03_lib_m
 implicit none
-integer(8), intent(in) :: Ngrid
+integer, intent(in) :: Ngrid
 real(8), intent(in) :: r(Ngrid)
 integer, intent(in) :: tools_info(3)
 real(8), intent(in) :: tools(Ngrid,tools_info(1))
@@ -43,7 +43,8 @@ vx_psi_sr_out=0d0*vx_psi
 
 do inn=1,nmax !matrix is symetric !lower triangular matrix 
 do inp=inn,nmax
-    call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn)*psi(:,inp),Snn)
+    !call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn)*psi(:,inp),Snn)
+    call integ_v(Ngrid,r,r**2*psi(:,inn)*psi(:,inp),Snn)
     S(inn,inp)=Snn
     S(inp,inn)=Snn
 if(.not.relativity)then
@@ -51,28 +52,36 @@ if(.not.relativity)then
 !    call rderivative_lagrN(Ngrid,r,tools,tools_info,f2*r**2,f3)
 !    call integ_BodesN_value(Ngrid,r,tools,tools_info,-0.5d0*psi(:,inn)*f3, H(inn,inp))
     
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inp),f4)
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inn),f1)
-    call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*f4*f1*r**2,H(inn,inp))
+    !call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inp),f4)
+    !call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inn),f1)
+    !call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*f4*f1*r**2,H(inn,inp))
+    
+    call deriv_f(Ngrid,r,psi(:,inp),f4)
+    call deriv_f(Ngrid,r,psi(:,inn),f1)
+    call integ_v(Ngrid,r,0.5d0*f4*f1*r**2,H(inn,inp))
 !write(*,*) "H1", H(inn,inp)
 
     f=(0.5d0*dble(l)*dble(l+1)/r**2+vn+vh+vxc)*psi(:,inp)+&
             hybx_w(4,1)*vx_psi(:,inp)+hybx_w(5,1)*vx_psi_sr(:,inp)
-    call integ_BodesN_value(Ngrid,r,tools,tools_info,psi(:,inn)*f*r**2,Hnn)
-
+    !call integ_BodesN_value(Ngrid,r,tools,tools_info,psi(:,inn)*f*r**2,Hnn)
+    call integ_v(Ngrid,r,psi(:,inn)*f*r**2,Hnn)
+    
     H(inn,inp)=H(inn,inp)+Hnn
     H(inp,inn)=H(inn,inp)
 else
     f1=1d0/(1d0-v_rel*alpha2)
  
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inp),f2)
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inn),f3)
-    call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*f2*f1*f3*r**2,H(inn,inp))
-
+    !call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inp),f2)
+    !call rderivative_lagrN(Ngrid,r,tools,tools_info,psi(:,inn),f3)
+    !call integ_BodesN_value(Ngrid,r,tools,tools_info,0.5d0*f2*f1*f3*r**2,H(inn,inp))
+    call deriv_f(Ngrid,r,psi(:,inp),f2)
+    call deriv_f(Ngrid,r,psi(:,inn),f3)
+    call integ_v(Ngrid,r,0.5d0*f2*f1*f3*r**2,H(inn,inp))
 
 
     f=(0.5d0*f1*dble(l*(l+1))/r**2+vn+vh+vxc)*psi(:,inp)
-    call integ_BodesN_value(Ngrid,r,tools,tools_info,psi(:,inn)*f*r**2,Hnn)
+    !call integ_BodesN_value(Ngrid,r,tools,tools_info,psi(:,inn)*f*r**2,Hnn)
+    call integ_v(Ngrid,r,psi(:,inn)*f*r**2,Hnn)
     H(inn,inp)=H(inn,inp)+Hnn
     H(inp,inn)=H(inn,inp)
 endif

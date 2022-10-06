@@ -10,7 +10,7 @@ subroutine LS_iteration(Ngrid, r,tools,tools_info,rsfunC,Nrsfun,hybx_w, vn,l,sp,
         ! eigval (OUT) - erigval array
         ! eigfun (OUT) - eigfun array
 use xc_f03_lib_m
-
+use modinteg
 
 !--input and output variables--
 implicit none
@@ -50,6 +50,9 @@ real(8) :: vx_psi_in(Ngrid,nmax),vx_psi_sr_in(Ngrid,nmax)
 logical :: new_algorithm
 logical :: eig_limiter
 
+
+
+
 new_algorithm=.false.
 eig_limiter=.false.
 elimit=-0.0002d0
@@ -84,8 +87,7 @@ do inn=1,nmax
   ish=shell0+inn
 
   if (.not.relativity)then 
-
-          
+     
 if (new_algorithm)then
   f=-2d0*( (vn+vh+vxc(:,sp))*psi(:,inn) + hybx_w(4,1)*vx_psi(:,inn)&
           + hybx_w(5,1)*vx_psi_sr(:,inn) )
@@ -101,8 +103,10 @@ endif
 
 if(.true.)then
     f1=1d0/(1d0-alpha2*v_rel)
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,log(f1),f2)
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f3)
+    !call rderivative_lagrN(Ngrid,r,tools,tools_info,log(f1),f2)
+    !call rderivative_lagrN(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f3)
+    call deriv_f(Ngrid,r,log(f1),f2)
+    call deriv_f(Ngrid,r,psi_in(:,ish,sp),f3)
     f4=-f2*f3
     
     f2=2d0*(vn+vh+vxc(:,sp))*psi_in(:,ish,sp)/f1
@@ -111,10 +115,11 @@ if(.true.)then
     f=-f
 else
     f1=v_rel*alpha2/(1d0-v_rel*alpha2)
-    ! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f2)
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f2)
-    ! call rderivative_lagrN_st3(Ngrid,r,tools,tools_info,f1*f2*r**2,f3)
-    call rderivative_lagrN(Ngrid,r,tools,tools_info,f1*f2*r**2,f3)
+
+    !call rderivative_lagrN(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f2)
+    !call rderivative_lagrN(Ngrid,r,tools,tools_info,f1*f2*r**2,f3)
+    call deriv_f(Ngrid,r,psi_in(:,ish,sp),f2)
+    call deriv_f(Ngrid,r,f1*f2*r**2,f3)
     f3=f3/r**2
     f=-f3+f1*dble(l*(l+1))/r**2*psi_in(:,ish,sp) + 2d0*(vn+vh+vxc(:,sp))*psi_in(:,ish,sp) 
     f=-f
@@ -146,8 +151,9 @@ endif
 
 
 
+ !call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn)**2,norm)
+  call integ_v(Ngrid,r,r**2*psi(:,inn)**2,norm)
 
-  call integ_BodesN_value(Ngrid,r,tools,tools_info,r**2*psi(:,inn)**2,norm)
   psi(:,inn)=psi(:,inn)/dsqrt(norm)
 
 enddo
@@ -231,7 +237,7 @@ enddo !self consistent loop
 end subroutine
 
 subroutine scrPoisson(Ngrid, r,tools,tools_info,l,f, e, psi)
-
+use modinteg
 integer, intent(in) :: tools_info(3)
 real(8), intent(in) :: tools(Ngrid,tools_info(1))
 integer, intent(in) :: Ngrid
@@ -241,7 +247,7 @@ real(8), intent(inout) :: e
 real(8), intent(out) :: psi(Ngrid)
 
 real(8), PARAMETER :: Pi = 3.1415926535897932384d0
-real(8) :: f(Ngrid),lam
+real(8) :: f(Ngrid),lam,temp1(Ngrid),temp2(Ngrid)
 real(8) :: besrezi(0:50), besrezk(0:50)
 integer :: ri,i,endpoint
 real(8) :: f11(Ngrid),f12(Ngrid),f21(Ngrid),f22(Ngrid),int1(Ngrid),int2(Ngrid)
@@ -283,14 +289,21 @@ f21(ri)=lam*besi
 f22(ri)=besk*f(ri)
 enddo
 
-call integ_BodesN_fun(Ngrid,r,tools,tools_info,1,f12*r**2,int1)
+call integ_f(Ngrid,r,f12*r**2,int1)
+
 !call integ_BodesN_fun(Ngrid,r,tools,tools_info,-1,f22*r**2,int2)
-call integ_BodesN_fun(endpoint,r(1:endpoint),tools(1:endpoint,:),tools_info,-1,f22(1:endpoint)*r(1:endpoint)**2,int2(1:endpoint))
+
+!call integ_BodesN_fun(endpoint,r(1:endpoint),tools(1:endpoint,:),tools_info,-1,f22(1:endpoint)*r(1:endpoint)**2,int2(1:endpoint))
+call integ_f_rev(endpoint,r(1:endpoint),f22(1:endpoint)*r(1:endpoint)**2,int2(1:endpoint))
+
+
 int2(endpoint+1:Ngrid)=0d0*r(endpoint+1:Ngrid)
+
 !do ri=1, Ngrid
-!write(*,*)r(ri),int2(ri)
+!  write(*,*)int2(ri),temp1(ri)
 !enddo
 !stop
+
 psi=f11*int1+f21*int2
 
 ! open(11,file='scr_poisson_out1.dat',status='replace')

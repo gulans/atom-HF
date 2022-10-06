@@ -1,8 +1,9 @@
 subroutine get_local_exc_vxc_vh_rho(Ngrid,r,tools,tools_info,Nshell,shell_occ,spin,Nspin,psi,&
          xc1_num,xc2_num,xc3_num,xc1_func,xc2_func,xc3_func,hybx_w,exc,vxc,vh,rho)
 use xc_f03_lib_m
+use modinteg
 implicit none
-integer(8), intent(in) :: Ngrid
+integer, intent(in) :: Ngrid
 real(8), intent(in) :: r(Ngrid)
 integer, intent(in) :: tools_info(3)
 real(8), intent(in) :: tools(Ngrid,tools_info(1))
@@ -88,18 +89,20 @@ if (xc_num(ixc).gt.0)then
   ixc_info = xc_f03_func_get_info(xc_func(ixc))
   if (xc_f03_func_info_get_family(ixc_info).eq.XC_FAMILY_LDA) then
     if (.not.spin)then 
-          call xc_f03_lda_exc_vxc(xc_func(ixc), Ngrid, rho(1), exc_i(1),vxc_i(1))
+          call xc_f03_lda_exc_vxc(xc_func(ixc), int8(Ngrid), rho(1), exc_i(1),vxc_i(1))
   else !spin polarised LDA
-          call xc_f03_lda_exc_vxc(xc_func(ixc), Ngrid, rho_sp(1,1), exc_i(1),vxc_sp_i(1,1))
+          call xc_f03_lda_exc_vxc(xc_func(ixc), int8(Ngrid), rho_sp(1,1), exc_i(1),vxc_sp_i(1,1))
   endif
   elseif  ((xc_f03_func_info_get_family(ixc_info).eq.XC_FAMILY_GGA).or.&
                  (xc_f03_func_info_get_family(ixc_info).eq.XC_FAMILY_HYB_GGA)) then
    if (.not.spin)then
-     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
-     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
+     !call rderivative_lagrN(Ngrid,r,tools,tools_info,rho,grho)
+     !call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho,g2rho)
+     call deriv_f(Ngrid,r,rho,grho)
+     call deriv_f(Ngrid,r,r**2*grho,g2rho)
      g2rho=g2rho*r**(-2)
      grho2=grho**2
-     call xc_f03_gga_exc_vxc(xc_func(ixc), Ngrid, rho(1), grho2(1), exc_i(1),vxc_i(1),vxcsigma(1))!
+     call xc_f03_gga_exc_vxc(xc_func(ixc), int8(Ngrid), rho(1), grho2(1), exc_i(1),vxc_i(1),vxcsigma(1))!
 
   !!!!! formula 6.0.8 !!!!!!
 !  call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho*vxcsigma,ftemp1)
@@ -108,7 +111,8 @@ if (xc_num(ixc).gt.0)then
   !!!!! end formula 6.0.8 !!!!!!!
 
 !   !!!!! formula 6.0.5 (exciting variants) !!!!!!
-      call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
+     ! call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma,ftemp1)
+      call deriv_f(Ngrid,r,vxcsigma,ftemp1)     
      vxc_i=vxc_i-2d0*(grho*ftemp1+vxcsigma*g2rho)
 !   !!!!! end formula 6.0.5 (exciting variants) !!!!!!!
 !
@@ -117,23 +121,30 @@ if (xc_num(ixc).gt.0)then
 ! xc_f03_gga_exc_vxc(func, Ngrid, rho(1), sigma(1), ex(1),vrho(1),vsigma(1)) --libxc documentation
 !                     (in)  (in)   (in)     (in)    (out)  (out)   (out)
 !                                          grho2       
-     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho_sp(1,:),grho_sp(1,:))
-     call rderivative_lagrN(Ngrid,r,tools,tools_info,rho_sp(2,:),grho_sp(2,:))
+     !call rderivative_lagrN(Ngrid,r,tools,tools_info,rho_sp(1,:),grho_sp(1,:))
+     !call rderivative_lagrN(Ngrid,r,tools,tools_info,rho_sp(2,:),grho_sp(2,:))
+     call deriv_f(Ngrid,r,rho_sp(1,:),grho_sp(1,:))
+     call deriv_f(Ngrid,r,rho_sp(2,:),grho_sp(2,:))
      grho2_sp(1,:)=grho_sp(1,:)**2
      grho2_sp(2,:)=grho_sp(1,:)*grho_sp(2,:)
      grho2_sp(3,:)=grho_sp(2,:)**2
-     call xc_f03_gga_exc_vxc(xc_func(ixc),Ngrid,rho_sp(1,1),grho2_sp(1,1)&
+     call xc_f03_gga_exc_vxc(xc_func(ixc),int8(Ngrid),rho_sp(1,1),grho2_sp(1,1)&
             ,exc_i(1),vxc_sp_i(1,1),vxcsigma_sp(1,1))
     
-     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho_sp(1,:),g2rho_sp(1,:))
-     call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho_sp(2,:),g2rho_sp(2,:))
+     !call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho_sp(1,:),g2rho_sp(1,:))
+     !call rderivative_lagrN(Ngrid,r,tools,tools_info,r**2*grho_sp(2,:),g2rho_sp(2,:))
+     call deriv_f(Ngrid,r,r**2*grho_sp(1,:),g2rho_sp(1,:))
+     call deriv_f(Ngrid,r,r**2*grho_sp(2,:),g2rho_sp(2,:))
+
      g2rho_sp(1,:)=g2rho_sp(1,:)*r**(-2)
      g2rho_sp(2,:)=g2rho_sp(2,:)*r**(-2)
 
-     call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(1,:),gvxcsigma_sp(1,:))
-     call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(2,:),gvxcsigma_sp(2,:))
-     call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(3,:),gvxcsigma_sp(3,:))
- 
+     !call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(1,:),gvxcsigma_sp(1,:))
+     !call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(2,:),gvxcsigma_sp(2,:))
+     !call rderivative_lagrN(Ngrid,r,tools,tools_info,vxcsigma_sp(3,:),gvxcsigma_sp(3,:))
+     call deriv_f(Ngrid,r,vxcsigma_sp(1,:),gvxcsigma_sp(1,:))
+     call deriv_f(Ngrid,r,vxcsigma_sp(2,:),gvxcsigma_sp(2,:))
+     call deriv_f(Ngrid,r,vxcsigma_sp(3,:),gvxcsigma_sp(3,:))
    ! v_xc for spin up is being calculated using this formula:
    ! $V_{xc}^{\uparrow}({\bf r})=\frac{\partial\hat{\epsilon}_{xc}}{\partial
    ! \rho^{\uparrow}({\bf r})}-2\left(\nabla\frac{\partial\hat{\epsilon}_{xc}}
@@ -188,9 +199,11 @@ rho=rho*(4d0*Pi)
 rho_sp=rho_sp*(4d0*Pi)
 
 ! Get Coulomb potential
+call  integ_f(Ngrid,r,r**2*rho,ftemp1)
+call  integ_f_rev(Ngrid,r,r*rho,ftemp2)
 
-call  integ_BodesN_fun(Ngrid,r,tools,tools_info,1,r**2*rho,ftemp1)
-call  integ_BodesN_fun(Ngrid,r,tools,tools_info,-1,r*rho,ftemp2)
+!call  integ_BodesN_fun(Ngrid,r,tools,tools_info,1,r**2*rho,ftemp1)
+!call  integ_BodesN_fun(Ngrid,r,tools,tools_info,-1,r*rho,ftemp2)
 vh=ftemp1/r+ftemp2
 
 

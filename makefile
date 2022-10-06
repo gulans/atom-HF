@@ -1,3 +1,4 @@
+
 F90 = gfortran 
 LIBXC=/home/janis/app/libxc/
 F90_OPTS = -O3 -cpp -I $(LIBXC)/include/ 

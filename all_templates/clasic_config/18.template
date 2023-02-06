@@ -1,7 +1,7 @@
 Z Rmin Rmax Ngrid version
-18d0 _Rmin_ _Rmax_ _Ngrid_ 1 
+18d0 _Rmin_ _Rmax_ _Ngrid_ 1 _sigma_ 
 xc_id(libxc_id or -1(LDA) -2(PBE))  weigth number_of_parameters
-_f1_ _f1w_ 0
+_f1_ _f1w_ _f1par_
 _f2_ _f2w_ 0
 _f3_ _f3w_ 0
 Non-local exchange:
@@ -11,7 +11,7 @@ _HFsrw_ _HFsrp_     (SR HF weigth and parameter)
 Grid 0-equidistant 1-cubic 2-exponential 3-advanced_cubic
 _grid_
 relativity
-.false.
+_rel_
 Number of shells - 1s 2s
 5
 spin

@@ -93,9 +93,9 @@ read(*,*) grid
 read(*,*) 
 read(*,*) relcase
 read(*,*)
-read(*,*) Nshell
-read(*,*)
 read(*,*) spin
+read(*,*)
+read(*,*) Nshell
 read(*,*)
 if (relcase.eq.0) then
         relativity=.false.
@@ -388,7 +388,6 @@ allocate(grho_sp(2,Ngrid),grho2_sp(3,Ngrid),vxc1_sp(2,Ngrid),vxc2_sp(2,Ngrid),vx
 
 
 call gengrid(grid,Z,Ngrid,Rmin,Rmax,r)
-call gen_vn(Ngrid,Z,r,sigma,vn)
 
 
 
@@ -413,6 +412,8 @@ call generate_tools(Ngrid,r,tools,tools_info)
 
 
 
+
+call gen_vn(Ngrid,Z,r,sigma,vn)
 
 
 
@@ -754,6 +755,12 @@ do il=1,lmax+1
     endif
   enddo
 enddo
+write(*,*)"energy components:"
+
+write(*,*)"kin:",e_kin
+write(*,*)"ext:",e_ext
+write(*,*)"hatree:",e_h
+write(*,*)"xc:",e_xc
 
   Deallocate(tools,rsfunC,Bess_ik)
 

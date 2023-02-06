@@ -1,7 +1,7 @@
 
 F90 = gfortran 
-LIBXC=/home/janis/app/libxc/
-F90_OPTS = -O3 -cpp -I $(LIBXC)/include/ 
+LIBXC=/home/janis/app/libxc
+F90_OPTS = -O3 -cpp -g -fbacktrace -I $(LIBXC)/include/ 
 
 SRCS := $(wildcard *.f90)
 OBJECTS := $(SRCS:%.f90=%.o) -llapack -lblas $(LIBXC)/lib/libxcf03.a $(LIBXC)/lib/libxc.a 

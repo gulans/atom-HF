@@ -53,7 +53,7 @@ logical :: eig_limiter
 
 
 
-new_algorithm=.false.
+new_algorithm=.true.
 eig_limiter=.false.
 elimit=-0.0002d0
 
@@ -99,9 +99,22 @@ endif
 
 
 
-  else
+else !relativity
 
-if(.true.)then
+          
+  if (new_algorithm)then
+    f1=1d0/(1d0-alpha2*v_rel)
+    call deriv_f(Ngrid,r,log(f1),f2)
+    call deriv_f(Ngrid,r,psi(:,inn),f3)
+    f4=-f2*f3
+
+    f2=2d0*( (vn+vh+vxc(:,sp))*psi(:,inn) + vx_psi(:,inn) )/f1
+    f3=2d0*alpha2*v_rel*eig(inn)*psi(:,inn)
+    f=f4+f2+f3
+    f=-f
+
+
+  else
     f1=1d0/(1d0-alpha2*v_rel)
     !call rderivative_lagrN(Ngrid,r,tools,tools_info,log(f1),f2)
     !call rderivative_lagrN(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f3)
@@ -109,26 +122,24 @@ if(.true.)then
     call deriv_f(Ngrid,r,psi_in(:,ish,sp),f3)
     f4=-f2*f3
     
-    f2=2d0*(vn+vh+vxc(:,sp))*psi_in(:,ish,sp)/f1
+    f2=2d0*( (vn+vh+vxc(:,sp))*psi_in(:,ish,sp) + vx_psi_in(:,inn) )/f1
     f3=2d0*alpha2*v_rel*eig(inn)*psi_in(:,ish,sp)
     f=f4+f2+f3
     f=-f
-else
-    f1=v_rel*alpha2/(1d0-v_rel*alpha2)
 
-    !call rderivative_lagrN(Ngrid,r,tools,tools_info,psi_in(:,ish,sp),f2)
-    !call rderivative_lagrN(Ngrid,r,tools,tools_info,f1*f2*r**2,f3)
-    call deriv_f(Ngrid,r,psi_in(:,ish,sp),f2)
-    call deriv_f(Ngrid,r,f1*f2*r**2,f3)
-    f3=f3/r**2
-    f=-f3+f1*dble(l*(l+1))/r**2*psi_in(:,ish,sp) + 2d0*(vn+vh+vxc(:,sp))*psi_in(:,ish,sp) 
-    f=-f
-endif
-
+!!Aproach that did not work
+!    f1=v_rel*alpha2/(1d0-v_rel*alpha2)
+!    call deriv_f(Ngrid,r,psi_in(:,ish,sp),f2)
+!    call deriv_f(Ngrid,r,f1*f2*r**2,f3)
+!    f3=f3/r**2
+!    f=-f3+f1*dble(l*(l+1))/r**2*psi_in(:,ish,sp) + 2d0*(vn+vh+vxc(:,sp))*psi_in(:,ish,sp) 
+!    f=-f
+!!End aproach that did not work
 
 
   endif
 
+endif!is or not reltivity?
 
 
 

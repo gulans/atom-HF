@@ -79,7 +79,9 @@ else
     call integ_v(Ngrid,r,0.5d0*f2*f1*f3*r**2,H(inn,inp))
 
 
-    f=(0.5d0*f1*dble(l*(l+1))/r**2+vn+vh+vxc)*psi(:,inp)
+    f=(0.5d0*f1*dble(l*(l+1))/r**2+vn+vh+vxc)*psi(:,inp)+&
+            hybx_w(4,1)*vx_psi(:,inp)+hybx_w(5,1)*vx_psi_sr(:,inp)
+
     !call integ_BodesN_value(Ngrid,r,tools,tools_info,psi(:,inn)*f*r**2,Hnn)
     call integ_v(Ngrid,r,psi(:,inn)*f*r**2,Hnn)
     H(inn,inp)=H(inn,inp)+Hnn

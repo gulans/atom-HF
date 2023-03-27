@@ -108,7 +108,9 @@ else !relativity
     call deriv_f(Ngrid,r,psi(:,inn),f3)
     f4=-f2*f3
 
-    f2=2d0*( (vn+vh+vxc(:,sp))*psi(:,inn) + vx_psi(:,inn) )/f1
+    f2=2d0*( (vn+vh+vxc(:,sp))*psi(:,inn) +&
+            hybx_w(4,1)*vx_psi(:,inn)+&
+            hybx_w(5,1)*vx_psi_sr(:,inn))/f1
     f3=2d0*alpha2*v_rel*eig(inn)*psi(:,inn)
     f=f4+f2+f3
     f=-f
@@ -122,7 +124,7 @@ else !relativity
     call deriv_f(Ngrid,r,psi_in(:,ish,sp),f3)
     f4=-f2*f3
     
-    f2=2d0*( (vn+vh+vxc(:,sp))*psi_in(:,ish,sp) + vx_psi_in(:,inn) )/f1
+    f2=2d0*( (vn+vh+vxc(:,sp))*psi_in(:,ish,sp) + hybx_w(4,1)*vx_psi_in(:,inn) )/f1
     f3=2d0*alpha2*v_rel*eig(inn)*psi_in(:,ish,sp)
     f=f4+f2+f3
     f=-f

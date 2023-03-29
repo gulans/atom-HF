@@ -17,6 +17,7 @@ def get_sigma(el):
     sigma=1/((2*ksi)**(1/2))
     return str(sigma)
 
+
 def get_sigma2(el):
     sigmas={2:2.07007858208354E-05,
        10:3.10511442005306E-05,
@@ -37,9 +38,13 @@ def get_sigma2(el):
 
     return(sigmas[el])
 
+list=[2,10,18,36,54]
 
-list=[56,80,86]
+list=[4,12,20,30,38,48,56,80,86]
 
+
+list=[2,4,10,12,18,20,30,36,38,48,54,56,80,86]
+list=[80]
 nf='run'    #new folder
 tf='all_templates/clasic_config'   #template folder
 tf='all_templates/occ'
@@ -47,20 +52,23 @@ tf='all_templates/occ'
 generate=True
 run=True
 
-if generate:
+
+for rm in np.arange(1e-4,0,-1e-5):
+  if generate:
+
 
     for el in list:
         os.system("mkdir -p {}".format(nf))
         os.system("cat {}/head.template {}/{}.template > {}/{}.run ".format(tf,tf,el,nf,el))
         #os.system("cp {}/{}.template {}/{}.run".format(tf,el,nf,el))
 
-
     for el in list:
-        Rmin='5d-8'
+        Rmin="{}".format(rm)
         Rmax='30'
-        Ngrid='2200'
+        Ngrid='3000'
         sigma=get_sigma2(el)
-        #sigma="0d0"
+        sigma="0d0"
+
         f1="101"
         f1w="1d0"
         f1par='2 \\n0.8040d0\\n0.2195164512209d0'
@@ -75,7 +83,7 @@ if generate:
         HFsrw="0"
         HFsrp="0"
 
-        grid="3"
+        grid="5"
         rel="2"
         os.system("sed -i 's/_Z_/{}/g' {}/{}.run;".format(str(el)+"d0",nf,el))
         os.system("sed -i 's/_Rmin_/{}/g' {}/{}.run;".format(Rmin,nf,el))
@@ -96,7 +104,7 @@ if generate:
         os.system("sed -i 's/_grid_/{}/g' {}/{}.run;".format(grid,nf,el))
         os.system("sed -i 's/_rel_/{}/g' {}/{}.run;".format(rel,nf,el))
 
-if run:
+  if run:
     for el in list:
         os.system("./atomHF <{}/{}.run".format(nf,el))
 

@@ -1,6 +1,12 @@
 import os
 import numpy as np
 
+
+list_of_names=['he','be','ne','mg','ar','ca','zn','kr','sr','cd','xe','ba','hg','rn','og']
+
+list_of_names=['xe']
+
+
 def get_rn(el):
     mass={2:4,10:20,18:40,20:40,30:65,36:84,54:131,86:222}
     try:
@@ -75,10 +81,6 @@ def list_to_list(names):
     return (numbers)
 
 
-list_of_names=['he','be','ne','mg','ar','ca','zn','kr','sr','cd','xe','ba','hg','rn','og']
-
-
-list_of_names=['he','be','ne','mg','ar','ca','zn','kr','sr','cd','xe','ba','hg','rn','og']
 
 
 list=list_to_list(list_of_names)
@@ -137,6 +139,11 @@ if generate:
         os.system("sed -i 's/_HFsrp_/{}/g' {}/{}.run;".format(HFsrp,nf,el))
         os.system("sed -i 's/_grid_/{}/g' {}/{}.run;".format(grid,nf,el))
         os.system("sed -i 's/_rel_/{}/g' {}/{}.run;".format(rel,nf,el))
+
+##create a copy of input file with a name
+if(True):
+    for i in range(len(list)):
+        os.system("cp {}/{}.run {}/{}.run".format(nf,list[i],nf,list_of_names[i]))
 
 if run:
     for el in list:

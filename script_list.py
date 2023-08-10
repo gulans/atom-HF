@@ -1,12 +1,16 @@
 import os
 import numpy as np
+# This script creates input files by combining all_templates/occ/head.template with
+# all_templates/occ/Z.template (where Z is atomic umber of the element) and replaces _X_
+# with all the input parameters (described in pdf). The input files are being stored in
+# "run" folder.
 
-
+#list of elements to create input files:
 list_of_names=['he','be','ne','mg','ar','ca','zn','kr','sr','cd','xe','ba','hg','rn','og']
 
-list_of_names=['xe']
+list_of_names=['ne']
 
-
+#calcucates <r_nucleus> from the mass of the atom (#visscher1997)
 def get_rn(el):
     mass={2:4,10:20,18:40,20:40,30:65,36:84,54:131,86:222}
     try:
@@ -37,40 +41,24 @@ def get_rn2(el):
         80:1.0325010801E-04,
         86:1.0642977075E-04,
         118:1.1581939044E-04}
-
-      # {2:2.07007858208354E-05,
-      # 10:3.10511442005306E-05,
-      # 18:3.73988997033959E-05,
-      # 36:4.61329490496609E-05,
-      # 54:5.25765779034729E-05,
-      # 4:2.51999840416E-05,
-      # 12:3.26395164729E-05,
-      # 20:3.74326850917E-05,
-      # 30:4.29653071204E-05,
-      # 38:4.67304500420E-05,
-      # 48:5.02386312822E-05,
-      # 56:5.32764990728E-05,
-      # 80:5.96114776527E-05,
-      # 86:6.14472567899E-05}
     return(rn_list[el])
 
 
 def name_to_number(el_name):
-    num_list={'he':2,
-        'be':4,
-        'ne':10,
-        'mg':12,
-        'ar':18,
-        'ca':20,
-        'zn':30,
-        'kr':36,
-        'sr':38,
-        'cd':48,
-        'xe':54,
-        'ba':56,
-        'hg':80,
-        'rn':86,
-        'og':118}
+    num_list={'h':1,'he':2,'li':3,'be':4,'b':5,'c':6,'n':7,'o':8,
+            'f':9,'ne':10,'na':11,'mg':12,'al':13,'si':14,'p':15,'s':16,
+            'cl':17,'ar':18,'k':19,'ca':20,'sc':21,'ti':22,'v':23,'cr':24,
+            'mn':25,'fe':26,'co':27,'ni':28,'cu':29,'zn':30,'ga':31,'ge':32,
+            'as':33,'se':34,'br':35,'kr':36,'rb':37,'sr':38,'y':39,'zr':40,
+            'nb':41,'mo':42,'tc':43,'ru':44,'rh':45,'pd':46,'ag':47,'cd':48,
+            'in':49,'sn':50,'sb':51,'te':52,'i':53,'xe':54,'cs':55,'ba':56,
+            'la':57,'ce':58,'pr':59,'nd':60,'pm':61,'sm':62,'eu':63,'gd':64,
+            'tb':65,'dy':66,'ho':67,'er':68,'tm':69,'yb':70,'lu':71,'hf':72,
+            'ta':73,'w':74,'re':75,'os':76,'ir':77,'pt':78,'au':79,'hg':80,
+            'tl':81,'pb':82,'bi':83,'po':84,'at':85,'rn':86,'fr':87,'ra':88,
+            'ac':89,'th':90,'pa':91,'u':92,'np':93,'pu':94,'am':95,'cm':96,
+            'bk':97,'cf':98,'es':99,'fm':100,'md':101,'no':102,'lr':103,'rf':104,
+            'db':105,'sg':106,'bh':107,'hs':108,'mt':109,'og':118}
     return(num_list[el_name])
 
 def list_to_list(names):
@@ -89,7 +77,7 @@ nf='run'    #new folder
 tf='all_templates/occ'
 
 generate=True
-run=True
+run=False
 
 if generate:
 
@@ -100,11 +88,11 @@ if generate:
 
 
     for el in list:
-        Rmin='5d-8'
+        Rmin='1d-8'
         Rmax='30'
         Ngrid='2200'
         sigma=get_rn2(el)
-        #sigma="0d0"
+        sigma="0d0"
         f1="101"
         f1w="1d0"
         f1par='2 \\n0.8040d0\\n0.2195164512209d0'
@@ -119,8 +107,8 @@ if generate:
         HFsrw="0"
         HFsrp="0"
 
-        grid="3"
-        rel="2"
+        grid="5"
+        rel="0"
         os.system("sed -i 's/_Z_/{}/g' {}/{}.run;".format(str(el)+"d0",nf,el))
         os.system("sed -i 's/_Rmin_/{}/g' {}/{}.run;".format(Rmin,nf,el))
         os.system("sed -i 's/_Rmax_/{}/g' {}/{}.run;".format(Rmax,nf,el))

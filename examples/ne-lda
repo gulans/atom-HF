@@ -1,0 +1,22 @@
+Z Rmin Rmax Ngrid version sigma
+10d0 1d-8 30 2200 1 0d0
+xc_id(libxc_id or -1(LDA) -2(PBE))  weigth number_of_parameters
+1 1d0 0 
+7 1d0 0
+0 0d0 0
+Non-local exchange:
+.false.         (true to override hybrid libxc functional parameters)
+0            (HF weigth)
+0 0     (SR HF weigth and parameter)
+Grid 0-equidistant 1-cubic 2-exponential 3-advanced_cubic
+5
+Relativity(0-false, 1-nZORA, 2-ZORA)
+0
+Spin polarised:
+.false.
+Number of shells - 1s 2s 2p
+3
+List of shells: n l occupation
+1 0 2.0d0
+2 0 2.0d0
+2 1 6.0d0

@@ -13,4 +13,4 @@ _grid_
 Relativity(0-false, 1-nZORA, 2-ZORA)
 _rel_
 Spin polarised:
-.false.
+.true.

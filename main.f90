@@ -714,7 +714,7 @@ endif
 
 
 !write wf of current itteration
-if (.true.) then
+if (.false.) then
   if (iscl.lt.10) then
   write (filename1, "(A2,I1,A4)") "wf", iscl,".dat"
   else
